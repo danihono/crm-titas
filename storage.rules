@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Arquivos por contato em users/{uid}/contacts/{contactId}/...
+// Só o dono lê/escreve; upload limitado a 10 MB.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

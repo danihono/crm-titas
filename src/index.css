@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos globais — portados do <helmet>/<style> do protótipo (legacy/CRM Titãs.dc.html:16-27) */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+#root { height: 100%; }
+body {
+  background: #0a080c;
+  font-family: 'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #1d1726;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 90, 160, 0.28);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 90, 160, 0.45);
+  background-clip: padding-box;
+}
+
+input, textarea, select, button { font-family: inherit; }
+input::placeholder, textarea::placeholder { color: #a39bb0; }
+
+@keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+/* ── Aurora da tela de login (preto + roxo) ────────────────────────────────
+   O <AuroraBackground> usa var(--blue-500)/--indigo-300/... dentro do gradiente
+   --aurora. Reescrevemos essas variáveis no contêiner do login (a camada da
+   aurora as herda), recolorindo o efeito para a paleta roxa da Titãs sem tocar
+   no componente canônico em src/components/ui/aurora-background.tsx.
+   --transparent é forçado para um roxo translúcido para que as "fendas" do
+   gradiente também fiquem roxas em vez de transparentes. */
+.login-aurora {
+  --blue-500: #8b5cf6;   /* violeta vivo  */
+  --indigo-300: #a855f7; /* roxo          */
+  --blue-300: #7a52a0;   /* roxo Titãs    */
+  --violet-200: #c4a3ea; /* lavanda       */
+  --blue-400: #6d28d9;   /* violeta fundo */
+  --transparent: rgba(122, 82, 160, 0); /* fende em roxo, não em vazio */
+  background-color: #07050b !important;  /* base preta (sobrepõe dark:bg-zinc-900) */
+}
+
+/* Ícones Material Symbols (classe .ms) */
+.ms {
+  font-family: 'Material Symbols Rounded';
+  font-weight: 300;
+  line-height: 1;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
