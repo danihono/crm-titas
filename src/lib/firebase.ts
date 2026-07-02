@@ -5,13 +5,18 @@ import { getStorage, connectStorageEmulator } from 'firebase/storage'
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 
+// Config do Firebase Web. Esses valores são PÚBLICOS por design (vão no bundle
+// do front-end); a segurança vem das Security Rules + App Check. Ficam aqui como
+// padrão para o app funcionar em qualquer clone sem precisar de .env.local.
+// As variáveis de ambiente (VITE_*), se definidas, têm prioridade — útil para
+// apontar para outro projeto ou ligar os emuladores locais.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBIuVawGVQ1VIiNl4o0c3vnB1HnIwoHFV0',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'titas-c8967.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'titas-c8967',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'titas-c8967.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '280388387709',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:280388387709:web:98ca1c450aa3f717be0214',
 }
 
 export const app = initializeApp(firebaseConfig)
