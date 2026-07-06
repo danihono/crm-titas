@@ -1,6 +1,6 @@
-import { addDoc, collection, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { col } from '../lib/paths'
+import { col, ref } from '../lib/paths'
 import { contactFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
 import { useCollection } from './useCollection'
@@ -41,4 +41,18 @@ export async function saveContact(form: NewContactForm): Promise<string> {
     createdAt: serverTimestamp(),
   })
   return r.id
+}
+
+/** Atualiza os dados editáveis de um contato existente. */
+export async function updateContact(id: string, form: NewContactForm): Promise<void> {
+  const name = form.name.trim()
+  await updateDoc(ref(`contacts/${id}`), {
+    name,
+    company: form.company || '—',
+    initials: initialsOf(name) || '?',
+    role: form.role || '—',
+    email: form.email || '',
+    phone: form.phone || '',
+    whatsapp: form.whats || form.phone || '',
+  })
 }

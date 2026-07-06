@@ -32,6 +32,17 @@ service cloud.firestore {
     match /{path=**}/contacts/{id}   { allow read: if isSuperOwner(); }
     match /{path=**}/activities/{id} { allow read: if isSuperOwner(); }
 
+    // Status da conexão de WhatsApp (QR + estado). Cliente LÊ o próprio; NUNCA escreve
+    // (quem escreve é o daemon via Admin SDK). Coleção top-level de propósito, para o
+    // read-only ser limpo — regras do Firestore são UNIÃO permissiva, então um write:false
+    // aninhado sob users/{uid}/{document=**} não revogaria o owner-write recursivo.
+    match /whatsappStatus/{uid} {
+      allow read: if owner(uid) || isSuperOwner();
+      allow write: if false;
+    }
+    // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
+    // SEM nenhuma regra aqui, então caem no default-deny abaixo (só o Admin SDK acessa).
+
     // Nega tudo o que não casar acima.
     match /{document=**} {
       allow read, write: if false;

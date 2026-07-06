@@ -46,6 +46,8 @@ export interface Contact {
   phone: string
   whatsapp: string
   status: string
+  /** Origem do contato: 'whatsapp' quando auto-criado pelo espelhamento (expurgo LGPD). */
+  source?: string
   lastMessage?: string
   lastMessageAt?: Date
   createdAt?: Date
@@ -56,6 +58,10 @@ export interface Message {
   fromMe: boolean
   text: string
   sentAt: Date
+  /** true quando é mídia espelhada em stub (conteúdo real ainda não baixado). */
+  pending?: boolean
+  /** Canal de origem: 'whatsapp' para mensagens espelhadas. */
+  channel?: string
 }
 
 export interface FileMeta {
@@ -142,8 +148,14 @@ export interface AgentMessage {
   createdAt?: Date
 }
 
+export interface Features {
+  /** Espelhamento de WhatsApp habilitado para este tenant (feature-flag "no escuro"). */
+  whatsapp?: boolean
+}
+
 export interface UserProfile {
   displayName: string
   role: string
   agent: AgentConfig
+  features?: Features
 }

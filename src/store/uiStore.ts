@@ -21,6 +21,7 @@ interface UIState {
   showActModal: boolean
   showTypeModal: boolean
   showInvoiceModal: boolean
+  showWhatsappModal: boolean
 
   toggleSidebar: () => void
   setActiveBoard: (id: string) => void
@@ -41,6 +42,8 @@ interface UIState {
   closeTypeModal: () => void
   openInvoiceModal: () => void
   closeInvoiceModal: () => void
+  openWhatsappModal: () => void
+  closeWhatsappModal: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -58,6 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
   showActModal: false,
   showTypeModal: false,
   showInvoiceModal: false,
+  showWhatsappModal: false,
 
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setActiveBoard: (id) => set({ activeBoard: id }),
@@ -90,4 +94,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeTypeModal: () => set({ showTypeModal: false }),
   openInvoiceModal: () => set({ showInvoiceModal: true }),
   closeInvoiceModal: () => set({ showInvoiceModal: false }),
+  openWhatsappModal: () => set({ showWhatsappModal: true }),
+  closeWhatsappModal: () => set({ showWhatsappModal: false }),
 }))

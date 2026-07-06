@@ -4,22 +4,37 @@ import { useTenantStore } from '../store/tenantStore'
 import { useContacts } from '../hooks/useContacts'
 import { useMessages, sendMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
+import { useFeatures } from '../hooks/useFeatures'
+import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
+import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
 import type { Contact } from '../types'
+
+const WA_DOT: Record<string, string> = {
+  connected: '#34c759',
+  connecting: '#d8a960',
+  qr: '#d8a960',
+  loggedOut: '#c14d77',
+  disconnected: '#a39bb0',
+}
 
 export default function Contacts() {
   const { docs: contacts } = useContacts()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
+  const features = useFeatures()
+  const wa = useWhatsappStatus()
+  const waEnabled = !!features.whatsapp && !readOnly
   const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
   const { docs: messages } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
   const [waInput, setWaInput] = useState('')
+  const [showEdit, setShowEdit] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   async function handleSend() {
@@ -41,11 +56,19 @@ export default function Contacts() {
         <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid #eeebf3' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#1d1726' }}>Contatos</div>
-            {!readOnly && (
-              <button onClick={ui.openContactModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#7a52a0', background: 'rgba(150,110,200,0.1)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
-                <MaterialIcon name="person_add" size={16} /> Novo
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              {waEnabled && (
+                <button onClick={ui.openWhatsappModal} title="Conectar WhatsApp" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#1f8a4c', background: 'rgba(52,199,89,0.12)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: WA_DOT[wa.status] ?? '#a39bb0' }} />
+                  <MaterialIcon name="chat" size={16} /> WhatsApp
+                </button>
+              )}
+              {!readOnly && (
+                <button onClick={ui.openContactModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#7a52a0', background: 'rgba(150,110,200,0.1)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
+                  <MaterialIcon name="person_add" size={16} /> Novo
+                </button>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 10, padding: '8px 11px' }}>
             <MaterialIcon name="search" size={17} color="#a39bb0" />
@@ -122,7 +145,10 @@ export default function Contacts() {
                       <div style={m.fromMe
                         ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
                         : { maxWidth: '72%', background: '#ffffff', border: '1px solid #ece8f2', borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
-                        <div style={{ fontSize: 13.5, lineHeight: 1.45, color: m.fromMe ? '#f5f0fa' : '#2a2435' }}>{m.text}</div>
+                        <div style={{ fontSize: 13.5, lineHeight: 1.45, color: m.fromMe ? '#f5f0fa' : '#2a2435', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          {m.pending && <MaterialIcon name="attach_file" size={15} color={m.fromMe ? 'rgba(240,230,250,0.8)' : '#9c95a8'} />}
+                          <span style={{ fontStyle: m.pending ? 'italic' : 'normal', opacity: m.pending ? 0.9 : 1 }}>{m.text}</span>
+                        </div>
                         <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : '#a39bb0', textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
                           {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
                         </div>
@@ -155,10 +181,15 @@ export default function Contacts() {
                 <div style={{ background: '#ffffff', border: '1px solid #ececf3', borderRadius: 18, padding: 24, maxWidth: 560, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
                     <div style={{ width: 60, height: 60, borderRadius: '50%', background: avPalette[activeIdx % avPalette.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, fontWeight: 700, color: '#fff' }}>{active.initials}</div>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 19, fontWeight: 800, color: '#1d1726' }}>{active.name}</div>
                       <div style={{ fontSize: 13, color: '#6e6780' }}>{active.role} · {active.company}</div>
                     </div>
+                    {!readOnly && (
+                      <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: '#7a52a0', fontSize: 13, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start' }}>
+                        <MaterialIcon name="edit" size={17} /> Editar
+                      </button>
+                    )}
                   </div>
                   <InfoRow icon="mail" color="#7a52a0" bg="rgba(150,110,200,0.12)" label="E-mail" value={active.email} />
                   <InfoRow icon="call" color="#4f7fc0" bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
@@ -215,6 +246,13 @@ export default function Contacts() {
           onSaved={(id) => { ui.selectContact(id); ui.setContactView('info'); ui.closeContactModal() }}
         />
       )}
+      {showEdit && active && (
+        <ContactModal
+          contact={active}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => setShowEdit(false)}
+        />
+      )}
       {ui.showSchedModal && active && (
         <SchedMessageModal
           contactName={active.name}
@@ -222,6 +260,7 @@ export default function Contacts() {
           onSaved={(day) => { ui.selectDay(day); ui.closeSchedModal() }}
         />
       )}
+      {ui.showWhatsappModal && <WhatsappConnectModal onClose={ui.closeWhatsappModal} />}
     </div>
   )
 }

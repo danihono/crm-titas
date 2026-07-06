@@ -47,6 +47,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     phone: d.phone ?? '',
     whatsapp: d.whatsapp ?? '',
     status: d.status ?? '',
+    source: d.source ?? '',
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     createdAt: toDate(d.createdAt),
@@ -59,6 +60,8 @@ export function messageFromDoc(id: string, d: DocumentData): Message {
     fromMe: !!d.fromMe,
     text: d.text ?? '',
     sentAt: toDate(d.sentAt) ?? new Date(0),
+    pending: !!d.pending,
+    channel: d.channel ?? '',
   }
 }
 
@@ -150,5 +153,6 @@ export function profileFromDoc(d: DocumentData | undefined): UserProfile | null 
     displayName: d.displayName ?? '',
     role: d.role ?? 'Gerente Comercial',
     agent: (d.agent ?? {}) as AgentConfig,
+    features: (d.features ?? {}) as UserProfile['features'],
   }
 }
