@@ -36,6 +36,7 @@ export async function saveContact(form: NewContactForm): Promise<string> {
     phone: form.phone || '',
     whatsapp: form.whats || form.phone || '',
     status: 'contato novo',
+    nameSource: 'manual',
     lastMessage: 'Contato criado',
     lastMessageAt: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -54,5 +55,6 @@ export async function updateContact(id: string, form: NewContactForm): Promise<v
     email: form.email || '',
     phone: form.phone || '',
     whatsapp: form.whats || form.phone || '',
+    nameSource: 'manual',
   })
 }

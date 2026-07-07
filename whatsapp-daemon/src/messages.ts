@@ -133,7 +133,10 @@ async function resolveContact(uid: string, peer: Peer, pushName?: string | null)
     }
   }
 
-  const name = (pushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
+  const cleanPushName = (pushName || '').trim()
+  const useProfileName = !!cleanPushName
+  const name = useProfileName ? cleanPushName : peer.phone ? `+${peer.phone}` : 'Contato WhatsApp'
+  const nameSource = useProfileName ? 'profile' : 'phone'
   await contactsCol.doc(detId).set(
     {
       name,
@@ -145,6 +148,7 @@ async function resolveContact(uid: string, peer: Peer, pushName?: string | null)
       phone: peer.phone ?? '',
       whatsapp: peer.phone ?? '',
       status: 'WhatsApp',
+      nameSource,
       source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
       lastMessage: '',
       lastMessageAt: FieldValue.serverTimestamp(),
@@ -164,7 +168,8 @@ async function ingestOne(uid: string, m: WAMessage): Promise<void> {
   const content = extractContent(m.message)
   if (!content) return
 
-  const contactId = await resolveContact(uid, peer, m.pushName)
+  const profileName = m.key.fromMe ? null : m.pushName
+  const contactId = await resolveContact(uid, peer, profileName)
 
   const tsSeconds = Number(m.messageTimestamp ?? 0)
   const sentAt = tsSeconds > 0 ? Timestamp.fromMillis(tsSeconds * 1000) : Timestamp.now()
