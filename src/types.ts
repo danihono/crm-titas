@@ -58,7 +58,16 @@ export interface Message {
   fromMe: boolean
   text: string
   sentAt: Date
-  /** true quando é mídia espelhada em stub (conteúdo real ainda não baixado). */
+  mediaType?: 'image' | 'video' | 'audio' | 'document' | 'sticker'
+  mediaUrl?: string
+  mediaPath?: string
+  mimeType?: string
+  fileName?: string
+  sizeBytes?: number
+  caption?: string
+  mediaError?: string
+  importedFromHistory?: boolean
+  /** true quando a mídia ainda não está disponível para renderização/download. */
   pending?: boolean
   /** Canal de origem: 'whatsapp' para mensagens espelhadas. */
   channel?: string
@@ -113,7 +122,28 @@ export interface EventDoc {
   color: string
   subtitle: string
   activityId?: string
+  scheduledMessageId?: string
   createdAt?: Date
+}
+
+export type ScheduledMessageStatus = 'pending' | 'sent' | 'failed' | 'canceled'
+
+export interface ScheduledMessage {
+  id: string
+  contactId: string
+  contactName: string
+  text: string
+  dueAt: Date
+  dateKey: string
+  time: string
+  eventId?: string
+  status: ScheduledMessageStatus
+  attempts: number
+  lastError?: string
+  sentMessageId?: string
+  sentAt?: Date
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export interface Lead {

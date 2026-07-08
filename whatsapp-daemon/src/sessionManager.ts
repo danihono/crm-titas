@@ -38,6 +38,25 @@ export function hasSession(uid: string): boolean {
   return sessions.has(uid)
 }
 
+export function activeSessionUids(): string[] {
+  return [...sessions.keys()]
+}
+
+export async function sendTextToPhone(uid: string, phoneDigits: string, text: string) {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+
+  const fallbackJid = `${phoneDigits}@s.whatsapp.net`
+  const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
+  const match = matches?.[0]
+  if (match && !match.exists) throw new Error('whatsapp_recipient_not_found')
+
+  const jid = match?.jid || fallbackJid
+  const sent = await s.sock.sendMessage(jid, { text })
+  if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
+  return sent
+}
+
 /**
  * Cria (ou retoma) o socket Baileys para um uid. Idempotente: um socket vivo por uid.
  * Carrega o auth persistido — silencioso (sem QR) quando já existe sessão salva.
@@ -81,7 +100,7 @@ export async function startSession(uid: string): Promise<void> {
     )
   })
   sock.ev.on('messages.upsert', (ev) => {
-    ingestMessages(uid, ev).catch((err) =>
+    ingestMessages(uid, ev, { reuploadRequest: async (msg) => sock.updateMediaMessage(msg) }).catch((err) =>
       logger.error({ err, uid }, 'handler messages.upsert falhou'),
     )
   })

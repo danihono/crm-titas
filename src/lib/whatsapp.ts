@@ -42,3 +42,8 @@ export function connectWhatsapp(): Promise<Record<string, unknown>> {
 export function disconnectWhatsapp(purge = false): Promise<Record<string, unknown>> {
   return daemonFetch(`/session/disconnect${purge ? '?purge=1' : ''}`, { purge })
 }
+
+/** Envia uma mensagem real pelo WhatsApp conectado ao daemon. */
+export function sendWhatsappMessage(contactId: string, text: string): Promise<Record<string, unknown>> {
+  return daemonFetch('/message/send', { contactId, text })
+}

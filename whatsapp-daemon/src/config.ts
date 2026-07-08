@@ -21,6 +21,12 @@ export const config = {
   /** Retenção padrão (dias) de novas conexões. 0 = guardar para sempre. */
   defaultRetentionDays: Number(process.env.WA_DEFAULT_RETENTION_DAYS ?? 0),
 
+  /** Bucket do Firebase Storage usado para anexos de WhatsApp. */
+  storageBucket:
+    process.env.FIREBASE_STORAGE_BUCKET ??
+    process.env.GCLOUD_STORAGE_BUCKET ??
+    `${process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCLOUD_PROJECT ?? process.env.FIREBASE_PROJECT_ID ?? 'titas-c8967'}.firebasestorage.app`,
+
   /** true quando apontado a um emulador do Firestore (dev local sem credenciais reais). */
   useEmulator: !!process.env.FIRESTORE_EMULATOR_HOST,
 }

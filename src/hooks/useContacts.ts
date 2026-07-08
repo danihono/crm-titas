@@ -1,5 +1,6 @@
-import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore'
+import { deleteObject, ref as storageRef } from 'firebase/storage'
+import { db, storage } from '../lib/firebase'
 import { col, ref } from '../lib/paths'
 import { contactFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
@@ -23,9 +24,14 @@ export interface NewContactForm {
   whats: string
 }
 
+function phoneDigits(v: string): string {
+  return v.replace(/\D/g, '')
+}
+
 /** Cria um contato e retorna o id do novo doc. */
 export async function saveContact(form: NewContactForm): Promise<string> {
   const name = form.name.trim()
+  const whatsapp = form.whats || form.phone || ''
   const r = await addDoc(col('contacts'), {
     name,
     company: form.company || '—',
@@ -55,4 +61,37 @@ export async function updateContact(id: string, form: NewContactForm): Promise<v
     phone: form.phone || '',
     whatsapp: form.whats || form.phone || '',
   })
+}
+
+async function deleteStoragePath(path: string): Promise<void> {
+  await deleteObject(storageRef(storage, path)).catch((err) => {
+    if ((err as { code?: string }).code !== 'storage/object-not-found') throw err
+  })
+}
+
+/** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos). */
+export async function deleteContact(id: string): Promise<void> {
+  const [messages, files] = await Promise.all([
+    getDocs(col(`contacts/${id}/messages`)),
+    getDocs(col(`contacts/${id}/files`)),
+  ])
+
+  const storagePaths = new Set<string>()
+  messages.docs.forEach((d) => {
+    const p = d.get('mediaPath')
+    if (typeof p === 'string' && p) storagePaths.add(p)
+  })
+  files.docs.forEach((d) => {
+    const p = d.get('storagePath')
+    if (typeof p === 'string' && p) storagePaths.add(p)
+  })
+
+  await Promise.all([...storagePaths].map(deleteStoragePath))
+
+  const refs = [...messages.docs.map((d) => d.ref), ...files.docs.map((d) => d.ref), ref(`contacts/${id}`)]
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db)
+    refs.slice(i, i + 450).forEach((r) => batch.delete(r))
+    await batch.commit()
+  }
 }

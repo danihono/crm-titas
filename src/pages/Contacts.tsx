@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
-import { useContacts } from '../hooks/useContacts'
+import { deleteContact, useContacts } from '../hooks/useContacts'
 import { useMessages, sendMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useFeatures } from '../hooks/useFeatures'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
+import { useScheduledMessages } from '../hooks/useScheduledMessages'
+import { deleteScheduledMessage } from '../hooks/useEvents'
+import { sendWhatsappMessage } from '../lib/whatsapp'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
-import type { Contact } from '../types'
+import type { Contact, Message, ScheduledMessage } from '../types'
 
 const WA_DOT: Record<string, string> = {
   connected: '#34c759',
@@ -33,20 +36,66 @@ export default function Contacts() {
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
   const { docs: messages } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
+  const { docs: pendingSchedules } = useScheduledMessages()
+  const scheduleByContact = new Map<string, ScheduledMessage>()
+  for (const s of pendingSchedules) {
+    if (!scheduleByContact.has(s.contactId)) scheduleByContact.set(s.contactId, s)
+  }
+  const activeSchedule = active ? scheduleByContact.get(active.id) : undefined
   const [waInput, setWaInput] = useState('')
   const [showEdit, setShowEdit] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<ScheduledMessage | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   async function handleSend() {
-    if (!active || !waInput.trim()) return
-    await sendMessage(active.id, waInput)
-    setWaInput('')
+    const text = waInput.trim()
+    if (!active || !text) return
+    try {
+      if (waEnabled) {
+        if (wa.status !== 'connected') throw new Error('WhatsApp não está conectado.')
+        await sendWhatsappMessage(active.id, text)
+      } else {
+        await sendMessage(active.id, text)
+      }
+      setWaInput('')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao enviar mensagem.')
+    }
   }
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f && active) await uploadContactFile(active.id, f)
     e.target.value = ''
+  }
+
+  async function handleDeleteContact() {
+    if (!active) return
+    if (!confirm(`Apagar o contato "${active.name}" e todo o histórico dele?`)) return
+    const next = contacts.find((c) => c.id !== active.id)
+    await deleteContact(active.id)
+    if (next) ui.selectContact(next.id)
+  }
+
+  function openScheduleCreate(contactId: string) {
+    setEditingSchedule(null)
+    ui.openSchedModal(contactId)
+  }
+
+  function openScheduleEdit(schedule: ScheduledMessage) {
+    setEditingSchedule(schedule)
+    ui.openSchedModal(schedule.contactId)
+  }
+
+  function closeScheduleModal() {
+    setEditingSchedule(null)
+    ui.closeSchedModal()
+  }
+
+  async function handleDeleteSchedule(schedule: ScheduledMessage) {
+    if (!confirm(`Excluir a mensagem agendada para ${scheduleLong(schedule)}?`)) return
+    await deleteScheduledMessage(schedule.id, schedule.eventId)
+    setEditingSchedule(null)
   }
 
   return (
@@ -79,6 +128,7 @@ export default function Contacts() {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {contacts.map((c, i) => {
             const sel = active?.id === c.id
+            const scheduled = scheduleByContact.get(c.id)
             return (
               <div
                 key={c.id}
@@ -91,8 +141,15 @@ export default function Contacts() {
                     {c.online && <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#34c759', border: '2px solid #fff' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                        {scheduled && (
+                          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 800, color: '#8a5f12', background: 'rgba(216,169,96,0.18)', border: '1px solid rgba(216,169,96,0.28)', borderRadius: 999, padding: '2px 6px' }}>
+                            <MaterialIcon name="schedule_send" size={11} color="#b3801f" /> Agendada
+                          </span>
+                        )}
+                      </div>
                       <span style={{ fontSize: 10.5, color: '#a39bb0', flexShrink: 0, marginLeft: 6 }}>{c.lastMessageAt ? chatTimeLabel(c.lastMessageAt) : ''}</span>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#9c95a8', margin: '1px 0 3px' }}>{c.company}</div>
@@ -100,13 +157,19 @@ export default function Contacts() {
                       <MaterialIcon name="done_all" size={13} color="#34c759" />
                       <span style={{ fontSize: 12, color: '#6e6780', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMessage}</span>
                     </div>
+                    {scheduled && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, color: '#b3801f' }}>
+                        <MaterialIcon name="schedule_send" size={13} color="#b3801f" />
+                        <span style={{ fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agendada {scheduleShort(scheduled)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 7, marginTop: 9, paddingLeft: 56 }}>
                   <RowAction icon="chat" color="#1f8a4c" bg="rgba(52,199,89,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('chat') }} />
                   <RowAction icon="person" color="#7a52a0" bg="rgba(150,110,200,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('info') }} />
                   <RowAction icon="folder" color="#4f7fc0" bg="rgba(111,155,207,0.14)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('files') }} />
-                  {!readOnly && <RowAction icon="schedule_send" color="#b3801f" bg="rgba(216,169,96,0.18)" onClick={(e) => { e.stopPropagation(); ui.openSchedModal(c.id) }} />}
+                  {!readOnly && <RowAction icon="schedule_send" color="#b3801f" bg="rgba(216,169,96,0.18)" onClick={(e) => { e.stopPropagation(); scheduled ? openScheduleEdit(scheduled) : openScheduleCreate(c.id) }} />}
                 </div>
               </div>
             )
@@ -120,8 +183,27 @@ export default function Contacts() {
           <>
             <div style={{ height: 66, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 13, padding: '0 22px', borderBottom: '1px solid #e2def0', background: '#ffffff' }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: avPalette[activeIdx % avPalette.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{active.initials}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726' }}>{active.name}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{active.name}</div>
+                  {activeSchedule && (
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.32)', borderRadius: 999, padding: '3px 5px 3px 9px' }}>
+                      <button onClick={() => openScheduleEdit(activeSchedule)} disabled={readOnly} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'transparent', color: '#7a5516', fontSize: 11.5, fontWeight: 800, cursor: readOnly ? 'default' : 'pointer', padding: 0 }}>
+                        <MaterialIcon name="schedule_send" size={13} color="#b3801f" /> Agendada {scheduleShort(activeSchedule)}
+                      </button>
+                      {!readOnly && (
+                        <>
+                          <button title="Editar agendamento" onClick={() => openScheduleEdit(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: '#7a5516', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialIcon name="edit" size={13} />
+                          </button>
+                          <button title="Excluir agendamento" onClick={() => handleDeleteSchedule(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: '#b73d6d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialIcon name="delete" size={13} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{active.role} · {active.company}</div>
               </div>
               <MaterialIcon name="call" size={21} color="#9c95a8" style={{ cursor: 'pointer' }} />
@@ -140,15 +222,13 @@ export default function Contacts() {
               <>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ alignSelf: 'center', fontSize: 10.5, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
+                  {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
                   {messages.map((m) => (
                     <div key={m.id} style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
                       <div style={m.fromMe
                         ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
                         : { maxWidth: '72%', background: '#ffffff', border: '1px solid #ece8f2', borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
-                        <div style={{ fontSize: 13.5, lineHeight: 1.45, color: m.fromMe ? '#f5f0fa' : '#2a2435', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          {m.pending && <MaterialIcon name="attach_file" size={15} color={m.fromMe ? 'rgba(240,230,250,0.8)' : '#9c95a8'} />}
-                          <span style={{ fontStyle: m.pending ? 'italic' : 'normal', opacity: m.pending ? 0.9 : 1 }}>{m.text}</span>
-                        </div>
+                        <MessageBody message={m} />
                         <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : '#a39bb0', textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
                           {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
                         </div>
@@ -186,9 +266,14 @@ export default function Contacts() {
                       <div style={{ fontSize: 13, color: '#6e6780' }}>{active.role} · {active.company}</div>
                     </div>
                     {!readOnly && (
-                      <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: '#7a52a0', fontSize: 13, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start' }}>
-                        <MaterialIcon name="edit" size={17} /> Editar
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start' }}>
+                        <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: '#7a52a0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                          <MaterialIcon name="edit" size={17} /> Editar
+                        </button>
+                        <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: '#b73d6d', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                          <MaterialIcon name="delete" size={17} /> Apagar
+                        </button>
+                      </div>
                     )}
                   </div>
                   <InfoRow icon="mail" color="#7a52a0" bg="rgba(150,110,200,0.12)" label="E-mail" value={active.email} />
@@ -255,14 +340,101 @@ export default function Contacts() {
       )}
       {ui.showSchedModal && active && (
         <SchedMessageModal
+          contactId={active.id}
           contactName={active.name}
-          onClose={ui.closeSchedModal}
-          onSaved={(day) => { ui.selectDay(day); ui.closeSchedModal() }}
+          schedule={editingSchedule}
+          onClose={closeScheduleModal}
+          onSaved={(day) => { setEditingSchedule(null); ui.selectDay(day); ui.closeSchedModal() }}
         />
       )}
       {ui.showWhatsappModal && <WhatsappConnectModal onClose={ui.closeWhatsappModal} />}
     </div>
   )
+}
+
+function ScheduledBanner({ schedule, readOnly, onEdit, onDelete }: { schedule: ScheduledMessage; readOnly: boolean; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 12, padding: '10px 13px', color: '#6b4a12', marginBottom: 2 }}>
+      <MaterialIcon name="schedule_send" size={18} color="#b3801f" />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#6b4a12' }}>Mensagem agendada para {scheduleLong(schedule)}</div>
+        <div style={{ fontSize: 12.5, color: '#7a5a22', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{schedule.text}</div>
+      </div>
+      {!readOnly && (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fffaf0', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 9, padding: '6px 9px', color: '#7a5516', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+            <MaterialIcon name="edit" size={14} /> Editar
+          </button>
+          <button onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 9, padding: '6px 9px', color: '#b73d6d', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+            <MaterialIcon name="delete" size={14} /> Excluir
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function scheduleShort(s: ScheduledMessage): string {
+  return `${s.dueAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${s.time}`
+}
+
+function scheduleLong(s: ScheduledMessage): string {
+  return `${s.dueAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${s.time}`
+}
+
+function MessageBody({ message: m }: { message: Message }) {
+  const textColor = m.fromMe ? '#f5f0fa' : '#2a2435'
+  const muted = m.fromMe ? 'rgba(240,230,250,0.78)' : '#6e6780'
+  const hasRenderableMedia = !!m.mediaType && !!m.mediaUrl && !m.mediaError
+  const legacyMediaPlaceholder = !m.mediaType && m.pending && isMediaPlaceholder(m.text)
+
+  return (
+    <div style={{ fontSize: 13.5, lineHeight: 1.45, color: textColor }}>
+      {hasRenderableMedia && m.mediaType === 'image' && (
+        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'block', margin: '-2px -4px 7px', color: 'inherit' }}>
+          <img src={m.mediaUrl} alt={m.caption || m.fileName || 'Imagem do WhatsApp'} style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, objectFit: 'cover', borderRadius: 10 }} />
+        </a>
+      )}
+      {hasRenderableMedia && m.mediaType !== 'image' && (
+        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: m.fromMe ? '#ffffff' : '#5a3a7e', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid ' + (m.fromMe ? 'rgba(255,255,255,0.24)' : '#e6e3ee'), borderRadius: 10, padding: '8px 10px', marginBottom: m.text ? 7 : 0, background: m.fromMe ? 'rgba(255,255,255,0.1)' : '#f8f6fb' }}>
+          <MaterialIcon name={m.mediaType === 'audio' ? 'graphic_eq' : m.mediaType === 'video' ? 'movie' : 'description'} size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{m.fileName || mediaLabel(m.mediaType)}</span>
+          <MaterialIcon name="download" size={17} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+        </a>
+      )}
+      {m.mediaError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: muted, fontStyle: 'italic' }}>
+          <MaterialIcon name="error_outline" size={15} color={muted} />
+          <span>{m.mediaError === 'view_once_unsupported' ? 'Mídia de visualização única não importada' : 'Não foi possível baixar a mídia'}</span>
+        </div>
+      )}
+      {legacyMediaPlaceholder && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: muted, fontStyle: 'italic' }}>
+          <MaterialIcon name="hide_image" size={15} color={muted} />
+          <span>{m.text} sem arquivo salvo</span>
+        </div>
+      )}
+      {!legacyMediaPlaceholder && (!hasRenderableMedia || m.text !== mediaLabel(m.mediaType)) && m.text && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: hasRenderableMedia && m.mediaType === 'image' ? 0 : undefined }}>
+          {m.pending && !m.mediaError && <MaterialIcon name="attach_file" size={15} color={muted} />}
+          <span style={{ fontStyle: m.pending && !m.mediaUrl ? 'italic' : 'normal', opacity: m.pending && !m.mediaUrl ? 0.9 : 1 }}>{m.text}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function isMediaPlaceholder(text: string): boolean {
+  return ['[imagem]', '[vídeo]', '[áudio]', '[documento]', '[figurinha]'].includes(text)
+}
+
+function mediaLabel(type?: Message['mediaType']): string {
+  if (type === 'image') return '[imagem]'
+  if (type === 'video') return '[vídeo]'
+  if (type === 'audio') return '[áudio]'
+  if (type === 'document') return '[documento]'
+  if (type === 'sticker') return '[figurinha]'
+  return ''
 }
 
 function RowAction({ icon, color, bg, onClick }: { icon: string; color: string; bg: string; onClick: (e: React.MouseEvent) => void }) {

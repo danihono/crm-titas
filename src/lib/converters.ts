@@ -2,6 +2,7 @@ import { Timestamp, type DocumentData } from 'firebase/firestore'
 import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
+  ScheduledMessage, ScheduledMessageStatus,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -60,6 +61,15 @@ export function messageFromDoc(id: string, d: DocumentData): Message {
     fromMe: !!d.fromMe,
     text: d.text ?? '',
     sentAt: toDate(d.sentAt) ?? new Date(0),
+    mediaType: d.mediaType,
+    mediaUrl: d.mediaUrl ?? '',
+    mediaPath: d.mediaPath ?? '',
+    mimeType: d.mimeType ?? '',
+    fileName: d.fileName ?? '',
+    sizeBytes: d.sizeBytes ?? 0,
+    caption: d.caption ?? '',
+    mediaError: d.mediaError ?? '',
+    importedFromHistory: !!d.importedFromHistory,
     pending: !!d.pending,
     channel: d.channel ?? '',
   }
@@ -122,7 +132,28 @@ export function eventFromDoc(id: string, d: DocumentData): EventDoc {
     color: d.color ?? '#9a6fb8',
     subtitle: d.subtitle ?? '',
     activityId: d.activityId,
+    scheduledMessageId: d.scheduledMessageId,
     createdAt: toDate(d.createdAt),
+  }
+}
+
+export function scheduledMessageFromDoc(id: string, d: DocumentData): ScheduledMessage {
+  return {
+    id,
+    contactId: d.contactId ?? '',
+    contactName: d.contactName ?? '',
+    text: d.text ?? '',
+    dueAt: toDate(d.dueAt) ?? new Date(),
+    dateKey: d.dateKey ?? '',
+    time: d.time ?? '',
+    eventId: d.eventId ?? '',
+    status: (d.status ?? 'pending') as ScheduledMessageStatus,
+    attempts: d.attempts ?? 0,
+    lastError: d.lastError ?? '',
+    sentMessageId: d.sentMessageId ?? '',
+    sentAt: toDate(d.sentAt),
+    createdAt: toDate(d.createdAt),
+    updatedAt: toDate(d.updatedAt),
   }
 }
 

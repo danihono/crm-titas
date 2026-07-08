@@ -116,6 +116,20 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       {/* Conectado */}
       {connected && (
         <div style={{ margin: '14px 0 2px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ background: C.panel, border: '1px solid ' + C.lineSoft, borderRadius: 13, padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.ink, fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              <MaterialIcon name="history" size={17} color={C.purple} /> Histórico antigo
+            </div>
+            <div style={{ color: C.sub, fontSize: 12.3, lineHeight: 1.45, marginBottom: 10 }}>
+              Importação experimental fica desligada por padrão e será liberada por conversa, com limite e aviso de que pode não trazer tudo.
+            </div>
+            <button
+              disabled
+              style={{ ...sx.btnGhost, width: '100%', justifyContent: 'center', opacity: 0.55, cursor: 'not-allowed' }}
+            >
+              <MaterialIcon name="history_toggle_off" size={18} /> Importar histórico experimental
+            </button>
+          </div>
           <button
             onClick={() => handleDisconnect(false)}
             disabled={busy}

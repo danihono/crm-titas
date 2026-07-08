@@ -14,6 +14,7 @@ Módulo que espelha, em tempo real, as conversas de WhatsApp de um usuário dent
 Frontend (React)                    whatsapp-daemon (Cloud Run, sempre ligado)
   ├─ useWhatsappStatus  ──onSnapshot── whatsappStatus/{uid}  ◄── writeStatus (Admin)
   ├─ WhatsappConnectModal ─HTTP+IDtoken─► /session/{consent,connect,disconnect}
+  ├─ sendWhatsappMessage ─HTTP+IDtoken─► /message/send
   └─ useMessages        ──onSnapshot── users/{uid}/contacts/{c}/messages ◄── ingest (Admin)
 
 Baileys socket  ─(Map<uid,sock> em memória)─  auth em whatsappSessions/{uid}(+/keys) (Admin)
@@ -31,7 +32,7 @@ Baileys socket  ─(Map<uid,sock> em memória)─  auth em whatsappSessions/{uid
 | `whatsappSessions/{uid}/keys/{keyId}` | daemon (Admin) | **ninguém** | uma chave do Signal por doc (`{v}` BufferJSON) |
 | `whatsappStatus/{uid}` | daemon (Admin) | dono + super-owner (read-only nas rules) | `status`, `qr` (data URL), `phoneNumber`, `lastError` |
 | `users/{uid}/contacts/{c}` | daemon + app | dono | contato (auto-criado tem `source:'whatsapp'`) |
-| `users/{uid}/contacts/{c}/messages/{id}` | daemon + app | dono | `{fromMe, text, sentAt, channel:'whatsapp', pending?}` |
+| `users/{uid}/contacts/{c}/messages/{id}` | daemon + app | dono | `{fromMe, text, sentAt, channel:'whatsapp', mediaType?, mediaUrl?, mediaPath?, mimeType?, fileName?, sizeBytes?, caption?, pending?, mediaError?}` |
 
 Chaves do Signal ficam em **um doc por chave** (mudam a quase cada mensagem): escritas em
 lote, lidas em um único `getAll`, e envolvidas por `makeCacheableSignalKeyStore`.
@@ -55,7 +56,7 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ## Restrições duras (não-negociáveis)
 
-- **`syncFullHistory: false`** — só espelha dali pra frente (não puxa histórico).
+- **`syncFullHistory: false`** — só espelha dali pra frente no fluxo normal (não puxa histórico).
 - **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth →
   o WhatsApp desloga os dois. Por isso `max-instances=1`.
 - **Cloud Run:** `min-instances=1`, `max-instances=1` e **CPU sempre alocada**
@@ -78,7 +79,34 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   por retenção (Cloud Scheduler → endpoint interno)._
 - **Desconectar + expurgar em uma operação:** `POST /session/disconnect?purge=1` →
   `logout` + `clearAuth` + apaga contatos `source:'whatsapp'` (com mensagens) e varre
-  mensagens `channel:'whatsapp'` em contatos manuais.
+  mensagens `channel:'whatsapp'` em contatos manuais. Mídias salvas no Storage sob
+  `users/{uid}/contacts/{contactId}/...` também são apagadas.
+
+## Mídia
+
+- Mensagens novas com imagem/vídeo/áudio/documento/figurinha são baixadas pelo daemon com
+  `downloadMediaMessage` e salvas no Firebase Storage em
+  `users/{uid}/contacts/{contactId}/whatsapp/{messageId}_{filename}`.
+- A mensagem salva recebe `mediaType`, `mediaUrl`, `mediaPath`, `mimeType`, `fileName`,
+  `sizeBytes` e `caption` quando disponíveis.
+- Imagem renderiza inline no chat; demais mídias aparecem como link/download.
+- `view once` não é baixado: fica como placeholder com `mediaError:'view_once_unsupported'`.
+- Se o download falhar, a mensagem textual é preservada com `mediaError:'download_failed'`.
+
+## Envio pelo CRM
+
+- O campo de mensagem chama `POST /message/send` quando a sessão está `connected`.
+- O daemon resolve o contato pelo `contactId`, normaliza `whatsapp`/`phone`, envia com
+  `sock.sendMessage` e grava a mensagem enviada no contato selecionado.
+- Quando a sessão não está conectada, o app mantém o comportamento local anterior.
+
+## Histórico antigo
+
+Histórico antigo permanece separado e desligado por padrão. Qualquer importação futura deve ser
+manual/experimental, com limite de 50 mensagens por chamada, baseada em âncora local conhecida e
+processando `messaging.history-set`, sem promessa de importar toda a conversa nem mídia antiga. O
+modal de WhatsApp exibe essa opção como experimental/desabilitada para não parecer que o recurso
+está ativo no v1.
 
 ## Feature-flag (subir "no escuro")
 
@@ -127,5 +155,5 @@ restart (rehidratação), e o ramo `loggedOut` (sem loop de reconexão).
 
 ## Fora de escopo (v1)
 
-Enviar mensagens pelo CRM; mídia real (fica em stub `[imagem]`/`[áudio]`/…); sharding
-horizontal; caminho da Cloud API oficial.
+Enviar mensagens pelo CRM; importação geral de histórico antigo; sharding horizontal; caminho da
+Cloud API oficial.

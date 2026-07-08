@@ -3,9 +3,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
-import { startSession, stopSession, sessionCount } from './sessionManager.js'
+import { sendTextToPhone, startSession, stopSession, sessionCount } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { purgeConnection } from './purge.js'
+import { saveOutgoingTextMessage } from './messages.js'
 
 interface AuthedRequest extends Request {
   uid?: string
@@ -41,16 +42,33 @@ function asyncH(fn: (req: AuthedRequest, res: Response) => Promise<void>) {
   }
 }
 
+function phoneDigits(v: unknown): string {
+  return String(v ?? '').replace(/\D/g, '')
+}
+
 // Origem permitida para o frontend chamar o daemon (Cloud Run é outro host).
-// Auth é por Bearer token (não cookie), então '*' é aceitável; restrinja em prod se quiser.
+// Pode ser '*' ou uma lista separada por vírgula. O header CORS precisa ter uma origem só.
 const ALLOWED_ORIGIN = process.env.WA_ALLOWED_ORIGIN ?? '*'
+const ALLOWED_ORIGINS = ALLOWED_ORIGIN
+  .split(/[,\s]+/)
+  .map((s) => s.trim())
+  .filter((s) => s === '*' || /^https?:\/\//.test(s))
+
+function corsOriginFor(req: Request): string | null {
+  if (ALLOWED_ORIGINS.includes('*')) return '*'
+  const origin = req.header('origin')
+  if (origin && ALLOWED_ORIGINS.includes(origin)) return origin
+  return ALLOWED_ORIGINS[0] ?? null
+}
 
 export function createHttpServer(): Express {
   const app = express()
   app.use(express.json())
 
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+    const origin = corsOriginFor(req)
+    if (origin) res.header('Access-Control-Allow-Origin', origin)
+    res.header('Vary', 'Origin')
     res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     if (req.method === 'OPTIONS') {
@@ -113,6 +131,62 @@ export function createHttpServer(): Express {
       await stopSession(uid, purge ? 'logout' : 'end')
       if (purge) await purgeConnection(uid)
       res.json({ ok: true, purged: purge })
+    }),
+  )
+
+  app.post(
+    '/message/send',
+    requireUid,
+    asyncH(async (req, res) => {
+      const uid = req.uid!
+      const contactId = String(req.body?.contactId ?? '').trim()
+      const text = String(req.body?.text ?? '').trim()
+      if (!contactId || !text) {
+        res.status(400).json({ error: 'contactId and text required' })
+        return
+      }
+
+      const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+      const contact = await contactRef.get()
+      if (!contact.exists) {
+        res.status(404).json({ error: 'contact not found' })
+        return
+      }
+
+      const digits = phoneDigits(contact.get('whatsapp')) || phoneDigits(contact.get('phone'))
+      if (digits.length < 8) {
+        res.status(400).json({ error: 'contact has no valid WhatsApp number' })
+        return
+      }
+
+      await contactRef.set({ whatsappDigits: digits, waJid: `${digits}@s.whatsapp.net` }, { merge: true })
+
+      try {
+        const sent = await sendTextToPhone(uid, digits, text)
+        const remoteJid = sent.key.remoteJid || `${digits}@s.whatsapp.net`
+        await contactRef.set({ whatsappDigits: digits, waJid: remoteJid }, { merge: true })
+        await saveOutgoingTextMessage(
+          uid,
+          contactId,
+          sent.key.id!,
+          text,
+          remoteJid,
+          Number(sent.messageTimestamp ?? 0) || undefined,
+        )
+        res.json({ ok: true, id: sent.key.id, remoteJid })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'whatsapp_send_failed'
+        if (msg === 'whatsapp_not_connected') {
+          res.status(409).json({ error: 'WhatsApp não está conectado.' })
+          return
+        }
+        if (msg === 'whatsapp_recipient_not_found') {
+          res.status(400).json({ error: 'Este número não foi encontrado no WhatsApp.' })
+          return
+        }
+        logger.warn({ err, uid, contactId }, 'envio WhatsApp falhou')
+        res.status(500).json({ error: 'Falha ao enviar pelo WhatsApp.' })
+      }
     }),
   )
 
