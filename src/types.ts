@@ -5,6 +5,7 @@ export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
 export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
+export type ContactNameSource = 'phone' | 'profile' | 'manual'
 
 export interface Column {
   id: string
@@ -48,6 +49,8 @@ export interface Contact {
   status: string
   /** Origem do contato: 'whatsapp' quando auto-criado pelo espelhamento (expurgo LGPD). */
   source?: string
+  /** Origem do nome exibido no contato. */
+  nameSource?: ContactNameSource
   lastMessage?: string
   lastMessageAt?: Date
   createdAt?: Date

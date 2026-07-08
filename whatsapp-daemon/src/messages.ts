@@ -398,6 +398,7 @@ async function resolveContact(
 
   const remotePushName = fromMe ? '' : pushName?.trim()
   const name = (remotePushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
+  const nameSource = remotePushName ? 'profile' : 'phone'
   await contactsCol.doc(detId).set(
     {
       name,
@@ -411,8 +412,8 @@ async function resolveContact(
       whatsappDigits: peer.phone ?? '',
       waJid: peer.jid,
       status: 'WhatsApp',
+      nameSource,
       source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
-      nameSource: remotePushName ? 'pushName' : 'phone',
       lastMessage: '',
       lastMessageAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),

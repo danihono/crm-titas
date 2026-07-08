@@ -40,8 +40,10 @@ export async function saveContact(form: NewContactForm): Promise<string> {
     role: form.role || '—',
     email: form.email || '',
     phone: form.phone || '',
-    whatsapp: form.whats || form.phone || '',
+    whatsapp,
+    whatsappDigits: phoneDigits(whatsapp),
     status: 'contato novo',
+    nameSource: 'manual',
     lastMessage: 'Contato criado',
     lastMessageAt: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -52,6 +54,7 @@ export async function saveContact(form: NewContactForm): Promise<string> {
 /** Atualiza os dados editáveis de um contato existente. */
 export async function updateContact(id: string, form: NewContactForm): Promise<void> {
   const name = form.name.trim()
+  const whatsapp = form.whats || form.phone || ''
   await updateDoc(ref(`contacts/${id}`), {
     name,
     company: form.company || '—',
@@ -59,7 +62,9 @@ export async function updateContact(id: string, form: NewContactForm): Promise<v
     role: form.role || '—',
     email: form.email || '',
     phone: form.phone || '',
-    whatsapp: form.whats || form.phone || '',
+    whatsapp,
+    whatsappDigits: phoneDigits(whatsapp),
+    nameSource: 'manual',
   })
 }
 

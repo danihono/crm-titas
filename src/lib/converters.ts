@@ -2,13 +2,17 @@ import { Timestamp, type DocumentData } from 'firebase/firestore'
 import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
-  ScheduledMessage, ScheduledMessageStatus,
+  ScheduledMessage, ScheduledMessageStatus, ContactNameSource,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
   if (v instanceof Timestamp) return v.toDate()
   if (v instanceof Date) return v
   return undefined
+}
+
+function toContactNameSource(v: unknown): ContactNameSource | undefined {
+  return v === 'phone' || v === 'profile' || v === 'manual' ? v : undefined
 }
 
 export function boardFromDoc(id: string, d: DocumentData): Board {
@@ -49,6 +53,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     whatsapp: d.whatsapp ?? '',
     status: d.status ?? '',
     source: d.source ?? '',
+    nameSource: toContactNameSource(d.nameSource),
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     createdAt: toDate(d.createdAt),
