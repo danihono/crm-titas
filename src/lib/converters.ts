@@ -2,7 +2,7 @@ import { Timestamp, type DocumentData } from 'firebase/firestore'
 import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
-  ScheduledMessage, ScheduledMessageStatus, ContactNameSource,
+  ScheduledMessage, ScheduledMessageStatus, ContactNameSource, HistoryImport, HistoryImportStatus, PhotoSource,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -13,6 +13,23 @@ function toDate(v: unknown): Date | undefined {
 
 function toContactNameSource(v: unknown): ContactNameSource | undefined {
   return v === 'phone' || v === 'profile' || v === 'manual' ? v : undefined
+}
+
+function toPhotoSource(v: unknown): PhotoSource | undefined {
+  return v === 'whatsapp' || v === 'manual' || v === 'removed' ? v : undefined
+}
+
+function toHistoryImport(v: unknown): HistoryImport | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const d = v as Record<string, unknown>
+  const status = d.status
+  if (status !== 'loading' && status !== 'done' && status !== 'error') return undefined
+  return {
+    status: status as HistoryImportStatus,
+    imported: typeof d.imported === 'number' ? d.imported : 0,
+    error: typeof d.error === 'string' ? d.error : undefined,
+    at: toDate(d.at),
+  }
 }
 
 export function boardFromDoc(id: string, d: DocumentData): Board {
@@ -54,6 +71,10 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     status: d.status ?? '',
     source: d.source ?? '',
     nameSource: toContactNameSource(d.nameSource),
+    photoUrl: d.photoUrl ?? '',
+    photoPath: d.photoPath ?? '',
+    photoSource: toPhotoSource(d.photoSource),
+    historyImport: toHistoryImport(d.historyImport),
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     createdAt: toDate(d.createdAt),

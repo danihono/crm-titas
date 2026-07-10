@@ -1,7 +1,7 @@
 import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore'
-import { deleteObject, ref as storageRef } from 'firebase/storage'
+import { deleteObject, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
-import { col, ref } from '../lib/paths'
+import { col, ref, uid } from '../lib/paths'
 import { contactFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
 import { useCollection } from './useCollection'
@@ -74,14 +74,30 @@ async function deleteStoragePath(path: string): Promise<void> {
   })
 }
 
-/** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos). */
-export async function deleteContact(id: string): Promise<void> {
+/** Envia uma foto do disco como avatar do contato (marca 'manual' → o daemon não sobrescreve). */
+export async function uploadContactPhoto(contactId: string, file: File, oldPath?: string): Promise<void> {
+  const path = `users/${uid()}/contacts/${contactId}/profile/${Date.now()}_${file.name}`
+  await uploadBytes(storageRef(storage, path), file)
+  const photoUrl = await getDownloadURL(storageRef(storage, path))
+  await updateDoc(ref(`contacts/${contactId}`), { photoUrl, photoPath: path, photoSource: 'manual' })
+  if (oldPath && oldPath !== path) await deleteStoragePath(oldPath)
+}
+
+/** Remove o avatar do contato (volta às iniciais) e marca 'removed' → o daemon não re-adiciona. */
+export async function removeContactPhoto(contactId: string, oldPath?: string): Promise<void> {
+  await updateDoc(ref(`contacts/${contactId}`), { photoUrl: '', photoPath: '', photoSource: 'removed' })
+  if (oldPath) await deleteStoragePath(oldPath)
+}
+
+/** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos) + foto. */
+export async function deleteContact(id: string, photoPath?: string): Promise<void> {
   const [messages, files] = await Promise.all([
     getDocs(col(`contacts/${id}/messages`)),
     getDocs(col(`contacts/${id}/files`)),
   ])
 
   const storagePaths = new Set<string>()
+  if (photoPath) storagePaths.add(photoPath)
   messages.docs.forEach((d) => {
     const p = d.get('mediaPath')
     if (typeof p === 'string' && p) storagePaths.add(p)

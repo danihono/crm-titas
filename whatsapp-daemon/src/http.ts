@@ -3,10 +3,12 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
-import { sendTextToPhone, startSession, stopSession, sessionCount } from './sessionManager.js'
+import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhoto } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { purgeConnection } from './purge.js'
 import { saveOutgoingTextMessage } from './messages.js'
+import { startHistoryImport } from './history.js'
+import { fetchAndStoreContactPhoto } from './photo.js'
 
 interface AuthedRequest extends Request {
   uid?: string
@@ -186,6 +188,93 @@ export function createHttpServer(): Express {
         }
         logger.warn({ err, uid, contactId }, 'envio WhatsApp falhou')
         res.status(500).json({ error: 'Falha ao enviar pelo WhatsApp.' })
+      }
+    }),
+  )
+
+  // Recupera o histórico antigo de um contato (on-demand, auto-paginado). As mensagens
+  // chegam de forma assíncrona via evento e são ingeridas — a UI acompanha por onSnapshot.
+  app.post(
+    '/history/fetch',
+    requireUid,
+    asyncH(async (req, res) => {
+      const uid = req.uid!
+      const contactId = String(req.body?.contactId ?? '').trim()
+      if (!contactId) {
+        res.status(400).json({ error: 'contactId required' })
+        return
+      }
+
+      const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+      if (!(await contactRef.get()).exists) {
+        res.status(404).json({ error: 'contact not found' })
+        return
+      }
+
+      try {
+        await startHistoryImport(uid, contactId)
+        res.json({ ok: true })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'history_failed'
+        if (msg === 'whatsapp_not_connected') {
+          res.status(409).json({ error: 'Conecte o WhatsApp primeiro.' })
+          return
+        }
+        if (msg === 'no_anchor') {
+          res.status(409).json({
+            error: 'Envie ou receba ao menos uma mensagem com este contato antes de recuperar o histórico.',
+          })
+          return
+        }
+        logger.error({ err, uid, contactId }, 'recuperação de histórico falhou')
+        res.status(500).json({ error: 'Falha ao recuperar histórico.' })
+      }
+    }),
+  )
+
+  // Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM. Ação explícita
+  // do usuário → força, sobrescrevendo qualquer override anterior.
+  app.post(
+    '/contact/photo/refresh',
+    requireUid,
+    asyncH(async (req, res) => {
+      const uid = req.uid!
+      const contactId = String(req.body?.contactId ?? '').trim()
+      if (!contactId) {
+        res.status(400).json({ error: 'contactId required' })
+        return
+      }
+
+      const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+      const contact = await contactRef.get()
+      if (!contact.exists) {
+        res.status(404).json({ error: 'contact not found' })
+        return
+      }
+
+      const digits =
+        phoneDigits(contact.get('whatsappDigits')) ||
+        phoneDigits(contact.get('whatsapp')) ||
+        phoneDigits(contact.get('phone'))
+      const jid =
+        (typeof contact.get('waJid') === 'string' && (contact.get('waJid') as string)) ||
+        (digits ? `${digits}@s.whatsapp.net` : '')
+      if (!jid) {
+        res.status(400).json({ error: 'contact has no valid WhatsApp number' })
+        return
+      }
+
+      try {
+        const found = await fetchAndStoreContactPhoto(uid, contactId, jid, (j) => fetchProfilePhoto(uid, j), { force: true })
+        res.json({ ok: true, found })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'photo_refresh_failed'
+        if (msg === 'whatsapp_not_connected') {
+          res.status(409).json({ error: 'Conecte o WhatsApp primeiro.' })
+          return
+        }
+        logger.error({ err, uid, contactId }, 'refresh de foto do WhatsApp falhou')
+        res.status(500).json({ error: 'Falha ao puxar a foto do WhatsApp.' })
       }
     }),
   )

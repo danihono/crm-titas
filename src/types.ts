@@ -6,6 +6,18 @@ export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
 export type ContactNameSource = 'phone' | 'profile' | 'manual'
+export type HistoryImportStatus = 'loading' | 'done' | 'error'
+/** Origem da foto do contato: migrada do WhatsApp, enviada à mão, ou removida pelo usuário. */
+export type PhotoSource = 'whatsapp' | 'manual' | 'removed'
+
+/** Estado da recuperação de histórico antigo do WhatsApp de um contato. */
+export interface HistoryImport {
+  status: HistoryImportStatus
+  /** total de mensagens trazidas nas respostas on-demand. */
+  imported?: number
+  error?: string
+  at?: Date
+}
 
 export interface Column {
   id: string
@@ -51,6 +63,14 @@ export interface Contact {
   source?: string
   /** Origem do nome exibido no contato. */
   nameSource?: ContactNameSource
+  /** URL da foto do contato (migrada do WhatsApp ou enviada à mão). Vazio = usa iniciais. */
+  photoUrl?: string
+  /** Caminho da foto no Storage (para remover/substituir). */
+  photoPath?: string
+  /** Origem da foto — controla se o daemon pode sobrescrever (respeita 'manual'/'removed'). */
+  photoSource?: PhotoSource
+  /** Estado da recuperação de histórico antigo do WhatsApp (por contato). */
+  historyImport?: HistoryImport
   lastMessage?: string
   lastMessageAt?: Date
   createdAt?: Date

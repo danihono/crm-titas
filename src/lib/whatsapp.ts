@@ -47,3 +47,17 @@ export function disconnectWhatsapp(purge = false): Promise<Record<string, unknow
 export function sendWhatsappMessage(contactId: string, text: string): Promise<Record<string, unknown>> {
   return daemonFetch('/message/send', { contactId, text })
 }
+
+/**
+ * Dispara a recuperação do histórico antigo de um contato (on-demand, auto-paginado).
+ * Retorna assim que o pedido é aceito — as mensagens chegam de forma assíncrona e
+ * aparecem ao vivo pela conversa; o progresso é acompanhado por contact.historyImport.
+ */
+export function fetchWhatsappHistory(contactId: string): Promise<Record<string, unknown>> {
+  return daemonFetch('/history/fetch', { contactId })
+}
+
+/** Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM. */
+export function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
+  return daemonFetch('/contact/photo/refresh', { contactId })
+}

@@ -1,3 +1,4 @@
+import { FieldValue } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
@@ -51,6 +52,24 @@ export async function purgeConnection(uid: string): Promise<void> {
       await batch.commit()
     }
     sweptMessages += waMsgs.size
+
+    // Foto migrada do WhatsApp num contato manual: remove o arquivo e limpa os campos.
+    if (c.get('photoSource') === 'whatsapp') {
+      const photoPath = c.get('photoPath')
+      if (typeof photoPath === 'string' && photoPath) {
+        await bucket
+          .file(photoPath)
+          .delete({ ignoreNotFound: true })
+          .then(() => {
+            deletedFiles++
+          })
+          .catch((err) => logger.warn({ err, uid, photoPath }, 'falha ao apagar foto WhatsApp'))
+      }
+      await c.ref.set(
+        { photoUrl: FieldValue.delete(), photoPath: FieldValue.delete(), photoSource: FieldValue.delete() },
+        { merge: true },
+      )
+    }
   }
 
   logger.info({ uid, deletedContacts, sweptMessages, deletedFiles }, 'conexão WhatsApp expurgada')

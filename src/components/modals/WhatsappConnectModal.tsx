@@ -120,15 +120,9 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.ink, fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
               <MaterialIcon name="history" size={17} color={C.purple} /> Histórico antigo
             </div>
-            <div style={{ color: C.sub, fontSize: 12.3, lineHeight: 1.45, marginBottom: 10 }}>
-              Importação experimental fica desligada por padrão e será liberada por conversa, com limite e aviso de que pode não trazer tudo.
+            <div style={{ color: C.sub, fontSize: 12.3, lineHeight: 1.45 }}>
+              A recuperação é <b>por conversa</b>: abra um contato e toque em <b>“Recuperar histórico”</b> no topo do chat para trazer as mensagens antigas dele. É best-effort — o WhatsApp devolve só o que o aparelho ainda guarda daquela conversa (pode não trazer tudo).
             </div>
-            <button
-              disabled
-              style={{ ...sx.btnGhost, width: '100%', justifyContent: 'center', opacity: 0.55, cursor: 'not-allowed' }}
-            >
-              <MaterialIcon name="history_toggle_off" size={18} /> Importar histórico experimental
-            </button>
           </div>
           <button
             onClick={() => handleDisconnect(false)}

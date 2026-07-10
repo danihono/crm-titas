@@ -21,6 +21,12 @@ export const config = {
   /** Retenção padrão (dias) de novas conexões. 0 = guardar para sempre. */
   defaultRetentionDays: Number(process.env.WA_DEFAULT_RETENTION_DAYS ?? 0),
 
+  /** Mensagens pedidas por página na recuperação de histórico on-demand (cap prático ~50). */
+  historyPageSize: Number(process.env.WA_HISTORY_PAGE_SIZE ?? 50),
+
+  /** Teto de páginas por importação de histórico (evita loop infinito). ~20 → ~1000 msgs. */
+  historyMaxPages: Number(process.env.WA_HISTORY_MAX_PAGES ?? 20),
+
   /** Bucket do Firebase Storage usado para anexos de WhatsApp. */
   storageBucket:
     process.env.FIREBASE_STORAGE_BUCKET ??

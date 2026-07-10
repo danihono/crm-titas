@@ -1,21 +1,21 @@
 import { useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
-import { deleteContact, useContacts } from '../hooks/useContacts'
+import { deleteContact, useContacts, uploadContactPhoto, removeContactPhoto } from '../hooks/useContacts'
 import { useMessages, sendMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useFeatures } from '../hooks/useFeatures'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto } from '../lib/whatsapp'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
-import type { Contact, Message, ScheduledMessage } from '../types'
+import type { Contact, Message, ScheduledMessage, HistoryImportStatus } from '../types'
 
 const WA_DOT: Record<string, string> = {
   connected: '#34c759',
@@ -43,9 +43,12 @@ export default function Contacts() {
   }
   const activeSchedule = active ? scheduleByContact.get(active.id) : undefined
   const [waInput, setWaInput] = useState('')
+  const [histBusy, setHistBusy] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduledMessage | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const photoInput = useRef<HTMLInputElement>(null)
 
   async function handleSend() {
     const text = waInput.trim()
@@ -63,17 +66,71 @@ export default function Contacts() {
     }
   }
 
+  async function handleFetchHistory() {
+    if (!active || histBusy) return
+    if (!confirm(`Recuperar as conversas antigas com "${active.name}"? Buscaremos o que o WhatsApp ainda tiver desta conversa (pode não vir tudo).`)) return
+    setHistBusy(true)
+    try {
+      await fetchWhatsappHistory(active.id)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao recuperar histórico.')
+    } finally {
+      setHistBusy(false)
+    }
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f && active) await uploadContactFile(active.id, f)
     e.target.value = ''
   }
 
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f || !active || photoBusy) return
+    if (!f.type.startsWith('image/')) { alert('Selecione um arquivo de imagem.'); return }
+    setPhotoBusy(true)
+    try {
+      await uploadContactPhoto(active.id, f, active.photoPath || undefined)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao enviar a foto.')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!active || photoBusy) return
+    if (!confirm('Remover a foto deste contato? Ele volta a exibir as iniciais.')) return
+    setPhotoBusy(true)
+    try {
+      await removeContactPhoto(active.id, active.photoPath || undefined)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao remover a foto.')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  async function handleRefreshPhoto() {
+    if (!active || photoBusy) return
+    setPhotoBusy(true)
+    try {
+      const r = await refreshWhatsappPhoto(active.id)
+      if (r && r.found === false) alert('Este contato não tem foto de perfil visível no WhatsApp.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao puxar a foto do WhatsApp.')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   async function handleDeleteContact() {
     if (!active) return
     if (!confirm(`Apagar o contato "${active.name}" e todo o histórico dele?`)) return
     const next = contacts.find((c) => c.id !== active.id)
-    await deleteContact(active.id)
+    await deleteContact(active.id, active.photoPath || undefined)
     if (next) ui.selectContact(next.id)
   }
 
@@ -137,7 +194,7 @@ export default function Contacts() {
               >
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: avPalette[i % avPalette.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>{c.initials}</div>
+                    <Avatar photoUrl={c.photoUrl} initials={c.initials} size={44} bg={avPalette[i % avPalette.length]} fontSize={14} />
                     {c.online && <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#34c759', border: '2px solid #fff' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -182,7 +239,7 @@ export default function Contacts() {
         {active && (
           <>
             <div style={{ height: 66, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 13, padding: '0 22px', borderBottom: '1px solid #e2def0', background: '#ffffff' }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: avPalette[activeIdx % avPalette.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{active.initials}</div>
+              <Avatar photoUrl={active.photoUrl} initials={active.initials} size={40} bg={avPalette[activeIdx % avPalette.length]} fontSize={13} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{active.name}</div>
@@ -222,6 +279,16 @@ export default function Contacts() {
               <>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ alignSelf: 'center', fontSize: 10.5, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
+                  {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                    <HistoryBar
+                      status={active.historyImport?.status}
+                      imported={active.historyImport?.imported}
+                      error={active.historyImport?.error}
+                      at={active.historyImport?.at}
+                      busy={histBusy}
+                      onFetch={handleFetchHistory}
+                    />
+                  )}
                   {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
                   {messages.map((m) => (
                     <div key={m.id} style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
@@ -259,9 +326,21 @@ export default function Contacts() {
             {ui.contactView === 'info' && (
               <div style={{ flex: 1, overflowY: 'auto', padding: '26px 30px' }}>
                 <div style={{ background: '#ffffff', border: '1px solid #ececf3', borderRadius: 18, padding: 24, maxWidth: 560, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
-                    <div style={{ width: 60, height: 60, borderRadius: '50%', background: avPalette[activeIdx % avPalette.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, fontWeight: 700, color: '#fff' }}>{active.initials}</div>
-                    <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+                      <Avatar photoUrl={active.photoUrl} initials={active.initials} size={60} bg={avPalette[activeIdx % avPalette.length]} fontSize={21} />
+                      {!readOnly && (
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <PhotoAction icon="photo_camera" title={active.photoUrl ? 'Trocar foto' : 'Adicionar foto'} onClick={() => photoInput.current?.click()} disabled={photoBusy} />
+                          {active.photoUrl && <PhotoAction icon="delete" title="Remover foto" onClick={handleRemovePhoto} disabled={photoBusy} rose />}
+                          {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                            <PhotoAction icon="sync" title="Puxar foto do WhatsApp" onClick={handleRefreshPhoto} disabled={photoBusy} green />
+                          )}
+                        </div>
+                      )}
+                      <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+                    </div>
+                    <div style={{ flex: 1, marginTop: 4 }}>
                       <div style={{ fontSize: 19, fontWeight: 800, color: '#1d1726' }}>{active.name}</div>
                       <div style={{ fontSize: 13, color: '#6e6780' }}>{active.role} · {active.company}</div>
                     </div>
@@ -348,6 +427,55 @@ export default function Contacts() {
         />
       )}
       {ui.showWhatsappModal && <WhatsappConnectModal onClose={ui.closeWhatsappModal} />}
+    </div>
+  )
+}
+
+function Avatar({ photoUrl, initials, size, bg, fontSize }: { photoUrl?: string; initials: string; size: number; bg: string; fontSize: number }) {
+  if (photoUrl) {
+    return <img src={photoUrl} alt={initials} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, background: bg }} />
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
+  )
+}
+
+function PhotoAction({ icon, title, onClick, disabled, rose, green }: { icon: string; title: string; onClick: () => void; disabled?: boolean; rose?: boolean; green?: boolean }) {
+  const color = rose ? '#b73d6d' : green ? '#1f8a4c' : '#7a52a0'
+  const bg = rose ? 'rgba(193,77,119,0.1)' : green ? 'rgba(52,199,89,0.12)' : 'rgba(150,110,200,0.1)'
+  return (
+    <button type="button" title={title} onClick={onClick} disabled={disabled} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: bg, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }}>
+      <MaterialIcon name={icon} size={16} color={color} />
+    </button>
+  )
+}
+
+function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: HistoryImportStatus; imported?: number; error?: string; at?: Date; busy: boolean; onFetch: () => void }) {
+  // Um 'loading' sem atualização há > 2 min é considerado travado (ex.: daemon reiniciou
+  // no meio da importação) → volta a permitir tentar de novo em vez de spinner eterno.
+  const stale = status === 'loading' && !busy && !!at && Date.now() - at.getTime() > 120_000
+  const loading = (busy || status === 'loading') && !stale
+  const done = status === 'done'
+  const isError = status === 'error'
+  const subtitle = isError
+    ? `Não foi possível recuperar: ${error || 'erro desconhecido'}`
+    : done
+      ? `Histórico recuperado${imported ? ` · ${imported} mensagens` : ''}. Você pode buscar mensagens ainda mais antigas.`
+      : 'Traz as mensagens antigas desta conversa que o WhatsApp ainda tiver — pode não vir tudo.'
+  return (
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
+      <MaterialIcon name={loading ? 'sync' : isError ? 'error_outline' : 'history'} size={19} color={isError ? '#c14d77' : '#7a52a0'} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1d1726' }}>{loading ? 'Recuperando histórico…' : 'Histórico antigo do WhatsApp'}</div>
+        <div style={{ fontSize: 11.5, color: isError ? '#b73d6d' : '#7a6f86', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {loading ? (imported ? `${imported} mensagens até agora…` : 'Buscando no WhatsApp…') : subtitle}
+        </div>
+      </div>
+      {!loading && (
+        <button onClick={onFetch} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+          <MaterialIcon name="history" size={16} /> {done ? 'Buscar mais antigas' : 'Recuperar histórico'}
+        </button>
+      )}
     </div>
   )
 }

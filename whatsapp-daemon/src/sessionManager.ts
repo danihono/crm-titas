@@ -4,6 +4,8 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
   type ConnectionState,
+  type WAMessage,
+  type WAMessageKey,
   type WASocket,
   type WAVersion,
 } from '@whiskeysockets/baileys'
@@ -15,6 +17,7 @@ import { logger, waLogger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
 import { ingestMessages } from './messages.js'
+import { onHistorySet } from './history.js'
 
 interface Session {
   sock: WASocket
@@ -55,6 +58,29 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
   const sent = await s.sock.sendMessage(jid, { text })
   if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
   return sent
+}
+
+/**
+ * Pede ao WhatsApp mensagens mais antigas de uma conversa (recuperação de histórico
+ * on-demand). A resposta chega assíncrona via evento `messaging-history.set`
+ * (`syncType: ON_DEMAND`) → tratada em `onHistorySet`. Mantém o `Map sessions` privado.
+ */
+export async function requestMessageHistory(
+  uid: string,
+  count: number,
+  oldestMsgKey: WAMessageKey,
+  oldestMsgTimestampMs: number,
+): Promise<string> {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+  return s.sock.fetchMessageHistory(count, oldestMsgKey, oldestMsgTimestampMs)
+}
+
+/** Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato). */
+export async function fetchProfilePhoto(uid: string, jid: string): Promise<string | undefined> {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+  return s.sock.profilePictureUrl(jid, 'image')
 }
 
 /**
@@ -99,9 +125,18 @@ export async function startSession(uid: string): Promise<void> {
       logger.error({ err, uid }, 'handler connection.update falhou'),
     )
   })
+  const mediaCtx = {
+    reuploadRequest: async (msg: WAMessage) => sock.updateMediaMessage(msg),
+    fetchProfilePhoto: (jid: string) => sock.profilePictureUrl(jid, 'image'),
+  }
   sock.ev.on('messages.upsert', (ev) => {
-    ingestMessages(uid, ev, { reuploadRequest: async (msg) => sock.updateMediaMessage(msg) }).catch((err) =>
+    ingestMessages(uid, ev, mediaCtx).catch((err) =>
       logger.error({ err, uid }, 'handler messages.upsert falhou'),
+    )
+  })
+  sock.ev.on('messaging-history.set', (ev) => {
+    onHistorySet(uid, ev, mediaCtx).catch((err) =>
+      logger.error({ err, uid }, 'handler messaging-history.set falhou'),
     )
   })
 }

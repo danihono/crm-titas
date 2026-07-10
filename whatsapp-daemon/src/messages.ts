@@ -19,6 +19,7 @@ import {
 } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
+import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -29,6 +30,8 @@ type MediaType = 'image' | 'video' | 'audio' | 'document' | 'sticker'
 
 export type MediaDownloadContext = {
   reuploadRequest: (msg: WAMessage) => Promise<WAMessage>
+  /** Busca a URL da foto de perfil de um JID — usada para migrar a foto do contato. */
+  fetchProfilePhoto?: ProfilePhotoFetcher
 }
 
 type MediaMessageKey = 'imageMessage' | 'videoMessage' | 'audioMessage' | 'documentMessage' | 'stickerMessage'
@@ -348,6 +351,7 @@ async function resolveContact(
   peer: Peer,
   pushName?: string | null,
   fromMe = false,
+  fetchProfilePhoto?: ProfilePhotoFetcher,
 ): Promise<string> {
   const contactsCol = db.collection('users').doc(uid).collection('contacts')
 
@@ -421,6 +425,10 @@ async function resolveContact(
     { merge: true },
   )
   contactCache.set(cacheKey, detId)
+  // Migra a foto de perfil do WhatsApp para o contato recém-criado (não bloqueia a ingestão).
+  if (fetchProfilePhoto && peer.jid) {
+    void fetchAndStoreContactPhoto(uid, detId, peer.jid, fetchProfilePhoto).catch(() => {})
+  }
   return detId
 }
 
@@ -485,15 +493,20 @@ async function downloadAndStoreMedia(
   }
 }
 
+type IngestOptions = {
+  /** true quando a mensagem veio da recuperação de histórico on-demand (não do fluxo ao vivo). */
+  importedFromHistory?: boolean
+}
+
 /** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente). */
-async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext): Promise<void> {
+async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<void> {
   if (!m.message || !m.key?.id) return
   const peer = resolvePeer(m.key)
   if (!peer) return
   const content = extractContent(m.message)
   if (!content) return
 
-  const contactId = await resolveContact(uid, peer, m.pushName, !!m.key.fromMe)
+  const contactId = await resolveContact(uid, peer, m.pushName, !!m.key.fromMe, mediaCtx?.fetchProfilePhoto)
 
   const tsSeconds = Number(m.messageTimestamp ?? 0)
   const sentAt = tsSeconds > 0 ? Timestamp.fromMillis(tsSeconds * 1000) : Timestamp.now()
@@ -515,6 +528,8 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
       text: content.text,
       sentAt,
       channel: 'whatsapp', // marca origem → permite expurgo seletivo mesmo em contato manual
+      waMessageId: m.key.id, // id cru da WA (o doc-id é sanitizado) → âncora exata p/ histórico on-demand
+      ...(opts?.importedFromHistory ? { importedFromHistory: true } : {}),
       ...(content.pending ? { pending: true } : { pending: false }),
       ...(content.media
         ? {
@@ -533,8 +548,9 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   batch.set(
     contactRef,
     {
-      lastMessage: content.text,
-      lastMessageAt: sentAt,
+      // Histórico importado é ANTIGO → não sobrescreve o preview "última mensagem"/data
+      // (senão a lista de contatos passaria a mostrar uma mensagem de meses/anos atrás).
+      ...(opts?.importedFromHistory ? {} : { lastMessage: content.text, lastMessageAt: sentAt }),
       waJid: peer.jid,
       ...(peer.phone ? { whatsappDigits: peer.phone } : {}),
     },
@@ -574,6 +590,60 @@ export async function saveOutgoingTextMessage(
   )
   batch.set(contactRef, { lastMessage: text, lastMessageAt: sentAt, waJid: remoteJid }, { merge: true })
   await batch.commit()
+}
+
+/**
+ * Ingere um lote de mensagens vindas da recuperação de histórico on-demand
+ * (`messaging-history.set` com `syncType: ON_DEMAND`). Reutiliza `ingestOne` — mesmo
+ * roteamento de contato, dedup por `key.id` (merge) e `sentAt` real — marcando
+ * `importedFromHistory: true`. NUNCA loga conteúdo.
+ */
+export async function ingestHistoryMessages(uid: string, messages: WAMessage[], mediaCtx?: MediaDownloadContext): Promise<void> {
+  for (const m of messages) {
+    try {
+      await ingestOne(uid, m, mediaCtx, { importedFromHistory: true })
+    } catch (err) {
+      logger.error({ err, uid }, 'falha ao ingerir mensagem de histórico') // sem m.message
+    }
+  }
+}
+
+export interface HistoryAnchor {
+  key: WAMessageKey
+  /** Timestamp da mensagem-âncora em MILISSEGUNDOS (campo oldestMsgTimestampMs do Baileys). */
+  tsMs: number
+}
+
+/**
+ * Âncora para paginar histórico on-demand: a mensagem MAIS ANTIGA já espelhada deste
+ * contato. On-demand pede mensagens mais velhas que ela. Retorna null quando não há
+ * nenhuma mensagem (sem âncora possível → o chamador orienta o usuário).
+ */
+export async function oldestStoredAnchor(uid: string, contactId: string): Promise<HistoryAnchor | null> {
+  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+  const contactSnap = await contactRef.get()
+  if (!contactSnap.exists) return null
+
+  const oldest = await contactRef.collection('messages').orderBy('sentAt', 'asc').limit(1).get()
+  if (oldest.empty) return null
+  const doc = oldest.docs[0]
+
+  const sentAt = doc.get('sentAt')
+  const tsMs = sentAt instanceof Timestamp ? sentAt.toMillis() : 0
+  if (!tsMs) return null
+
+  const digits = phoneDigits(contactSnap.get('whatsappDigits')) || phoneDigits(contactSnap.get('whatsapp'))
+  const remoteJid =
+    (typeof contactSnap.get('waJid') === 'string' && contactSnap.get('waJid')) ||
+    (digits ? `${digits}@s.whatsapp.net` : '')
+  if (!remoteJid) return null
+
+  // waMessageId é o id cru; docs legados podem não tê-lo → cai pro doc-id (sanitizado, mas
+  // WA ids raramente contêm '/'), preservando a compatibilidade.
+  const id = (typeof doc.get('waMessageId') === 'string' && doc.get('waMessageId')) || doc.id
+  const fromMe = !!doc.get('fromMe')
+
+  return { key: { remoteJid, id, fromMe }, tsMs }
 }
 
 /**
