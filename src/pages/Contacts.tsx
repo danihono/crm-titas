@@ -359,6 +359,18 @@ export default function Contacts() {
                   <InfoRow icon="call" color="#4f7fc0" bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
                   <InfoRow icon="chat" color="#1f8a4c" bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
                   <InfoRow icon="business" color="#b3801f" bg="rgba(216,169,96,0.18)" label="Empresa" value={active.company} />
+                  {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                    <div style={{ marginTop: 18 }}>
+                      <HistoryBar
+                        status={active.historyImport?.status}
+                        imported={active.historyImport?.imported}
+                        error={active.historyImport?.error}
+                        at={active.historyImport?.at}
+                        busy={histBusy}
+                        onFetch={handleFetchHistory}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
