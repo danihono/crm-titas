@@ -89,15 +89,15 @@ export async function removeContactPhoto(contactId: string, oldPath?: string): P
   if (oldPath) await deleteStoragePath(oldPath)
 }
 
-/** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos) + foto. */
-export async function deleteContact(id: string, photoPath?: string): Promise<void> {
+/** Apaga docs de mensagens/arquivos do contato + mídias do Storage referenciadas por eles. */
+async function purgeConversationDocs(id: string, extraStoragePath?: string): Promise<void> {
   const [messages, files] = await Promise.all([
     getDocs(col(`contacts/${id}/messages`)),
     getDocs(col(`contacts/${id}/files`)),
   ])
 
   const storagePaths = new Set<string>()
-  if (photoPath) storagePaths.add(photoPath)
+  if (extraStoragePath) storagePaths.add(extraStoragePath)
   messages.docs.forEach((d) => {
     const p = d.get('mediaPath')
     if (typeof p === 'string' && p) storagePaths.add(p)
@@ -109,10 +109,27 @@ export async function deleteContact(id: string, photoPath?: string): Promise<voi
 
   await Promise.all([...storagePaths].map(deleteStoragePath))
 
-  const refs = [...messages.docs.map((d) => d.ref), ...files.docs.map((d) => d.ref), ref(`contacts/${id}`)]
+  const refs = [...messages.docs.map((d) => d.ref), ...files.docs.map((d) => d.ref)]
   for (let i = 0; i < refs.length; i += 450) {
     const batch = writeBatch(db)
     refs.slice(i, i + 450).forEach((r) => batch.delete(r))
     await batch.commit()
   }
+}
+
+/**
+ * Fallback local de "Limpar conversa" (daemon indisponível): apaga mensagens, arquivos e
+ * mídias, mantendo o contato e a foto. Sem daemon não há marcador anti-replay.
+ */
+export async function clearConversationLocal(id: string): Promise<void> {
+  await purgeConversationDocs(id)
+  await updateDoc(ref(`contacts/${id}`), { lastMessage: '', lastMessageAt: serverTimestamp() })
+}
+
+/** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos) + foto. */
+export async function deleteContact(id: string, photoPath?: string): Promise<void> {
+  await purgeConversationDocs(id, photoPath)
+  const batch = writeBatch(db)
+  batch.delete(ref(`contacts/${id}`))
+  await batch.commit()
 }

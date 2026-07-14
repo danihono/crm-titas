@@ -81,6 +81,11 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   `logout` + `clearAuth` + apaga contatos `source:'whatsapp'` (com mensagens) e varre
   mensagens `channel:'whatsapp'` em contatos manuais. Mídias salvas no Storage sob
   `users/{uid}/contacts/{contactId}/...` também são apagadas.
+- **Expurgo por contato:** `POST /contact/purge { contactId, keepContact? }` — Firestore
+  recursivo + Storage por prefixo (`keepContact:true` limpa só a conversa, preservando o
+  cadastro e a foto). Grava um marcador em `users/{uid}/waPurges/{digitsKey}`: replays de
+  mensagens anteriores ao expurgo são ignorados na ingestão (a conversa apagada não
+  ressuscita), mas mensagem nova recria o contato normalmente (comportamento de espelho).
 
 ## Mídia
 

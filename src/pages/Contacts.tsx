@@ -1,20 +1,21 @@
 import { useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
-import { deleteContact, useContacts, uploadContactPhoto, removeContactPhoto } from '../hooks/useContacts'
+import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto } from '../hooks/useContacts'
 import { useMessages, sendMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
-import { useFeatures } from '../hooks/useFeatures'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, daemonConfigured } from '../lib/whatsapp'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
+import AudioMessage from '../components/common/AudioMessage'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
+import HistoryRangeModal from '../components/modals/HistoryRangeModal'
 import type { Contact, Message, ScheduledMessage, HistoryImportStatus } from '../types'
 
 const WA_DOT: Record<string, string> = {
@@ -29,9 +30,10 @@ export default function Contacts() {
   const { docs: contacts } = useContacts()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
-  const features = useFeatures()
   const wa = useWhatsappStatus()
-  const waEnabled = !!features.whatsapp && !readOnly
+  // WhatsApp liberado para todos os usuários (sem feature-flag). Só o modo
+  // somente-leitura (dono visualizando outro tenant) esconde a UI de WhatsApp.
+  const waEnabled = !readOnly
   const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
   const { docs: messages } = useMessages(active?.id ?? null)
@@ -44,6 +46,8 @@ export default function Contacts() {
   const activeSchedule = active ? scheduleByContact.get(active.id) : undefined
   const [waInput, setWaInput] = useState('')
   const [histBusy, setHistBusy] = useState(false)
+  const [showHistModal, setShowHistModal] = useState(false)
+  const [convBusy, setConvBusy] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduledMessage | null>(null)
@@ -54,8 +58,9 @@ export default function Contacts() {
     const text = waInput.trim()
     if (!active || !text) return
     try {
-      if (waEnabled) {
-        if (wa.status !== 'connected') throw new Error('WhatsApp não está conectado.')
+      // Só roteia pelo WhatsApp quando de fato conectado; caso contrário, envio
+      // normal (local). Assim quem ainda não conectou o WhatsApp não é bloqueado.
+      if (waEnabled && wa.status === 'connected') {
         await sendWhatsappMessage(active.id, text)
       } else {
         await sendMessage(active.id, text)
@@ -66,12 +71,17 @@ export default function Contacts() {
     }
   }
 
-  async function handleFetchHistory() {
+  function handleFetchHistory() {
     if (!active || histBusy) return
-    if (!confirm(`Recuperar as conversas antigas com "${active.name}"? Buscaremos o que o WhatsApp ainda tiver desta conversa (pode não vir tudo).`)) return
+    setShowHistModal(true) // a janela (dias) é escolhida no modal
+  }
+
+  async function startFetchHistory(maxDays?: number) {
+    if (!active) return
+    setShowHistModal(false)
     setHistBusy(true)
     try {
-      await fetchWhatsappHistory(active.id)
+      await fetchWhatsappHistory(active.id, maxDays)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Falha ao recuperar histórico.')
     } finally {
@@ -128,10 +138,40 @@ export default function Contacts() {
 
   async function handleDeleteContact() {
     if (!active) return
-    if (!confirm(`Apagar o contato "${active.name}" e todo o histórico dele?`)) return
+    if (!confirm(`Apagar o contato "${active.name}" e TODO o histórico dele (mensagens, arquivos e mídias)?`)) return
     const next = contacts.find((c) => c.id !== active.id)
-    await deleteContact(active.id, active.photoPath || undefined)
+    try {
+      // Expurgo completo via daemon: Firestore recursivo + Storage por prefixo (pega até
+      // arquivo órfão) + marcador anti-replay. Sem daemon, cai no caminho local.
+      if (daemonConfigured()) await purgeWhatsappContact(active.id, false)
+      else await deleteContact(active.id, active.photoPath || undefined)
+    } catch {
+      try {
+        await deleteContact(active.id, active.photoPath || undefined) // daemon fora do ar
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Falha ao apagar o contato.')
+        return
+      }
+    }
     if (next) ui.selectContact(next.id)
+  }
+
+  async function handleClearConversation() {
+    if (!active || convBusy) return
+    if (!confirm(`Limpar TODA a conversa com "${active.name}"? Mensagens, arquivos e mídias serão apagados — o contato continua no CRM.`)) return
+    setConvBusy(true)
+    try {
+      if (daemonConfigured()) await purgeWhatsappContact(active.id, true)
+      else await clearConversationLocal(active.id)
+    } catch {
+      try {
+        await clearConversationLocal(active.id) // daemon fora do ar
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Falha ao limpar a conversa.')
+      }
+    } finally {
+      setConvBusy(false)
+    }
   }
 
   function openScheduleCreate(contactId: string) {
@@ -349,6 +389,9 @@ export default function Contacts() {
                         <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: '#7a52a0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                           <MaterialIcon name="edit" size={17} /> Editar
                         </button>
+                        <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: '#8a5f12', fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
+                          <MaterialIcon name="delete_sweep" size={17} /> Limpar conversa
+                        </button>
                         <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: '#b73d6d', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                           <MaterialIcon name="delete" size={17} /> Apagar
                         </button>
@@ -439,6 +482,9 @@ export default function Contacts() {
         />
       )}
       {ui.showWhatsappModal && <WhatsappConnectModal onClose={ui.closeWhatsappModal} />}
+      {showHistModal && active && (
+        <HistoryRangeModal contactName={active.name} onConfirm={startFetchHistory} onClose={() => setShowHistModal(false)} />
+      )}
     </div>
   )
 }
@@ -462,6 +508,18 @@ function PhotoAction({ icon, title, onClick, disabled, rose, green }: { icon: st
   )
 }
 
+/** Traduz códigos de erro crus do daemon em mensagens legíveis; demais códigos passam direto. */
+function historyErrorLabel(code?: string): string {
+  switch (code) {
+    case 'history_timeout':
+      return 'O WhatsApp não respondeu a tempo. Tente novamente.'
+    case 'whatsapp_not_connected':
+      return 'WhatsApp desconectado. Reconecte e tente de novo.'
+    default:
+      return code || 'erro desconhecido'
+  }
+}
+
 function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: HistoryImportStatus; imported?: number; error?: string; at?: Date; busy: boolean; onFetch: () => void }) {
   // Um 'loading' sem atualização há > 2 min é considerado travado (ex.: daemon reiniciou
   // no meio da importação) → volta a permitir tentar de novo em vez de spinner eterno.
@@ -470,7 +528,7 @@ function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: H
   const done = status === 'done'
   const isError = status === 'error'
   const subtitle = isError
-    ? `Não foi possível recuperar: ${error || 'erro desconhecido'}`
+    ? `Não foi possível recuperar: ${historyErrorLabel(error)}`
     : done
       ? `Histórico recuperado${imported ? ` · ${imported} mensagens` : ''}. Você pode buscar mensagens ainda mais antigas.`
       : 'Traz as mensagens antigas desta conversa que o WhatsApp ainda tiver — pode não vir tudo.'
@@ -535,9 +593,12 @@ function MessageBody({ message: m }: { message: Message }) {
           <img src={m.mediaUrl} alt={m.caption || m.fileName || 'Imagem do WhatsApp'} style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, objectFit: 'cover', borderRadius: 10 }} />
         </a>
       )}
-      {hasRenderableMedia && m.mediaType !== 'image' && (
+      {hasRenderableMedia && m.mediaType === 'audio' && (
+        <AudioMessage src={m.mediaUrl!} fromMe={m.fromMe} downloadName={m.fileName} />
+      )}
+      {hasRenderableMedia && m.mediaType !== 'image' && m.mediaType !== 'audio' && (
         <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: m.fromMe ? '#ffffff' : '#5a3a7e', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid ' + (m.fromMe ? 'rgba(255,255,255,0.24)' : '#e6e3ee'), borderRadius: 10, padding: '8px 10px', marginBottom: m.text ? 7 : 0, background: m.fromMe ? 'rgba(255,255,255,0.1)' : '#f8f6fb' }}>
-          <MaterialIcon name={m.mediaType === 'audio' ? 'graphic_eq' : m.mediaType === 'video' ? 'movie' : 'description'} size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+          <MaterialIcon name={m.mediaType === 'video' ? 'movie' : 'description'} size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{m.fileName || mediaLabel(m.mediaType)}</span>
           <MaterialIcon name="download" size={17} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
         </a>

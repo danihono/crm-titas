@@ -2,6 +2,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
+import { evictContactCache } from './messages.js'
+import { setPurgeMarker } from './purgeMarkers.js'
 
 /**
  * LGPD — expurga TODOS os dados espelhados de uma conexão em uma operação.
@@ -73,4 +75,56 @@ export async function purgeConnection(uid: string): Promise<void> {
   }
 
   logger.info({ uid, deletedContacts, sweptMessages, deletedFiles }, 'conexão WhatsApp expurgada')
+}
+
+/**
+ * Expurgo TOTAL de um contato (ou só da conversa dele, com keepContact=true):
+ * 1. grava o marcador de expurgo (replays antigos não ressuscitam a conversa);
+ * 2. evita o contactCache (senão a próxima mensagem gravaria no doc apagado);
+ * 3. Storage: varre por prefixo `users/{uid}/contacts/{id}/` — pega inclusive arquivos
+ *    órfãos que nenhum doc referencia (keepContact preserva `profile/`, a foto);
+ * 4. Firestore: recursiveDelete do contato inteiro, ou só das subcoleções
+ *    messages/files + limpeza do preview quando keepContact.
+ * Lança 'contact_not_found' se o contato não existe.
+ */
+export async function purgeContact(uid: string, contactId: string, keepContact: boolean): Promise<void> {
+  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+  const snap = await contactRef.get()
+  if (!snap.exists) throw new Error('contact_not_found')
+
+  // Marcador por interlocutor (mesmo esquema de chave do contactCache). Contato sem
+  // WhatsApp vinculado não tem o que marcar — o expurgo segue só para dados locais.
+  const digits = String(snap.get('whatsappDigits') ?? '').replace(/\D/g, '')
+  const waJid = typeof snap.get('waJid') === 'string' ? (snap.get('waJid') as string) : ''
+  const digitsKey = digits || (waJid.endsWith('@lid') ? `lid:${waJid.split('@')[0]}` : '')
+  if (digitsKey) await setPurgeMarker(uid, digitsKey, contactId)
+  evictContactCache(uid, contactId)
+
+  const prefix = `users/${uid}/contacts/${contactId}/`
+  if (keepContact) {
+    // Apaga tudo do contato no Storage MENOS a foto de perfil.
+    const [files] = await bucket.getFiles({ prefix })
+    for (const f of files) {
+      if (f.name.startsWith(`${prefix}profile/`)) continue
+      await f.delete({ ignoreNotFound: true }).catch((err) => logger.warn({ err, uid, file: f.name }, 'falha ao apagar arquivo da conversa'))
+    }
+    await db.recursiveDelete(contactRef.collection('messages'))
+    await db.recursiveDelete(contactRef.collection('files'))
+    await contactRef.set(
+      {
+        lastMessage: '',
+        lastMessageAt: FieldValue.serverTimestamp(),
+        historyImport: FieldValue.delete(),
+      },
+      { merge: true },
+    )
+    logger.info({ uid, contactId }, 'conversa do contato expurgada (contato mantido)')
+    return
+  }
+
+  await bucket
+    .deleteFiles({ prefix, force: true })
+    .catch((err) => logger.warn({ err, uid, contactId }, 'falha ao apagar arquivos do contato'))
+  await db.recursiveDelete(contactRef)
+  logger.info({ uid, contactId }, 'contato expurgado por completo')
 }

@@ -5,7 +5,7 @@ import { logger } from './logger.js'
 import { config } from './config.js'
 import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhoto } from './sessionManager.js'
 import { writeStatus } from './status.js'
-import { purgeConnection } from './purge.js'
+import { purgeConnection, purgeContact } from './purge.js'
 import { saveOutgoingTextMessage } from './messages.js'
 import { startHistoryImport } from './history.js'
 import { fetchAndStoreContactPhoto } from './photo.js'
@@ -205,6 +205,10 @@ export function createHttpServer(): Express {
         return
       }
 
+      // Janela opcional em dias (ex.: 30 = só o último mês). Ausente/inválido = máximo que der.
+      const maxDaysRaw = Number(req.body?.maxDays)
+      const maxDays = Number.isFinite(maxDaysRaw) && maxDaysRaw > 0 ? Math.floor(maxDaysRaw) : undefined
+
       const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
       if (!(await contactRef.get()).exists) {
         res.status(404).json({ error: 'contact not found' })
@@ -212,7 +216,7 @@ export function createHttpServer(): Express {
       }
 
       try {
-        await startHistoryImport(uid, contactId)
+        await startHistoryImport(uid, contactId, maxDays)
         res.json({ ok: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'history_failed'
@@ -228,6 +232,35 @@ export function createHttpServer(): Express {
         }
         logger.error({ err, uid, contactId }, 'recuperação de histórico falhou')
         res.status(500).json({ error: 'Falha ao recuperar histórico.' })
+      }
+    }),
+  )
+
+  // Expurgo total de um contato (keepContact=true limpa só a conversa, mantendo o cadastro).
+  // Marca o expurgo para que replays de mensagens antigas não ressuscitem a conversa.
+  app.post(
+    '/contact/purge',
+    requireUid,
+    asyncH(async (req, res) => {
+      const uid = req.uid!
+      const contactId = String(req.body?.contactId ?? '').trim()
+      if (!contactId) {
+        res.status(400).json({ error: 'contactId required' })
+        return
+      }
+      const keepContact = req.body?.keepContact === true
+
+      try {
+        await purgeContact(uid, contactId, keepContact)
+        res.json({ ok: true })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'purge_failed'
+        if (msg === 'contact_not_found') {
+          res.status(404).json({ error: 'contact not found' })
+          return
+        }
+        logger.error({ err, uid, contactId }, 'expurgo de contato falhou')
+        res.status(500).json({ error: 'Falha ao apagar os dados do contato.' })
       }
     }),
   )

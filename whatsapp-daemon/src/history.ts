@@ -26,6 +26,10 @@ interface InFlight {
   oldestTsMs: number
   /** total de mensagens deste chat vistas nas respostas on-demand. */
   imported: number
+  /** limite da janela pedida (ms epoch): não ingere nem pagina além dele. 0 = sem janela. */
+  cutoffTsMs: number
+  /** timer de expiração: se o WhatsApp não responder a tempo, marca 'error' e limpa o inFlight. */
+  timer?: NodeJS.Timeout
 }
 
 /** Importações em andamento, chave `${uid}:${chatJid}`. Efêmero (daemon é instância única). */
@@ -81,14 +85,44 @@ async function setStatus(
 }
 
 /**
+ * (Re)arma o timer de expiração do import. Se a resposta ON_DEMAND não chega em
+ * `config.historyResponseTimeoutMs`, marca o contato como 'error' e libera o inFlight —
+ * evita o spinner eterno quando o WhatsApp simplesmente não responde ao pedido.
+ */
+function armTimeout(uid: string, state: InFlight): void {
+  if (state.timer) clearTimeout(state.timer)
+  const mapKey = mapKeyOf(uid, state.chatJid)
+  state.timer = setTimeout(() => {
+    // Só age se esta entrada ainda for a corrente (não foi substituída/concluída no meio-tempo).
+    if (inFlight.get(mapKey) !== state) return
+    inFlight.delete(mapKey)
+    logger.warn({ uid, contactId: state.contactId, imported: state.imported }, 'histórico expirou sem resposta do WhatsApp')
+    setStatus(uid, state.contactId, { status: 'error', imported: state.imported, error: 'history_timeout' }).catch((err) =>
+      logger.error({ err, uid, contactId: state.contactId }, 'falha ao marcar timeout de histórico'),
+    )
+  }, config.historyResponseTimeoutMs)
+  state.timer.unref()
+}
+
+/**
  * Inicia a recuperação de histórico on-demand de um contato: ancora na mensagem mais
  * antiga já espelhada e pede as anteriores ao WhatsApp. As respostas chegam assíncronas
  * em `onHistorySet`, que auto-pagina até esgotar/atingir o teto.
+ * `maxDays` limita a janela (só mensagens dos últimos N dias); omitido = máximo que der.
  * Lança `no_anchor` (sem mensagem para ancorar) ou `whatsapp_not_connected`.
  */
-export async function startHistoryImport(uid: string, contactId: string): Promise<void> {
+export async function startHistoryImport(uid: string, contactId: string, maxDays?: number): Promise<void> {
   const anchor = await oldestStoredAnchor(uid, contactId)
   if (!anchor) throw new Error('no_anchor')
+
+  const cutoffTsMs = maxDays && maxDays > 0 ? Date.now() - maxDays * 86_400_000 : 0
+
+  // A mensagem mais antiga já espelhada é anterior à janela pedida → nada novo a buscar.
+  if (cutoffTsMs > 0 && anchor.tsMs <= cutoffTsMs) {
+    await setStatus(uid, contactId, { status: 'done', imported: 0 })
+    logger.info({ uid, contactId, maxDays }, 'histórico já cobre a janela pedida — nada a buscar')
+    return
+  }
 
   const chatJid = anchor.key.remoteJid!
   const mapKey = mapKeyOf(uid, chatJid)
@@ -101,6 +135,7 @@ export async function startHistoryImport(uid: string, contactId: string): Promis
     pagesLeft: config.historyMaxPages,
     oldestTsMs: anchor.tsMs,
     imported: 0,
+    cutoffTsMs,
   }
   inFlight.set(mapKey, state)
 
@@ -112,6 +147,7 @@ export async function startHistoryImport(uid: string, contactId: string): Promis
   }
 
   await setStatus(uid, contactId, { status: 'loading', imported: 0 })
+  armTimeout(uid, state)
   logger.info({ uid, contactId, chatJid }, 'importação de histórico iniciada')
 }
 
@@ -140,12 +176,19 @@ export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: 
   if (ev.syncType !== ON_DEMAND) return
 
   const messages = (ev.messages ?? []) as WAMessage[]
-  if (messages.length) await ingestHistoryMessages(uid, messages, mediaCtx)
 
+  // Casa o import ANTES de ingerir: com janela por dias, só ingerimos o que está dentro dela.
   const found = findInFlight(uid, ev, messages)
-  if (!found) return
+  if (!found) {
+    // Sem import correspondente (ex.: expirou) — ingere mesmo assim, as mensagens já vieram.
+    if (messages.length) await ingestHistoryMessages(uid, messages, mediaCtx)
+    return
+  }
   const { state, viaSession } = found
   const mapKey = mapKeyOf(uid, state.chatJid)
+
+  // Chegou resposta → desarma o timer de expiração (re-armado abaixo se houver nova página).
+  if (state.timer) clearTimeout(state.timer)
 
   // Respostas on-demand são por-requisição: casadas por sessionId, todo o lote é desta
   // conversa; no fallback por chatJid, filtramos.
@@ -153,10 +196,17 @@ export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: 
   const batchOldest = chatMsgs.length ? Math.min(...chatMsgs.map(tsMsOf)) : null
   const gotOlder = batchOldest != null && batchOldest < state.oldestTsMs
 
-  state.imported += chatMsgs.length
+  // Janela por dias: descarta o que veio além do corte (o lote pode atravessar a borda).
+  const toIngest = state.cutoffTsMs > 0 ? messages.filter((m) => tsMsOf(m) >= state.cutoffTsMs) : messages
+  if (toIngest.length) await ingestHistoryMessages(uid, toIngest, mediaCtx)
+
+  const ingestedChatMsgs = state.cutoffTsMs > 0 ? chatMsgs.filter((m) => tsMsOf(m) >= state.cutoffTsMs) : chatMsgs
+  state.imported += ingestedChatMsgs.length
   state.pagesLeft -= 1
 
-  const complete = ev.progress === 100 || ev.isLatest === true || !gotOlder || state.pagesLeft <= 0
+  // Parou de vir mensagem mais antiga, atingiu o teto, ou o lote já cruzou a borda da janela.
+  const reachedCutoff = state.cutoffTsMs > 0 && batchOldest != null && batchOldest <= state.cutoffTsMs
+  const complete = ev.progress === 100 || ev.isLatest === true || !gotOlder || state.pagesLeft <= 0 || reachedCutoff
 
   if (complete) {
     inFlight.delete(mapKey)
@@ -174,6 +224,7 @@ export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: 
   try {
     state.sessionId = await requestMessageHistory(uid, config.historyPageSize, anchorMsg.key, state.oldestTsMs)
     await setStatus(uid, state.contactId, { status: 'loading', imported: state.imported })
+    armTimeout(uid, state) // re-arma: aguarda a próxima página não travar
   } catch (err) {
     inFlight.delete(mapKey)
     await setStatus(uid, state.contactId, { status: 'error', imported: state.imported, error: errCode(err) })

@@ -7,6 +7,9 @@ export function daemonConfigured(): boolean {
   return !!DAEMON_URL
 }
 
+/** Teto (ms) para uma chamada ao daemon — evita ficar preso num spinner se o HTTP não responder. */
+const DAEMON_TIMEOUT_MS = 20_000
+
 /** Chama um endpoint autenticado do daemon com o Firebase ID token do usuário. */
 async function daemonFetch(path: string, body?: unknown): Promise<Record<string, unknown>> {
   if (!DAEMON_URL) {
@@ -16,11 +19,24 @@ async function daemonFetch(path: string, body?: unknown): Promise<Record<string,
   if (!user) throw new Error('Sem usuário autenticado.')
   const token = await user.getIdToken()
 
-  const res = await fetch(`${DAEMON_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), DAEMON_TIMEOUT_MS)
+  let res: Response
+  try {
+    res = await fetch(`${DAEMON_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('O serviço de WhatsApp demorou a responder. Tente novamente.')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
   if (!res.ok) {
     throw new Error((data.error as string) || `Falha na chamada ao daemon (${res.status})`)
@@ -50,14 +66,23 @@ export function sendWhatsappMessage(contactId: string, text: string): Promise<Re
 
 /**
  * Dispara a recuperação do histórico antigo de um contato (on-demand, auto-paginado).
+ * `maxDays` limita a janela (só os últimos N dias); omitido = máximo que der.
  * Retorna assim que o pedido é aceito — as mensagens chegam de forma assíncrona e
  * aparecem ao vivo pela conversa; o progresso é acompanhado por contact.historyImport.
  */
-export function fetchWhatsappHistory(contactId: string): Promise<Record<string, unknown>> {
-  return daemonFetch('/history/fetch', { contactId })
+export function fetchWhatsappHistory(contactId: string, maxDays?: number): Promise<Record<string, unknown>> {
+  return daemonFetch('/history/fetch', { contactId, ...(maxDays ? { maxDays } : {}) })
 }
 
 /** Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM. */
 export function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
   return daemonFetch('/contact/photo/refresh', { contactId })
+}
+
+/**
+ * Expurgo TOTAL de um contato via daemon (Firestore recursivo + Storage por prefixo +
+ * marcador anti-replay). `keepContact=true` limpa só a conversa, mantendo o cadastro.
+ */
+export function purgeWhatsappContact(contactId: string, keepContact = false): Promise<Record<string, unknown>> {
+  return daemonFetch('/contact/purge', { contactId, keepContact })
 }

@@ -20,6 +20,7 @@ import {
 import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
+import { isPurgedAt } from './purgeMarkers.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -97,6 +98,17 @@ function numberFromLongish(v: unknown): number | undefined {
 
 /** Cache em memória: `${uid}:${phone}` -> contactId (evita lookups repetidos). */
 const contactCache = new Map<string, string>()
+
+/**
+ * Remove do cache toda entrada deste uid apontando para o contato — usado pelo expurgo,
+ * senão a próxima mensagem gravaria no doc apagado sem passar pelo resolveContact.
+ */
+export function evictContactCache(uid: string, contactId: string): void {
+  const prefix = `${uid}:`
+  for (const [key, id] of contactCache) {
+    if (key.startsWith(prefix) && id === contactId) contactCache.delete(key)
+  }
+}
 
 type ContactDoc = QueryDocumentSnapshot<DocumentData>
 
@@ -505,6 +517,15 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   if (!peer) return
   const content = extractContent(m.message)
   if (!content) return
+
+  // Conversa expurgada: replay/append de mensagem anterior ao expurgo não ressuscita nada.
+  // A recuperação de histórico explícita (importedFromHistory) ignora o marcador — é pedido
+  // consciente do usuário. Mensagem NOVA (timestamp > expurgo) passa e recria o contato.
+  if (!opts?.importedFromHistory) {
+    const digitsKey = peer.phone ?? `lid:${peer.jid.split('@')[0]}`
+    const msgTsMs = Number(m.messageTimestamp ?? 0) * 1000
+    if (msgTsMs > 0 && (await isPurgedAt(uid, digitsKey, msgTsMs))) return
+  }
 
   const contactId = await resolveContact(uid, peer, m.pushName, !!m.key.fromMe, mediaCtx?.fetchProfilePhoto)
 
