@@ -56,7 +56,12 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ## Restrições duras (não-negociáveis)
 
-- **`syncFullHistory: false`** — só espelha dali pra frente no fluxo normal (não puxa histórico).
+- **`syncFullHistory: false`** — não pede o histórico completo ao WhatsApp. O snapshot de
+  conversas RECENTES que o celular envia sozinho no pareamento (`messaging-history.set`
+  com `INITIAL_BOOTSTRAP`/`RECENT`) É ingerido — a aba Contatos já nasce populada com as
+  conversas recentes e seus contatos auto-criados. Esse sync automático respeita os
+  marcadores de expurgo (`waPurges`): conversa apagada não ressuscita ao re-parear.
+  Histórico mais antigo continua só via recuperação on-demand por contato.
 - **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth →
   o WhatsApp desloga os dois. Por isso `max-instances=1`.
 - **Cloud Run:** `min-instances=1`, `max-instances=1` e **CPU sempre alocada**
@@ -107,11 +112,18 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ## Histórico antigo
 
-Histórico antigo permanece separado e desligado por padrão. Qualquer importação futura deve ser
-manual/experimental, com limite de 50 mensagens por chamada, baseada em âncora local conhecida e
-processando `messaging.history-set`, sem promessa de importar toda a conversa nem mídia antiga. O
-modal de WhatsApp exibe essa opção como experimental/desabilitada para não parecer que o recurso
-está ativo no v1.
+Dois caminhos distintos, ambos por `messaging-history.set` (`history.ts`):
+
+- **Snapshot inicial (automático):** ao parear pelo QR, o celular envia as conversas
+  recentes (`INITIAL_BOOTSTRAP`/`RECENT`). O daemon ingere tudo com
+  `importedFromHistory: true` + `respectPurgeMarkers: true` — cria os contatos que
+  faltarem e preenche o preview (`lastMessage`/`lastMessageAt`) só quando a mensagem é
+  mais recente que o preview atual (`updatePreviewIfNewer` em `messages.ts`), porque o
+  histórico chega fora de ordem.
+- **Recuperação on-demand (manual, por contato):** paginada para trás a partir da mensagem
+  mais antiga espelhada (âncora), com teto de páginas e janela opcional em dias. Ignora
+  marcadores de expurgo de propósito — é pedido explícito do usuário. Não atualiza o
+  preview para mensagens mais antigas que o atual.
 
 ## Feature-flag (subir "no escuro")
 

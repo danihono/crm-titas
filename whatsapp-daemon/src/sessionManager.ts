@@ -107,7 +107,7 @@ export async function startSession(uid: string): Promise<void> {
     },
     logger: waLogger,
     browser: ['Titas CRM', 'Chrome', '1.0.0'],
-    syncFullHistory: false, // RESTRIÇÃO DURA: só espelha dali pra frente
+    syncFullHistory: false, // não pede histórico COMPLETO; o snapshot recente do pareamento é ingerido (history.ts)
     // NÃO usar shouldSyncHistoryMessage:()=>false no v7 — desliga o sync inicial de LID
     // mappings e causa instabilidade/erros de sessão (aviso explícito do Baileys v7).
     markOnlineOnConnect: false, // espelho passivo: não mexe na presença do usuário

@@ -12,6 +12,18 @@ import { requestMessageHistory } from './sessionManager.js'
 
 const ON_DEMAND = proto.HistorySync.HistorySyncType.ON_DEMAND
 
+/**
+ * Syncs automáticos que o WhatsApp envia ao parear o dispositivo (QR): snapshot das
+ * conversas recentes (e FULL, caso `syncFullHistory` um dia seja ligado). São ingeridos
+ * para a aba Contatos já nascer populada — sem isso, quem conecta o celular vê a lista
+ * vazia até alguém mandar mensagem NOVA.
+ */
+const INITIAL_SYNC_TYPES = new Set<proto.HistorySync.HistorySyncType>([
+  proto.HistorySync.HistorySyncType.INITIAL_BOOTSTRAP,
+  proto.HistorySync.HistorySyncType.RECENT,
+  proto.HistorySync.HistorySyncType.FULL,
+])
+
 type HistorySetEvent = BaileysEventMap['messaging-history.set']
 
 interface InFlight {
@@ -168,12 +180,26 @@ function findInFlight(uid: string, ev: HistorySetEvent, messages: WAMessage[]): 
 }
 
 /**
- * Handler de `messaging-history.set`. Só age sobre respostas ON_DEMAND (recuperação
- * explícita pedida pelo usuário) — ignora qualquer sync automático, preservando a
- * garantia "forward-only por padrão". Ingere o lote e auto-pagina para trás.
+ * Handler de `messaging-history.set`. Dois papéis:
+ * - Sync automático do pareamento (INITIAL_BOOTSTRAP/RECENT/FULL): ingere o snapshot de
+ *   conversas recentes respeitando marcadores de expurgo.
+ * - Respostas ON_DEMAND (recuperação explícita pedida pelo usuário): ingere o lote e
+ *   auto-pagina para trás.
  */
 export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: MediaDownloadContext): Promise<void> {
-  if (ev.syncType !== ON_DEMAND) return
+  if (ev.syncType !== ON_DEMAND) {
+    // Snapshot inicial do pareamento: ingere as conversas recentes que o WhatsApp mandou,
+    // respeitando marcadores de expurgo (sync automático não ressuscita conversa apagada).
+    // Sem correlação com inFlight/historyImport — isso é só do fluxo on-demand por contato.
+    if (ev.syncType != null && INITIAL_SYNC_TYPES.has(ev.syncType)) {
+      const initialMsgs = (ev.messages ?? []) as WAMessage[]
+      if (initialMsgs.length) {
+        logger.info({ uid, count: initialMsgs.length, syncType: ev.syncType }, 'ingerindo snapshot inicial de conversas')
+        await ingestHistoryMessages(uid, initialMsgs, mediaCtx, { respectPurgeMarkers: true })
+      }
+    }
+    return
+  }
 
   const messages = (ev.messages ?? []) as WAMessage[]
 
