@@ -21,6 +21,7 @@ import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
+import { touchMirrorWatermark } from './watermark.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -108,29 +109,6 @@ export function evictContactCache(uid: string, contactId: string): void {
   for (const [key, id] of contactCache) {
     if (key.startsWith(prefix) && id === contactId) contactCache.delete(key)
   }
-  previewCache.delete(`${uid}:${contactId}`)
-}
-
-/** Cache em memória `${uid}:${contactId}` -> lastMessageAt (ms) mais recente conhecido. */
-const previewCache = new Map<string, number>()
-
-/**
- * Atualiza o preview (lastMessage/lastMessageAt) do contato SÓ se a mensagem for mais
- * recente que o preview atual — mensagens de histórico chegam fora de ordem e não podem
- * regredir a lista de contatos para uma conversa antiga.
- */
-async function updatePreviewIfNewer(uid: string, contactId: string, text: string, sentAt: Timestamp): Promise<void> {
-  const key = `${uid}:${contactId}`
-  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
-  let currentMs = previewCache.get(key)
-  if (currentMs === undefined) {
-    const at = (await contactRef.get()).get('lastMessageAt')
-    currentMs = at instanceof Timestamp ? at.toMillis() : 0
-    previewCache.set(key, currentMs)
-  }
-  if (sentAt.toMillis() <= currentMs) return
-  previewCache.set(key, sentAt.toMillis())
-  await contactRef.set({ lastMessage: text, lastMessageAt: sentAt }, { merge: true })
 }
 
 type ContactDoc = QueryDocumentSnapshot<DocumentData>
@@ -455,8 +433,8 @@ async function resolveContact(
       source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
       lastMessage: '',
       // lastMessageAt fica de fora de propósito: quem preenche é a própria mensagem
-      // (ingestOne/updatePreviewIfNewer). Um serverTimestamp aqui faria mensagens de
-      // histórico (mais antigas que "agora") nunca ganharem a comparação do preview.
+      // (ingestOne ao vivo / refreshContactPreview no histórico). Um serverTimestamp aqui
+      // mostraria hora errada na lista até a primeira mensagem ser gravada.
       createdAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
@@ -541,8 +519,9 @@ type IngestOptions = {
   respectPurgeMarkers?: boolean
 }
 
-/** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente). */
-async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<void> {
+/** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente).
+ *  Retorna o contactId afetado (ou undefined quando a mensagem foi descartada). */
+async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<string | undefined> {
   if (!m.message || !m.key?.id) return
   const peer = resolvePeer(m.key)
   if (!peer) return
@@ -602,7 +581,7 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     contactRef,
     {
       // Fluxo ao vivo: a mensagem que chegou É a mais recente → preview direto.
-      // Histórico chega fora de ordem → preview condicional (updatePreviewIfNewer) abaixo.
+      // Histórico chega fora de ordem → o chamador recomputa via refreshContactPreview.
       ...(opts?.importedFromHistory ? {} : { lastMessage: content.text, lastMessageAt: sentAt }),
       waJid: peer.jid,
       ...(peer.phone ? { whatsappDigits: peer.phone } : {}),
@@ -610,12 +589,7 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     { merge: true },
   )
   await batch.commit()
-
-  if (opts?.importedFromHistory) {
-    await updatePreviewIfNewer(uid, contactId, content.text, sentAt)
-  } else {
-    previewCache.set(`${uid}:${contactId}`, sentAt.toMillis())
-  }
+  return contactId
 }
 
 export async function saveOutgoingTextMessage(
@@ -649,7 +623,6 @@ export async function saveOutgoingTextMessage(
   )
   batch.set(contactRef, { lastMessage: text, lastMessageAt: sentAt, waJid: remoteJid }, { merge: true })
   await batch.commit()
-  previewCache.set(`${uid}:${contactId}`, sentAt.toMillis())
 }
 
 /**
@@ -663,14 +636,51 @@ export async function ingestHistoryMessages(
   messages: WAMessage[],
   mediaCtx?: MediaDownloadContext,
   opts?: Pick<IngestOptions, 'respectPurgeMarkers'>,
-): Promise<void> {
+): Promise<Set<string>> {
+  const touched = new Set<string>()
   for (const m of messages) {
     try {
-      await ingestOne(uid, m, mediaCtx, { importedFromHistory: true, ...opts })
+      const contactId = await ingestOne(uid, m, mediaCtx, { importedFromHistory: true, ...opts })
+      if (contactId) touched.add(contactId)
     } catch (err) {
       logger.error({ err, uid }, 'falha ao ingerir mensagem de histórico') // sem m.message
     }
   }
+  return touched
+}
+
+/**
+ * Ingere mensagens do gap-fill (buraco entre desvincular e reconectar com QR novo).
+ * Semântica de mensagem VIVA: sem `importedFromHistory`, então respeita purge markers e
+ * atualiza o preview do contato. Retorna os contactIds afetados para o recompute de preview.
+ * NUNCA loga conteúdo.
+ */
+export async function ingestGapMessages(uid: string, messages: WAMessage[], mediaCtx?: MediaDownloadContext): Promise<Set<string>> {
+  const touched = new Set<string>()
+  for (const m of messages) {
+    try {
+      const contactId = await ingestOne(uid, m, mediaCtx)
+      if (contactId) touched.add(contactId)
+    } catch (err) {
+      logger.error({ err, uid }, 'falha ao ingerir mensagem de gap-fill') // sem m.message
+    }
+  }
+  return touched
+}
+
+/**
+ * Recomputa o preview (lastMessage/lastMessageAt) a partir da mensagem mais nova gravada.
+ * Necessário após o gap-fill: os lotes do sync inicial podem chegar fora de ordem, e o
+ * último `ingestOne` a rodar não é necessariamente a mensagem mais recente.
+ */
+export async function refreshContactPreview(uid: string, contactId: string): Promise<void> {
+  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+  const newest = await contactRef.collection('messages').orderBy('sentAt', 'desc').limit(1).get()
+  const doc = newest.docs[0]
+  if (!doc) return
+  const sentAt = doc.get('sentAt')
+  if (!(sentAt instanceof Timestamp)) return
+  await contactRef.set({ lastMessage: String(doc.get('text') ?? ''), lastMessageAt: sentAt }, { merge: true })
 }
 
 export interface HistoryAnchor {
@@ -725,4 +735,6 @@ export async function ingestMessages(uid: string, ev: MessagesUpsert, mediaCtx?:
       logger.error({ err, uid }, 'falha ao ingerir mensagem') // sem m.message
     }
   }
+  // Espelho vivo até aqui — avança o watermark do gap-fill (throttled).
+  await touchMirrorWatermark(uid)
 }

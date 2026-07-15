@@ -14,10 +14,12 @@ import QRCode from 'qrcode'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
+import { config } from './config.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
 import { ingestMessages } from './messages.js'
-import { onHistorySet } from './history.js'
+import { onHistorySet, type GapFillState } from './history.js'
+import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
 
 interface Session {
   sock: WASocket
@@ -25,6 +27,13 @@ interface Session {
   clearAuth: () => Promise<void>
   /** true quando o encerramento é intencional (SIGTERM / stopSession 'end') — não reconecta. */
   closing: boolean
+  /** true depois do primeiro 'open' — só então o watermark pode avançar no fechamento. */
+  wasOpen: boolean
+  /**
+   * Snapshot do watermark no início da sessão (objeto mutável compartilhado com o gap-fill).
+   * `sinceMs: null` = sem gap-fill (nunca espelhou, ou a janela pós-conexão expirou).
+   */
+  gapFill: GapFillState
 }
 
 /** Registro em memória das conexões vivas. Efêmero — reconstruído no boot. */
@@ -92,6 +101,10 @@ export async function startSession(uid: string): Promise<void> {
 
   const { state, saveCreds, clearAuth } = await useFirestoreAuthState(db, uid)
 
+  // Snapshot do watermark ANTES de abrir o socket: mensagens ao vivo pós-conexão avançam o
+  // watermark persistido e esconderiam o buraco — o gap-fill filtra por este valor congelado.
+  const gapFillSinceMs = await readMirrorWatermarkMs(uid)
+
   let version: WAVersion | undefined
   try {
     ;({ version } = await fetchLatestBaileysVersion())
@@ -116,7 +129,16 @@ export async function startSession(uid: string): Promise<void> {
     // printQRInTerminal OMITIDO de propósito (deprecado no v7) — QR vai pro Firestore.
   })
 
-  const session: Session = { sock, saveCreds, clearAuth, closing: false }
+  const session: Session = {
+    sock,
+    saveCreds,
+    clearAuth,
+    closing: false,
+    wasOpen: false,
+    // Sem watermark = espelho nunca viu nada → o sync inicial do pareamento é ingerido
+    // inteiro (snapshot de conversas recentes); com watermark, só o gap-fill filtrado.
+    gapFill: { sinceMs: gapFillSinceMs, initialSnapshot: gapFillSinceMs == null },
+  }
   sessions.set(uid, session)
 
   sock.ev.on('creds.update', saveCreds)
@@ -135,7 +157,7 @@ export async function startSession(uid: string): Promise<void> {
     )
   })
   sock.ev.on('messaging-history.set', (ev) => {
-    onHistorySet(uid, ev, mediaCtx).catch((err) =>
+    onHistorySet(uid, ev, mediaCtx, session.gapFill).catch((err) =>
       logger.error({ err, uid }, 'handler messaging-history.set falhou'),
     )
   })
@@ -164,6 +186,17 @@ async function onConnectionUpdate(uid: string, u: Partial<ConnectionState>): Pro
 
   if (connection === 'open') {
     backoff.delete(uid)
+    s.wasOpen = true
+    // Janela pós-conexão (gap-fill/snapshot inicial): o sync inicial chega logo após o
+    // vínculo. Expirada a janela, qualquer messaging-history.set automático volta a ser
+    // ignorado (forward-only).
+    if (s.gapFill.sinceMs != null || s.gapFill.initialSnapshot) {
+      const gapFill = s.gapFill
+      setTimeout(() => {
+        gapFill.sinceMs = null
+        gapFill.initialSnapshot = false
+      }, config.gapFillWindowMs).unref()
+    }
     const phone = jidNormalizedUser(s.sock.user?.id ?? '').split('@')[0] || null
     await writeStatus(db, uid, {
       status: 'connected',
@@ -183,6 +216,11 @@ async function onConnectionUpdate(uid: string, u: Partial<ConnectionState>): Pro
     const code = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode
     const wasClosing = s.closing
     sessions.delete(uid)
+
+    // O espelho estava vivo até agora → persiste o watermark que delimita um gap-fill futuro.
+    // Só quando a conexão chegou a abrir: um close durante o pareamento (ex.: 515 pós-QR)
+    // não espelhou nada, e gravar aqui esconderia o buraco antes do gap-fill rodar.
+    if (s.wasOpen) await touchMirrorWatermark(uid, { force: true })
 
     if (code === DisconnectReason.loggedOut) {
       // 401: dispositivo desvinculado no celular. Sessão MORREU.
@@ -232,6 +270,10 @@ export async function stopSession(uid: string, mode: 'end' | 'logout'): Promise<
   backoff.delete(uid)
   sessions.delete(uid)
 
+  // O handler de 'close' não roda mais para esta sessão (já saiu do Map) — grava o
+  // watermark aqui: espelhava até este instante, e é ele que delimita o gap-fill futuro.
+  if (s.wasOpen) await touchMirrorWatermark(uid, { force: true })
+
   if (mode === 'logout') {
     await s.sock.logout().catch(() => {})
     await s.clearAuth()
@@ -247,8 +289,10 @@ export async function stopSession(uid: string, mode: 'end' | 'logout'): Promise<
 
 /** SIGTERM: fecha todos os sockets SEM deslogar (mantém os devices vinculados). */
 export function endAllSessions(): void {
-  for (const s of sessions.values()) {
+  for (const [uid, s] of sessions) {
     s.closing = true
+    // Best-effort: o shutdown dá ~2s de graça para os writes em voo concluírem.
+    if (s.wasOpen) void touchMirrorWatermark(uid, { force: true })
     try {
       s.sock.end(undefined)
     } catch {

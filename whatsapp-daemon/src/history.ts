@@ -4,8 +4,10 @@ import { db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
 import {
+  ingestGapMessages,
   ingestHistoryMessages,
   oldestStoredAnchor,
+  refreshContactPreview,
   type MediaDownloadContext,
 } from './messages.js'
 import { requestMessageHistory } from './sessionManager.js'
@@ -25,6 +27,22 @@ const INITIAL_SYNC_TYPES = new Set<proto.HistorySync.HistorySyncType>([
 ])
 
 type HistorySetEvent = BaileysEventMap['messaging-history.set']
+
+/**
+ * Estado mutável do gap-fill de uma sessão (compartilhado com o sessionManager).
+ * `sinceMs` = watermark congelado no início da sessão: só mensagens MAIS NOVAS que ele
+ * são ingeridas do sync inicial. `null` desliga o gap-fill (nunca espelhou / janela expirou).
+ */
+export interface GapFillState {
+  sinceMs: number | null
+  /**
+   * true = o espelho nunca viu nada deste uid (sem watermark no início da sessão) →
+   * o sync inicial do pareamento é ingerido INTEIRO (snapshot de conversas recentes).
+   * Zerado junto com `sinceMs` quando a janela pós-conexão expira: um history-set
+   * automático atrasado não pode disparar importação.
+   */
+  initialSnapshot: boolean
+}
 
 interface InFlight {
   contactId: string
@@ -180,23 +198,88 @@ function findInFlight(uid: string, ev: HistorySetEvent, messages: WAMessage[]): 
 }
 
 /**
- * Handler de `messaging-history.set`. Dois papéis:
- * - Sync automático do pareamento (INITIAL_BOOTSTRAP/RECENT/FULL): ingere o snapshot de
- *   conversas recentes respeitando marcadores de expurgo.
- * - Respostas ON_DEMAND (recuperação explícita pedida pelo usuário): ingere o lote e
- *   auto-pagina para trás.
+ * Gap-fill: aproveita o sync inicial que o WhatsApp envia sozinho após um vínculo novo
+ * (QR novo) para preencher o buraco de mensagens do período desconectado. Só ingere
+ * mensagens MAIS NOVAS que o watermark congelado no início da sessão — nunca histórico
+ * anterior à vida do espelho (a restrição forward-only vale relativa ao espelho).
+ * Semântica de mensagem viva (respeita purge markers, dedup idempotente por doc-id).
  */
-export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: MediaDownloadContext): Promise<void> {
+async function gapFillFromInitialSync(
+  uid: string,
+  ev: HistorySetEvent,
+  mediaCtx: MediaDownloadContext | undefined,
+  gapFill: GapFillState | undefined,
+): Promise<void> {
+  if (!gapFill || gapFill.sinceMs == null) return
+  const sinceMs = gapFill.sinceMs
+
+  const messages = (ev.messages ?? []) as WAMessage[]
+  const inGap = messages.filter((m) => tsMsOf(m) > sinceMs)
+  if (!inGap.length) return
+
+  // Ordem ascendente: o último ingest do lote deixa o preview na mensagem mais nova dele.
+  inGap.sort((a, b) => tsMsOf(a) - tsMsOf(b))
+  const touched = await ingestGapMessages(uid, inGap, mediaCtx)
+
+  // Lotes do sync inicial podem chegar fora de ordem entre si → recomputa o preview
+  // dos contatos afetados a partir da mensagem realmente mais recente gravada.
+  for (const contactId of touched) {
+    try {
+      await refreshContactPreview(uid, contactId)
+    } catch (err) {
+      logger.warn({ err, uid, contactId }, 'gap-fill: falha ao recomputar preview do contato')
+    }
+  }
+
+  logger.info(
+    { uid, ingested: inGap.length, contacts: touched.size, syncType: ev.syncType },
+    'gap-fill: mensagens do período desconectado importadas',
+  )
+}
+
+/**
+ * Snapshot inicial (SÓ no primeiro pareamento, quando o espelho nunca viu nada): ingere
+ * inteiro o sync de conversas recentes que o WhatsApp envia sozinho após o vínculo — a
+ * aba Contatos já nasce populada com quem mandou mensagem, sem exigir cadastro manual.
+ * Respeita marcadores de expurgo (sync automático não ressuscita conversa apagada) e é
+ * idempotente (dedup por doc-id). Histórico mais antigo continua só via on-demand.
+ */
+async function ingestInitialSnapshot(uid: string, ev: HistorySetEvent, mediaCtx: MediaDownloadContext | undefined): Promise<void> {
+  const messages = (ev.messages ?? []) as WAMessage[]
+  if (!messages.length) return
+
+  logger.info({ uid, count: messages.length, syncType: ev.syncType }, 'ingerindo snapshot inicial de conversas')
+  const touched = await ingestHistoryMessages(uid, messages, mediaCtx, { respectPurgeMarkers: true })
+
+  // Mensagens de histórico não atualizam preview inline (chegam fora de ordem) →
+  // recomputa o preview dos contatos afetados a partir da mensagem mais recente gravada.
+  for (const contactId of touched) {
+    try {
+      await refreshContactPreview(uid, contactId)
+    } catch (err) {
+      logger.warn({ err, uid, contactId }, 'snapshot inicial: falha ao recomputar preview do contato')
+    }
+  }
+}
+
+/**
+ * Handler de `messaging-history.set`.
+ * - ON_DEMAND: recuperação explícita pedida pelo usuário — ingere o lote e auto-pagina.
+ * - Demais syncTypes (sync inicial pós-vínculo): primeiro pareamento (nunca espelhou) →
+ *   ingere o snapshot de conversas recentes inteiro; re-vínculo → só o gap-fill filtrado
+ *   por watermark. Fora da janela pós-conexão, syncs automáticos voltam a ser ignorados.
+ */
+export async function onHistorySet(
+  uid: string,
+  ev: HistorySetEvent,
+  mediaCtx?: MediaDownloadContext,
+  gapFill?: GapFillState,
+): Promise<void> {
   if (ev.syncType !== ON_DEMAND) {
-    // Snapshot inicial do pareamento: ingere as conversas recentes que o WhatsApp mandou,
-    // respeitando marcadores de expurgo (sync automático não ressuscita conversa apagada).
-    // Sem correlação com inFlight/historyImport — isso é só do fluxo on-demand por contato.
-    if (ev.syncType != null && INITIAL_SYNC_TYPES.has(ev.syncType)) {
-      const initialMsgs = (ev.messages ?? []) as WAMessage[]
-      if (initialMsgs.length) {
-        logger.info({ uid, count: initialMsgs.length, syncType: ev.syncType }, 'ingerindo snapshot inicial de conversas')
-        await ingestHistoryMessages(uid, initialMsgs, mediaCtx, { respectPurgeMarkers: true })
-      }
+    if (gapFill?.initialSnapshot && ev.syncType != null && INITIAL_SYNC_TYPES.has(ev.syncType)) {
+      await ingestInitialSnapshot(uid, ev, mediaCtx)
+    } else {
+      await gapFillFromInitialSync(uid, ev, mediaCtx, gapFill)
     }
     return
   }

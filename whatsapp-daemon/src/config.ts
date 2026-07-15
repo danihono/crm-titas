@@ -30,6 +30,10 @@ export const config = {
   /** Tempo máx. (ms) esperando a resposta ON_DEMAND do WhatsApp antes de marcar erro. */
   historyResponseTimeoutMs: Number(process.env.WA_HISTORY_RESPONSE_TIMEOUT_MS ?? 45000),
 
+  /** Janela (ms) pós-conexão em que o sync inicial do WhatsApp pode preencher o buraco
+   *  de mensagens do período desconectado (gap-fill). Depois disso, volta a ser ignorado. */
+  gapFillWindowMs: Number(process.env.WA_GAP_FILL_WINDOW_MS ?? 300_000),
+
   /** Bucket do Firebase Storage usado para anexos de WhatsApp. */
   storageBucket:
     process.env.FIREBASE_STORAGE_BUCKET ??
