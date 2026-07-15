@@ -49,6 +49,74 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   background-color: #07050b !important;  /* base preta (sobrepõe dark:bg-zinc-900) */
 }
 
+/* ── Anel roxo giratório — indicador da aba ativa da sidebar ───────────────
+   4 camadas: glow difuso atrás, contêiner de clip, conic-gradient girando
+   (dominante roxo + 2 hotspots brancos estreitos com franjas rosa/azul) e
+   placa interna com inset de 2px que deixa só a borda do anel visível. */
+@keyframes nav-ring-spin {
+  from { transform: translate(-50%, -50%) rotate(0turn); }
+  to   { transform: translate(-50%, -50%) rotate(1turn); }
+}
+
+.nav-ring {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  transition: top .55s cubic-bezier(0.34, 1.2, 0.64, 1), height .3s ease;
+}
+.nav-ring__glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 18px;
+  background: #a855f7;
+  filter: blur(16px);
+  opacity: 0.15;
+}
+.nav-ring__clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.nav-ring__spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 220%;
+  aspect-ratio: 1 / 1;
+  animation: nav-ring-spin 4.5s linear infinite;
+  /* Padrão repetido 2x em 360°. ~90% tons de roxo (violeta escuro → roxo
+     vivo → lavanda clara); cada metade tem 1 hotspot branco de ~3% com
+     franjas de ~1,5% de rosa/azul — iridescência mínima, o anel lê ROXO. */
+  background: conic-gradient(
+    from 0deg,
+    #2a1245 0%,
+    #8b5cf6 18%,
+    #e9d8ff 30%,
+    #ffc0cb 33.5%,
+    #ffffff 35%,
+    #ffffff 38%,
+    #c3d3ff 39.5%,
+    #8b5cf6 43%,
+    #2a1245 50%,
+    #8b5cf6 68%,
+    #e9d8ff 80%,
+    #ffc0cb 83.5%,
+    #ffffff 85%,
+    #ffffff 88%,
+    #c3d3ff 89.5%,
+    #8b5cf6 93%,
+    #2a1245 100%
+  );
+}
+.nav-ring__plate {
+  position: absolute;
+  inset: 2px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #261c33, #100b16 70%);
+}
+
 /* Ícones Material Symbols (classe .ms) */
 .ms {
   font-family: 'Material Symbols Rounded';
