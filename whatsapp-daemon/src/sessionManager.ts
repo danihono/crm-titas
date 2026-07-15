@@ -13,8 +13,8 @@ import { Boom } from '@hapi/boom'
 import QRCode from 'qrcode'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db } from './firebase.js'
-import { logger, waLogger } from './logger.js'
 import { config } from './config.js'
+import { logger, waLogger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
 import { ingestMessages } from './messages.js'
@@ -85,11 +85,30 @@ export async function requestMessageHistory(
   return s.sock.fetchMessageHistory(count, oldestMsgKey, oldestMsgTimestampMs)
 }
 
-/** Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato). */
+/**
+ * Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato).
+ * Timeout explícito na query (o default do Baileys é 60s — mais que o front espera). Um
+ * timeout aqui costuma indicar socket "zumbi" (Cloud Run throttled): derruba o socket para
+ * o fluxo de reconexão em onConnectionUpdate reerguê-lo, e sinaliza 'photo_timeout'.
+ */
 export async function fetchProfilePhoto(uid: string, jid: string): Promise<string | undefined> {
   const s = sessions.get(uid)
   if (!s) throw new Error('whatsapp_not_connected')
-  return s.sock.profilePictureUrl(jid, 'image')
+  try {
+    return await s.sock.profilePictureUrl(jid, 'image', config.photoQueryTimeoutMs)
+  } catch (err) {
+    const boom = err as Boom
+    if (boom?.output?.statusCode === DisconnectReason.timedOut) {
+      logger.warn({ uid, jid }, 'timeout na foto de perfil — derrubando socket para reconectar')
+      try {
+        s.sock.end(undefined)
+      } catch {
+        /* ignore */
+      }
+      throw new Error('photo_timeout')
+    }
+    throw err
+  }
 }
 
 /**
@@ -120,7 +139,7 @@ export async function startSession(uid: string): Promise<void> {
     },
     logger: waLogger,
     browser: ['Titas CRM', 'Chrome', '1.0.0'],
-    syncFullHistory: false, // RESTRIÇÃO DURA: só espelha dali pra frente
+    syncFullHistory: false, // não pede histórico COMPLETO; o snapshot recente do pareamento é ingerido (history.ts)
     // NÃO usar shouldSyncHistoryMessage:()=>false no v7 — desliga o sync inicial de LID
     // mappings e causa instabilidade/erros de sessão (aviso explícito do Baileys v7).
     markOnlineOnConnect: false, // espelho passivo: não mexe na presença do usuário
@@ -135,7 +154,9 @@ export async function startSession(uid: string): Promise<void> {
     clearAuth,
     closing: false,
     wasOpen: false,
-    gapFill: { sinceMs: gapFillSinceMs },
+    // Sem watermark = espelho nunca viu nada → o sync inicial do pareamento é ingerido
+    // inteiro (snapshot de conversas recentes); com watermark, só o gap-fill filtrado.
+    gapFill: { sinceMs: gapFillSinceMs, initialSnapshot: gapFillSinceMs == null },
   }
   sessions.set(uid, session)
 
@@ -185,12 +206,14 @@ async function onConnectionUpdate(uid: string, u: Partial<ConnectionState>): Pro
   if (connection === 'open') {
     backoff.delete(uid)
     s.wasOpen = true
-    // Janela de gap-fill: o sync inicial chega logo após o vínculo. Expirada a janela,
-    // qualquer messaging-history.set automático volta a ser ignorado (forward-only).
-    if (s.gapFill.sinceMs != null) {
+    // Janela pós-conexão (gap-fill/snapshot inicial): o sync inicial chega logo após o
+    // vínculo. Expirada a janela, qualquer messaging-history.set automático volta a ser
+    // ignorado (forward-only).
+    if (s.gapFill.sinceMs != null || s.gapFill.initialSnapshot) {
       const gapFill = s.gapFill
       setTimeout(() => {
         gapFill.sinceMs = null
+        gapFill.initialSnapshot = false
       }, config.gapFillWindowMs).unref()
     }
     const phone = jidNormalizedUser(s.sock.user?.id ?? '').split('@')[0] || null

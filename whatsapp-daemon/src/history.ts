@@ -14,6 +14,18 @@ import { requestMessageHistory } from './sessionManager.js'
 
 const ON_DEMAND = proto.HistorySync.HistorySyncType.ON_DEMAND
 
+/**
+ * Syncs automáticos que o WhatsApp envia ao parear o dispositivo (QR): snapshot das
+ * conversas recentes (e FULL, caso `syncFullHistory` um dia seja ligado). São ingeridos
+ * para a aba Contatos já nascer populada — sem isso, quem conecta o celular vê a lista
+ * vazia até alguém mandar mensagem NOVA.
+ */
+const INITIAL_SYNC_TYPES = new Set<proto.HistorySync.HistorySyncType>([
+  proto.HistorySync.HistorySyncType.INITIAL_BOOTSTRAP,
+  proto.HistorySync.HistorySyncType.RECENT,
+  proto.HistorySync.HistorySyncType.FULL,
+])
+
 type HistorySetEvent = BaileysEventMap['messaging-history.set']
 
 /**
@@ -23,6 +35,13 @@ type HistorySetEvent = BaileysEventMap['messaging-history.set']
  */
 export interface GapFillState {
   sinceMs: number | null
+  /**
+   * true = o espelho nunca viu nada deste uid (sem watermark no início da sessão) →
+   * o sync inicial do pareamento é ingerido INTEIRO (snapshot de conversas recentes).
+   * Zerado junto com `sinceMs` quando a janela pós-conexão expira: um history-set
+   * automático atrasado não pode disparar importação.
+   */
+  initialSnapshot: boolean
 }
 
 interface InFlight {
@@ -219,10 +238,36 @@ async function gapFillFromInitialSync(
 }
 
 /**
+ * Snapshot inicial (SÓ no primeiro pareamento, quando o espelho nunca viu nada): ingere
+ * inteiro o sync de conversas recentes que o WhatsApp envia sozinho após o vínculo — a
+ * aba Contatos já nasce populada com quem mandou mensagem, sem exigir cadastro manual.
+ * Respeita marcadores de expurgo (sync automático não ressuscita conversa apagada) e é
+ * idempotente (dedup por doc-id). Histórico mais antigo continua só via on-demand.
+ */
+async function ingestInitialSnapshot(uid: string, ev: HistorySetEvent, mediaCtx: MediaDownloadContext | undefined): Promise<void> {
+  const messages = (ev.messages ?? []) as WAMessage[]
+  if (!messages.length) return
+
+  logger.info({ uid, count: messages.length, syncType: ev.syncType }, 'ingerindo snapshot inicial de conversas')
+  const touched = await ingestHistoryMessages(uid, messages, mediaCtx, { respectPurgeMarkers: true })
+
+  // Mensagens de histórico não atualizam preview inline (chegam fora de ordem) →
+  // recomputa o preview dos contatos afetados a partir da mensagem mais recente gravada.
+  for (const contactId of touched) {
+    try {
+      await refreshContactPreview(uid, contactId)
+    } catch (err) {
+      logger.warn({ err, uid, contactId }, 'snapshot inicial: falha ao recomputar preview do contato')
+    }
+  }
+}
+
+/**
  * Handler de `messaging-history.set`.
  * - ON_DEMAND: recuperação explícita pedida pelo usuário — ingere o lote e auto-pagina.
- * - Demais syncTypes (sync inicial pós-vínculo): só o gap-fill filtrado por watermark;
- *   fora da janela de gap-fill continuam ignorados (garantia forward-only).
+ * - Demais syncTypes (sync inicial pós-vínculo): primeiro pareamento (nunca espelhou) →
+ *   ingere o snapshot de conversas recentes inteiro; re-vínculo → só o gap-fill filtrado
+ *   por watermark. Fora da janela pós-conexão, syncs automáticos voltam a ser ignorados.
  */
 export async function onHistorySet(
   uid: string,
@@ -231,7 +276,11 @@ export async function onHistorySet(
   gapFill?: GapFillState,
 ): Promise<void> {
   if (ev.syncType !== ON_DEMAND) {
-    await gapFillFromInitialSync(uid, ev, mediaCtx, gapFill)
+    if (gapFill?.initialSnapshot && ev.syncType != null && INITIAL_SYNC_TYPES.has(ev.syncType)) {
+      await ingestInitialSnapshot(uid, ev, mediaCtx)
+    } else {
+      await gapFillFromInitialSync(uid, ev, mediaCtx, gapFill)
+    }
     return
   }
 

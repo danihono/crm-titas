@@ -432,7 +432,9 @@ async function resolveContact(
       nameSource,
       source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
       lastMessage: '',
-      lastMessageAt: FieldValue.serverTimestamp(),
+      // lastMessageAt fica de fora de propósito: quem preenche é a própria mensagem
+      // (ingestOne ao vivo / refreshContactPreview no histórico). Um serverTimestamp aqui
+      // mostraria hora errada na lista até a primeira mensagem ser gravada.
       createdAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
@@ -507,8 +509,14 @@ async function downloadAndStoreMedia(
 }
 
 type IngestOptions = {
-  /** true quando a mensagem veio da recuperação de histórico on-demand (não do fluxo ao vivo). */
+  /** true quando a mensagem veio de histórico (on-demand ou sync inicial), não do fluxo ao vivo. */
   importedFromHistory?: boolean
+  /**
+   * true = descarta mensagens anteriores a um expurgo (sync AUTOMÁTICO do pareamento:
+   * conversa apagada não pode ressuscitar sozinha). O on-demand omite — é pedido
+   * explícito do usuário e pode trazer de volta o que ele quiser.
+   */
+  respectPurgeMarkers?: boolean
 }
 
 /** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente).
@@ -521,9 +529,10 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   if (!content) return
 
   // Conversa expurgada: replay/append de mensagem anterior ao expurgo não ressuscita nada.
-  // A recuperação de histórico explícita (importedFromHistory) ignora o marcador — é pedido
-  // consciente do usuário. Mensagem NOVA (timestamp > expurgo) passa e recria o contato.
-  if (!opts?.importedFromHistory) {
+  // A recuperação de histórico explícita (importedFromHistory sem respectPurgeMarkers)
+  // ignora o marcador — é pedido consciente do usuário. Mensagem NOVA (timestamp > expurgo)
+  // passa e recria o contato.
+  if (!opts?.importedFromHistory || opts?.respectPurgeMarkers) {
     const digitsKey = peer.phone ?? `lid:${peer.jid.split('@')[0]}`
     const msgTsMs = Number(m.messageTimestamp ?? 0) * 1000
     if (msgTsMs > 0 && (await isPurgedAt(uid, digitsKey, msgTsMs))) return
@@ -571,8 +580,8 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   batch.set(
     contactRef,
     {
-      // Histórico importado é ANTIGO → não sobrescreve o preview "última mensagem"/data
-      // (senão a lista de contatos passaria a mostrar uma mensagem de meses/anos atrás).
+      // Fluxo ao vivo: a mensagem que chegou É a mais recente → preview direto.
+      // Histórico chega fora de ordem → o chamador recomputa via refreshContactPreview.
       ...(opts?.importedFromHistory ? {} : { lastMessage: content.text, lastMessageAt: sentAt }),
       waJid: peer.jid,
       ...(peer.phone ? { whatsappDigits: peer.phone } : {}),
@@ -617,19 +626,27 @@ export async function saveOutgoingTextMessage(
 }
 
 /**
- * Ingere um lote de mensagens vindas da recuperação de histórico on-demand
- * (`messaging-history.set` com `syncType: ON_DEMAND`). Reutiliza `ingestOne` — mesmo
- * roteamento de contato, dedup por `key.id` (merge) e `sentAt` real — marcando
+ * Ingere um lote de mensagens vindas de histórico (`messaging-history.set`): tanto a
+ * recuperação on-demand quanto o snapshot inicial do pareamento. Reutiliza `ingestOne` —
+ * mesmo roteamento de contato, dedup por `key.id` (merge) e `sentAt` real — marcando
  * `importedFromHistory: true`. NUNCA loga conteúdo.
  */
-export async function ingestHistoryMessages(uid: string, messages: WAMessage[], mediaCtx?: MediaDownloadContext): Promise<void> {
+export async function ingestHistoryMessages(
+  uid: string,
+  messages: WAMessage[],
+  mediaCtx?: MediaDownloadContext,
+  opts?: Pick<IngestOptions, 'respectPurgeMarkers'>,
+): Promise<Set<string>> {
+  const touched = new Set<string>()
   for (const m of messages) {
     try {
-      await ingestOne(uid, m, mediaCtx, { importedFromHistory: true })
+      const contactId = await ingestOne(uid, m, mediaCtx, { importedFromHistory: true, ...opts })
+      if (contactId) touched.add(contactId)
     } catch (err) {
       logger.error({ err, uid }, 'falha ao ingerir mensagem de histórico') // sem m.message
     }
   }
+  return touched
 }
 
 /**

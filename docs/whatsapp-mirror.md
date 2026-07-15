@@ -56,10 +56,16 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ## Restrições duras (não-negociáveis)
 
-- **`syncFullHistory: false`** — forward-only **relativo à vida do espelho**: nunca importa
-  histórico anterior à primeira conexão. A única exceção é o **gap-fill** (abaixo), que
-  preenche o buraco entre um desvínculo e o re-vínculo — sempre mensagens mais novas que o
-  último instante espelhado, nunca mais antigas.
+- **`syncFullHistory: false`** — nunca pede o histórico COMPLETO ao WhatsApp. O sync
+  inicial que o celular envia sozinho após o vínculo (`messaging-history.set` com
+  `INITIAL_BOOTSTRAP`/`RECENT`) tem dois tratamentos automáticos:
+  - **Primeiro pareamento** (espelho nunca viu nada — sem watermark): o snapshot de
+    conversas recentes é ingerido INTEIRO — a aba Contatos já nasce populada com quem
+    mandou mensagem, sem exigir cadastro manual. Respeita os marcadores de expurgo
+    (`waPurges`): conversa apagada não ressuscita ao re-parear.
+  - **Re-vínculo** (já espelhou antes): só o **gap-fill** (abaixo) — mensagens mais novas
+    que o último instante espelhado, nunca mais antigas.
+  Histórico mais antigo continua só via recuperação on-demand por contato.
 - **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth →
   o WhatsApp desloga os dois. Por isso `max-instances=1`.
 - **Cloud Run:** `min-instances=1`, `max-instances=1` e **CPU sempre alocada**
@@ -135,11 +141,18 @@ que o daemon já processa de forma idempotente.
 
 ## Histórico antigo
 
-Histórico antigo permanece separado e desligado por padrão. Qualquer importação futura deve ser
-manual/experimental, com limite de 50 mensagens por chamada, baseada em âncora local conhecida e
-processando `messaging.history-set`, sem promessa de importar toda a conversa nem mídia antiga. O
-modal de WhatsApp exibe essa opção como experimental/desabilitada para não parecer que o recurso
-está ativo no v1.
+Dois caminhos distintos, ambos por `messaging-history.set` (`history.ts`):
+
+- **Snapshot inicial (automático, SÓ no primeiro pareamento):** ao parear pelo QR sem
+  nunca ter espelhado (sem watermark), o celular envia as conversas recentes
+  (`INITIAL_BOOTSTRAP`/`RECENT`) e o daemon ingere tudo com `importedFromHistory: true` +
+  `respectPurgeMarkers: true` — cria os contatos que faltarem e, ao final, recomputa o
+  preview de cada contato afetado (`refreshContactPreview`), porque o histórico chega
+  fora de ordem. No re-vínculo (já tem watermark) o que roda é o gap-fill (seção acima).
+- **Recuperação on-demand (manual, por contato):** paginada para trás a partir da mensagem
+  mais antiga espelhada (âncora), com teto de páginas e janela opcional em dias. Ignora
+  marcadores de expurgo de propósito — é pedido explícito do usuário. Não atualiza o
+  preview para mensagens mais antigas que o atual.
 
 ## Feature-flag (subir "no escuro")
 
