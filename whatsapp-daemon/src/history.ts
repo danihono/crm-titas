@@ -4,8 +4,10 @@ import { db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
 import {
+  ingestGapMessages,
   ingestHistoryMessages,
   oldestStoredAnchor,
+  refreshContactPreview,
   type MediaDownloadContext,
 } from './messages.js'
 import { requestMessageHistory } from './sessionManager.js'
@@ -13,6 +15,15 @@ import { requestMessageHistory } from './sessionManager.js'
 const ON_DEMAND = proto.HistorySync.HistorySyncType.ON_DEMAND
 
 type HistorySetEvent = BaileysEventMap['messaging-history.set']
+
+/**
+ * Estado mutável do gap-fill de uma sessão (compartilhado com o sessionManager).
+ * `sinceMs` = watermark congelado no início da sessão: só mensagens MAIS NOVAS que ele
+ * são ingeridas do sync inicial. `null` desliga o gap-fill (nunca espelhou / janela expirou).
+ */
+export interface GapFillState {
+  sinceMs: number | null
+}
 
 interface InFlight {
   contactId: string
@@ -168,12 +179,61 @@ function findInFlight(uid: string, ev: HistorySetEvent, messages: WAMessage[]): 
 }
 
 /**
- * Handler de `messaging-history.set`. Só age sobre respostas ON_DEMAND (recuperação
- * explícita pedida pelo usuário) — ignora qualquer sync automático, preservando a
- * garantia "forward-only por padrão". Ingere o lote e auto-pagina para trás.
+ * Gap-fill: aproveita o sync inicial que o WhatsApp envia sozinho após um vínculo novo
+ * (QR novo) para preencher o buraco de mensagens do período desconectado. Só ingere
+ * mensagens MAIS NOVAS que o watermark congelado no início da sessão — nunca histórico
+ * anterior à vida do espelho (a restrição forward-only vale relativa ao espelho).
+ * Semântica de mensagem viva (respeita purge markers, dedup idempotente por doc-id).
  */
-export async function onHistorySet(uid: string, ev: HistorySetEvent, mediaCtx?: MediaDownloadContext): Promise<void> {
-  if (ev.syncType !== ON_DEMAND) return
+async function gapFillFromInitialSync(
+  uid: string,
+  ev: HistorySetEvent,
+  mediaCtx: MediaDownloadContext | undefined,
+  gapFill: GapFillState | undefined,
+): Promise<void> {
+  if (!gapFill || gapFill.sinceMs == null) return
+  const sinceMs = gapFill.sinceMs
+
+  const messages = (ev.messages ?? []) as WAMessage[]
+  const inGap = messages.filter((m) => tsMsOf(m) > sinceMs)
+  if (!inGap.length) return
+
+  // Ordem ascendente: o último ingest do lote deixa o preview na mensagem mais nova dele.
+  inGap.sort((a, b) => tsMsOf(a) - tsMsOf(b))
+  const touched = await ingestGapMessages(uid, inGap, mediaCtx)
+
+  // Lotes do sync inicial podem chegar fora de ordem entre si → recomputa o preview
+  // dos contatos afetados a partir da mensagem realmente mais recente gravada.
+  for (const contactId of touched) {
+    try {
+      await refreshContactPreview(uid, contactId)
+    } catch (err) {
+      logger.warn({ err, uid, contactId }, 'gap-fill: falha ao recomputar preview do contato')
+    }
+  }
+
+  logger.info(
+    { uid, ingested: inGap.length, contacts: touched.size, syncType: ev.syncType },
+    'gap-fill: mensagens do período desconectado importadas',
+  )
+}
+
+/**
+ * Handler de `messaging-history.set`.
+ * - ON_DEMAND: recuperação explícita pedida pelo usuário — ingere o lote e auto-pagina.
+ * - Demais syncTypes (sync inicial pós-vínculo): só o gap-fill filtrado por watermark;
+ *   fora da janela de gap-fill continuam ignorados (garantia forward-only).
+ */
+export async function onHistorySet(
+  uid: string,
+  ev: HistorySetEvent,
+  mediaCtx?: MediaDownloadContext,
+  gapFill?: GapFillState,
+): Promise<void> {
+  if (ev.syncType !== ON_DEMAND) {
+    await gapFillFromInitialSync(uid, ev, mediaCtx, gapFill)
+    return
+  }
 
   const messages = (ev.messages ?? []) as WAMessage[]
 
