@@ -30,6 +30,12 @@ export const config = {
   /** Tempo máx. (ms) esperando a resposta ON_DEMAND do WhatsApp antes de marcar erro. */
   historyResponseTimeoutMs: Number(process.env.WA_HISTORY_RESPONSE_TIMEOUT_MS ?? 45000),
 
+  /** Tempo máx. (ms) da consulta de foto de perfil ao WhatsApp (evita query pendurada). */
+  photoQueryTimeoutMs: Number(process.env.WA_PHOTO_TIMEOUT_MS ?? 25000),
+
+  /** Tempo máx. (ms) do download da imagem de perfil a partir da CDN do WhatsApp. */
+  photoDownloadTimeoutMs: Number(process.env.WA_PHOTO_DOWNLOAD_TIMEOUT_MS ?? 10000),
+
   /** Bucket do Firebase Storage usado para anexos de WhatsApp. */
   storageBucket:
     process.env.FIREBASE_STORAGE_BUCKET ??
