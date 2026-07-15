@@ -28,7 +28,7 @@ Baileys socket  ─(Map<uid,sock> em memória)─  auth em whatsappSessions/{uid
 
 | Path | Quem escreve | Quem lê | Conteúdo |
 |---|---|---|---|
-| `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock` |
+| `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock`, `lastMirrorAt` (watermark do gap-fill) |
 | `whatsappSessions/{uid}/keys/{keyId}` | daemon (Admin) | **ninguém** | uma chave do Signal por doc (`{v}` BufferJSON) |
 | `whatsappStatus/{uid}` | daemon (Admin) | dono + super-owner (read-only nas rules) | `status`, `qr` (data URL), `phoneNumber`, `lastError` |
 | `users/{uid}/contacts/{c}` | daemon + app | dono | contato (auto-criado tem `source:'whatsapp'`) |
@@ -56,7 +56,10 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ## Restrições duras (não-negociáveis)
 
-- **`syncFullHistory: false`** — só espelha dali pra frente no fluxo normal (não puxa histórico).
+- **`syncFullHistory: false`** — forward-only **relativo à vida do espelho**: nunca importa
+  histórico anterior à primeira conexão. A única exceção é o **gap-fill** (abaixo), que
+  preenche o buraco entre um desvínculo e o re-vínculo — sempre mensagens mais novas que o
+  último instante espelhado, nunca mais antigas.
 - **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth →
   o WhatsApp desloga os dois. Por isso `max-instances=1`.
 - **Cloud Run:** `min-instances=1`, `max-instances=1` e **CPU sempre alocada**
@@ -104,6 +107,31 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 - O daemon resolve o contato pelo `contactId`, normaliza `whatsapp`/`phone`, envia com
   `sock.sendMessage` e grava a mensagem enviada no contato selecionado.
 - Quando a sessão não está conectada, o app mantém o comportamento local anterior.
+
+## Gap-fill (mensagens do período desconectado)
+
+Quando o usuário **desvincula** o dispositivo (botão "Desconectar" / remoção pelo celular) e
+depois reconecta com QR novo, as conversas do período desconectado formariam um buraco
+permanente. O gap-fill preenche esse buraco automaticamente:
+
+- **Watermark** `whatsappSessions/{uid}.lastMirrorAt` = "o espelho viu tudo até aqui".
+  Atualizado na ingestão ao vivo (throttled, 1 write/60s por uid) e, com força, em todo
+  fechamento de conexão que chegou a abrir (`close` recuperável, `stopSession`, SIGTERM).
+  Sobrevive ao `clearAuth` do logout — é ele que delimita o buraco.
+- **No re-vínculo**, o WhatsApp envia sozinho um sync inicial (`messaging-history.set` com
+  syncType `INITIAL_BOOTSTRAP`/`RECENT`) mesmo com `syncFullHistory:false`. O daemon congela
+  o watermark no início da sessão e ingere **apenas** as mensagens mais novas que ele, com
+  semântica de mensagem viva (respeita purge markers, dedup idempotente por doc-id, preview
+  do contato recomputado ao final do lote).
+- **Janela**: o gap-fill só fica armado por `WA_GAP_FILL_WINDOW_MS` (default 5 min) após o
+  `open`; depois, qualquer sync automático volta a ser ignorado.
+- **Limitações**: o sync inicial cobre só as mensagens recentes de cada conversa — buracos
+  muito longos ou conversas muito movimentadas podem não ser 100% cobertos. Conta que nunca
+  espelhou nada (sem watermark) não faz gap-fill: continua estritamente forward-only.
+
+Queda **recuperável** (rede/deploy/restart, device continua vinculado) não precisa de
+gap-fill: o WhatsApp reentrega o período offline via `messages.upsert` (`notify`/`append`),
+que o daemon já processa de forma idempotente.
 
 ## Histórico antigo
 

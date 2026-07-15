@@ -21,6 +21,7 @@ import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
+import { touchMirrorWatermark } from './watermark.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -510,8 +511,9 @@ type IngestOptions = {
   importedFromHistory?: boolean
 }
 
-/** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente). */
-async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<void> {
+/** Grava uma mensagem espelhada + atualiza o preview do contato (idempotente).
+ *  Retorna o contactId afetado (ou undefined quando a mensagem foi descartada). */
+async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<string | undefined> {
   if (!m.message || !m.key?.id) return
   const peer = resolvePeer(m.key)
   if (!peer) return
@@ -578,6 +580,7 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     { merge: true },
   )
   await batch.commit()
+  return contactId
 }
 
 export async function saveOutgoingTextMessage(
@@ -627,6 +630,40 @@ export async function ingestHistoryMessages(uid: string, messages: WAMessage[], 
       logger.error({ err, uid }, 'falha ao ingerir mensagem de histórico') // sem m.message
     }
   }
+}
+
+/**
+ * Ingere mensagens do gap-fill (buraco entre desvincular e reconectar com QR novo).
+ * Semântica de mensagem VIVA: sem `importedFromHistory`, então respeita purge markers e
+ * atualiza o preview do contato. Retorna os contactIds afetados para o recompute de preview.
+ * NUNCA loga conteúdo.
+ */
+export async function ingestGapMessages(uid: string, messages: WAMessage[], mediaCtx?: MediaDownloadContext): Promise<Set<string>> {
+  const touched = new Set<string>()
+  for (const m of messages) {
+    try {
+      const contactId = await ingestOne(uid, m, mediaCtx)
+      if (contactId) touched.add(contactId)
+    } catch (err) {
+      logger.error({ err, uid }, 'falha ao ingerir mensagem de gap-fill') // sem m.message
+    }
+  }
+  return touched
+}
+
+/**
+ * Recomputa o preview (lastMessage/lastMessageAt) a partir da mensagem mais nova gravada.
+ * Necessário após o gap-fill: os lotes do sync inicial podem chegar fora de ordem, e o
+ * último `ingestOne` a rodar não é necessariamente a mensagem mais recente.
+ */
+export async function refreshContactPreview(uid: string, contactId: string): Promise<void> {
+  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+  const newest = await contactRef.collection('messages').orderBy('sentAt', 'desc').limit(1).get()
+  const doc = newest.docs[0]
+  if (!doc) return
+  const sentAt = doc.get('sentAt')
+  if (!(sentAt instanceof Timestamp)) return
+  await contactRef.set({ lastMessage: String(doc.get('text') ?? ''), lastMessageAt: sentAt }, { merge: true })
 }
 
 export interface HistoryAnchor {
@@ -681,4 +718,6 @@ export async function ingestMessages(uid: string, ev: MessagesUpsert, mediaCtx?:
       logger.error({ err, uid }, 'falha ao ingerir mensagem') // sem m.message
     }
   }
+  // Espelho vivo até aqui — avança o watermark do gap-fill (throttled).
+  await touchMirrorWatermark(uid)
 }
