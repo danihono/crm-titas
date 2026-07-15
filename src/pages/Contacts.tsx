@@ -593,12 +593,18 @@ function MessageBody({ message: m }: { message: Message }) {
           <img src={m.mediaUrl} alt={m.caption || m.fileName || 'Imagem do WhatsApp'} style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, objectFit: 'cover', borderRadius: 10 }} />
         </a>
       )}
+      {hasRenderableMedia && m.mediaType === 'sticker' && (
+        <img src={m.mediaUrl} alt={m.caption || 'Figurinha do WhatsApp'} style={{ display: 'block', width: 140, height: 140, objectFit: 'contain', margin: '-2px 0 5px' }} />
+      )}
+      {hasRenderableMedia && m.mediaType === 'video' && (
+        <video src={m.mediaUrl} controls preload="metadata" style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, borderRadius: 10, margin: '-2px -4px 7px', background: '#0d0a12' }} />
+      )}
       {hasRenderableMedia && m.mediaType === 'audio' && (
         <AudioMessage src={m.mediaUrl!} fromMe={m.fromMe} downloadName={m.fileName} />
       )}
-      {hasRenderableMedia && m.mediaType !== 'image' && m.mediaType !== 'audio' && (
+      {hasRenderableMedia && m.mediaType !== 'image' && m.mediaType !== 'audio' && m.mediaType !== 'video' && m.mediaType !== 'sticker' && (
         <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: m.fromMe ? '#ffffff' : '#5a3a7e', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid ' + (m.fromMe ? 'rgba(255,255,255,0.24)' : '#e6e3ee'), borderRadius: 10, padding: '8px 10px', marginBottom: m.text ? 7 : 0, background: m.fromMe ? 'rgba(255,255,255,0.1)' : '#f8f6fb' }}>
-          <MaterialIcon name={m.mediaType === 'video' ? 'movie' : 'description'} size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+          <MaterialIcon name="description" size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{m.fileName || mediaLabel(m.mediaType)}</span>
           <MaterialIcon name="download" size={17} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
         </a>
@@ -616,7 +622,7 @@ function MessageBody({ message: m }: { message: Message }) {
         </div>
       )}
       {!legacyMediaPlaceholder && (!hasRenderableMedia || m.text !== mediaLabel(m.mediaType)) && m.text && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: hasRenderableMedia && m.mediaType === 'image' ? 0 : undefined }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: hasRenderableMedia && (m.mediaType === 'image' || m.mediaType === 'video') ? 0 : undefined }}>
           {m.pending && !m.mediaError && <MaterialIcon name="attach_file" size={15} color={muted} />}
           <span style={{ fontStyle: m.pending && !m.mediaUrl ? 'italic' : 'normal', opacity: m.pending && !m.mediaUrl ? 0.9 : 1 }}>{m.text}</span>
         </div>
