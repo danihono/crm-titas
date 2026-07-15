@@ -306,6 +306,10 @@ export function createHttpServer(): Express {
           res.status(409).json({ error: 'Conecte o WhatsApp primeiro.' })
           return
         }
+        if (msg === 'photo_timeout') {
+          res.status(504).json({ error: 'O WhatsApp não respondeu a tempo. Tente novamente em instantes.' })
+          return
+        }
         logger.error({ err, uid, contactId }, 'refresh de foto do WhatsApp falhou')
         res.status(500).json({ error: 'Falha ao puxar a foto do WhatsApp.' })
       }
