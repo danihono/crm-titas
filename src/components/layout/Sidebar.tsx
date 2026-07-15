@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { navDefs } from '../../lib/theme'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
@@ -10,6 +11,24 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const expanded = !collapsed
   const name = user?.displayName || user?.email || 'Usuário'
+
+  // Indicador deslizante (anel roxo giratório) — mede a posição do item ativo
+  // e desliza até ele com overshoot (cubic-bezier definido em .nav-ring).
+  const location = useLocation()
+  const activeIndex = navDefs.findIndex((d) =>
+    d.path === '/' ? location.pathname === '/' : location.pathname.startsWith(d.path),
+  )
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([])
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = activeIndex >= 0 ? itemRefs.current[activeIndex] : null
+    if (!el) {
+      setIndicator(null)
+      return
+    }
+    setIndicator({ top: el.offsetTop, height: el.offsetHeight })
+  }, [activeIndex, collapsed])
 
   return (
     <aside
@@ -53,9 +72,26 @@ export default function Sidebar() {
         <div style={{ fontSize: 10, letterSpacing: '.18em', color: '#5f5668', fontWeight: 700, padding: '0 10px 10px' }}>PRINCIPAL</div>
       )}
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {navDefs.map((d) => (
-          <NavLink key={d.id} to={d.path} end={d.path === '/'} style={{ textDecoration: 'none' }}>
+      <nav style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {indicator && (
+          <div className="nav-ring" style={{ top: indicator.top, height: indicator.height }}>
+            <div className="nav-ring__glow" />
+            <div className="nav-ring__clip">
+              <div className="nav-ring__spin" />
+              <div className="nav-ring__plate" />
+            </div>
+          </div>
+        )}
+        {navDefs.map((d, i) => (
+          <NavLink
+            key={d.id}
+            to={d.path}
+            end={d.path === '/'}
+            ref={(el) => {
+              itemRefs.current[i] = el
+            }}
+            style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}
+          >
             {({ isActive }) => (
               <button style={navItemStyle(isActive, collapsed)}>
                 <MaterialIcon name={d.icon} size={21} style={{ fontVariationSettings: "'wght' 300" } as React.CSSProperties} />
@@ -125,13 +161,10 @@ function navItemStyle(active: boolean, collapsed: boolean): React.CSSProperties 
     fontSize: 13.5,
     fontWeight: active ? 600 : 500,
   }
+  // O fundo/realce do item ativo agora é a placa do anel roxo giratório
+  // (.nav-ring), que desliza por trás do botão — o botão em si fica limpo.
   if (active) {
-    return {
-      ...base,
-      color: '#f1ecf5',
-      background: 'linear-gradient(90deg,rgba(150,110,200,0.2),rgba(150,110,200,0.04))',
-      boxShadow: collapsed ? 'inset 0 0 0 1px rgba(201,166,224,0.25)' : 'inset 3px 0 0 #c9a6e0',
-    }
+    return { ...base, color: '#f1ecf5', background: 'transparent' }
   }
   return { ...base, color: '#8e8499', background: 'transparent' }
 }
