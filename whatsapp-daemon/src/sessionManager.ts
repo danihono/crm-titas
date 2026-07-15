@@ -13,8 +13,8 @@ import { Boom } from '@hapi/boom'
 import QRCode from 'qrcode'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db } from './firebase.js'
-import { logger, waLogger } from './logger.js'
 import { config } from './config.js'
+import { logger, waLogger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
 import { ingestMessages } from './messages.js'
@@ -85,11 +85,30 @@ export async function requestMessageHistory(
   return s.sock.fetchMessageHistory(count, oldestMsgKey, oldestMsgTimestampMs)
 }
 
-/** Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato). */
+/**
+ * Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato).
+ * Timeout explícito na query (o default do Baileys é 60s — mais que o front espera). Um
+ * timeout aqui costuma indicar socket "zumbi" (Cloud Run throttled): derruba o socket para
+ * o fluxo de reconexão em onConnectionUpdate reerguê-lo, e sinaliza 'photo_timeout'.
+ */
 export async function fetchProfilePhoto(uid: string, jid: string): Promise<string | undefined> {
   const s = sessions.get(uid)
   if (!s) throw new Error('whatsapp_not_connected')
-  return s.sock.profilePictureUrl(jid, 'image')
+  try {
+    return await s.sock.profilePictureUrl(jid, 'image', config.photoQueryTimeoutMs)
+  } catch (err) {
+    const boom = err as Boom
+    if (boom?.output?.statusCode === DisconnectReason.timedOut) {
+      logger.warn({ uid, jid }, 'timeout na foto de perfil — derrubando socket para reconectar')
+      try {
+        s.sock.end(undefined)
+      } catch {
+        /* ignore */
+      }
+      throw new Error('photo_timeout')
+    }
+    throw err
+  }
 }
 
 /**

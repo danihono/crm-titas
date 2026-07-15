@@ -10,8 +10,16 @@ export function daemonConfigured(): boolean {
 /** Teto (ms) para uma chamada ao daemon — evita ficar preso num spinner se o HTTP não responder. */
 const DAEMON_TIMEOUT_MS = 20_000
 
+/**
+ * Teto maior para operações que dependem de resposta do WhatsApp (ex.: foto de perfil):
+ * precisa cobrir cold start do Cloud Run + reconexão do socket + timeouts internos do
+ * daemon (query ~25s + download 10s), para o erro específico do daemon chegar ao usuário
+ * em vez do abort genérico do cliente.
+ */
+const DAEMON_SLOW_TIMEOUT_MS = 45_000
+
 /** Chama um endpoint autenticado do daemon com o Firebase ID token do usuário. */
-async function daemonFetch(path: string, body?: unknown): Promise<Record<string, unknown>> {
+async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIMEOUT_MS): Promise<Record<string, unknown>> {
   if (!DAEMON_URL) {
     throw new Error('Serviço de WhatsApp não configurado (defina VITE_WHATSAPP_DAEMON_URL).')
   }
@@ -20,7 +28,7 @@ async function daemonFetch(path: string, body?: unknown): Promise<Record<string,
   const token = await user.getIdToken()
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), DAEMON_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   let res: Response
   try {
     res = await fetch(`${DAEMON_URL}${path}`, {
@@ -76,7 +84,7 @@ export function fetchWhatsappHistory(contactId: string, maxDays?: number): Promi
 
 /** Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM. */
 export function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
-  return daemonFetch('/contact/photo/refresh', { contactId })
+  return daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
 }
 
 /**
