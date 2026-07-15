@@ -58,3 +58,27 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
+
+/* ── Cards do dashboard com <BorderBeam> (src/components/ui/border-beam.tsx) ──
+   .beam-card centraliza a sombra base (antes inline) para que o :hover consiga
+   sobrescrevê-la: hover levanta o card e adiciona um glow na cor do accent do
+   card via --beam-glow (roxo por padrão). O feixe fica sutil em repouso e
+   acende no hover (.beam-layer é o className passado ao <BorderBeam>). */
+.beam-card {
+  box-shadow: 0 1px 2px rgba(28, 20, 50, 0.04), 0 8px 22px rgba(28, 20, 50, 0.05);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+}
+.beam-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 2px 4px rgba(28, 20, 50, 0.05),
+    0 16px 38px rgba(28, 20, 50, 0.1),
+    0 10px 32px var(--beam-glow, rgba(139, 92, 246, 0.22));
+}
+.beam-card .beam-layer {
+  opacity: 0.55;
+  transition: opacity 0.35s ease;
+}
+.beam-card:hover .beam-layer {
+  opacity: 1;
+}
