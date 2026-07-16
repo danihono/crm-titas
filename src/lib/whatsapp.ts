@@ -18,6 +18,12 @@ const DAEMON_TIMEOUT_MS = 20_000
  */
 const DAEMON_SLOW_TIMEOUT_MS = 45_000
 
+/** Erro de chamada ao daemon; `isTimeout` marca os casos em que vale a pena reintentar. */
+interface DaemonError extends Error {
+  isTimeout?: boolean
+  status?: number
+}
+
 /** Chama um endpoint autenticado do daemon com o Firebase ID token do usuário. */
 async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIMEOUT_MS): Promise<Record<string, unknown>> {
   if (!DAEMON_URL) {
@@ -39,7 +45,9 @@ async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIME
     })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
-      throw new Error('O serviço de WhatsApp demorou a responder. Tente novamente.')
+      const err = new Error('O serviço de WhatsApp demorou a responder. Tente novamente.') as DaemonError
+      err.isTimeout = true
+      throw err
     }
     throw e
   } finally {
@@ -47,7 +55,10 @@ async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIME
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
   if (!res.ok) {
-    throw new Error((data.error as string) || `Falha na chamada ao daemon (${res.status})`)
+    const err = new Error((data.error as string) || `Falha na chamada ao daemon (${res.status})`) as DaemonError
+    err.status = res.status
+    if (res.status === 504) err.isTimeout = true // daemon: WhatsApp não respondeu a tempo
+    throw err
   }
   return data
 }
@@ -82,9 +93,23 @@ export function fetchWhatsappHistory(contactId: string, maxDays?: number): Promi
   return daemonFetch('/history/fetch', { contactId, ...(maxDays ? { maxDays } : {}) })
 }
 
-/** Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM. */
-export function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
-  return daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
+/**
+ * Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM.
+ *
+ * Quando o socket do daemon está "zumbi" (Cloud Run que dormiu), a 1ª chamada estoura o
+ * timeout: o daemon derruba o socket e dispara a reconexão automática, respondendo com erro.
+ * Por isso, num timeout, esperamos o socket reabrir e tentamos UMA vez mais — assim o botão
+ * costuma resolver num clique só. Erros não-timeout (ex.: "Conecte o WhatsApp primeiro")
+ * propagam de imediato, sem retry.
+ */
+export async function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
+  try {
+    return await daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
+  } catch (e) {
+    if (!(e as DaemonError).isTimeout) throw e
+    await new Promise((r) => setTimeout(r, 6000)) // dá tempo do socket reconectar
+    return daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
+  }
 }
 
 /**
