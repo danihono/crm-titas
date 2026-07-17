@@ -19,6 +19,7 @@ import {
 } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
+import { agendaNameFor, initialsOf } from './agenda.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
 import { touchMirrorWatermark } from './watermark.js'
@@ -52,12 +53,6 @@ const STUB_LABELS: Record<string, string> = {
   locationMessage: '[localização]',
   liveLocationMessage: '[localização]',
   productMessage: '[produto]',
-}
-
-/** Iniciais a partir do nome — espelha src/lib/format.ts initialsOf. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase()
 }
 
 /** WA id -> doc-id seguro do Firestore (WA ids podem conter '/'). */
@@ -139,6 +134,7 @@ async function rememberContact(
 }
 
 async function maybeRenameOwnNameAutoContact(
+  uid: string,
   contactsCol: CollectionReference<DocumentData>,
   id: string,
   peer: Peer,
@@ -155,8 +151,14 @@ async function maybeRenameOwnNameAutoContact(
   const currentName = String(snap.get('name') ?? '').trim()
   if (currentName !== ownName) return
 
-  const name = `+${peer.phone}`
-  await ref.set({ name, initials: initialsOf(name) || '?' }, { merge: true })
+  // Contato ficou com o nome do PRÓPRIO usuário (pushName de mensagem fromMe):
+  // corrige para o nome da agenda quando houver, senão para o número.
+  const agendaName = await agendaNameFor(uid, peer.phone)
+  const name = agendaName || `+${peer.phone}`
+  await ref.set(
+    { name, initials: initialsOf(name) || '?', nameSource: agendaName ? 'agenda' : 'phone' },
+    { merge: true },
+  )
 }
 
 async function moveAutoContactMessages(
@@ -354,10 +356,16 @@ function extractContent(message: WAMessage['message']): Extracted | null {
 }
 
 /** Campos padrão de um contato auto-criado pelo espelho (inclui createdAt — sem ele o
- *  contato não aparece na lista do CRM, que ordena por esse campo). */
-function autoContactDefaults(peer: Peer, pushName?: string | null, fromMe = false): Record<string, unknown> {
+ *  contato não aparece na lista do CRM, que ordena por esse campo). Prioridade do nome:
+ *  agenda do usuário > nome de perfil do remetente > +numero. */
+function autoContactDefaults(
+  peer: Peer,
+  pushName?: string | null,
+  fromMe = false,
+  agendaName?: string | null,
+): Record<string, unknown> {
   const remotePushName = fromMe ? '' : pushName?.trim()
-  const name = (remotePushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
+  const name = (agendaName?.trim() || remotePushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
   return {
     name,
     company: '—',
@@ -370,7 +378,7 @@ function autoContactDefaults(peer: Peer, pushName?: string | null, fromMe = fals
     whatsappDigits: peer.phone ?? '',
     waJid: peer.jid,
     status: 'WhatsApp',
-    nameSource: remotePushName ? 'profile' : 'phone',
+    nameSource: agendaName?.trim() ? 'agenda' : remotePushName ? 'profile' : 'phone',
     source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
     lastMessage: '',
     // lastMessageAt fica de fora de propósito: quem preenche é a própria mensagem
@@ -387,6 +395,7 @@ function autoContactDefaults(peer: Peer, pushName?: string | null, fromMe = fals
  * do CRM para sempre. Preenche APENAS os campos ausentes com os defaults de auto-criação.
  */
 async function healGhostContact(
+  uid: string,
   contactsCol: CollectionReference<DocumentData>,
   snap: { id: string; get(fieldPath: string): unknown },
   peer: Peer,
@@ -394,7 +403,8 @@ async function healGhostContact(
   fromMe = false,
 ): Promise<void> {
   if (snap.get('createdAt') !== undefined) return
-  const defaults = autoContactDefaults(peer, pushName, fromMe)
+  const agendaName = peer.phone ? await agendaNameFor(uid, peer.phone) : null
+  const defaults = autoContactDefaults(peer, pushName, fromMe, agendaName)
   const patch: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(defaults)) {
     if (snap.get(k) === undefined) patch[k] = v
@@ -435,7 +445,7 @@ async function resolveContact(
         const manual = await findManualContactByNormalizedPhone(contactsCol, peer.phone)
         if (manual) return useManualContact(uid, contactsCol, cacheKey, manual, peer, detId)
       }
-      await healGhostContact(contactsCol, snap, peer, pushName, fromMe)
+      await healGhostContact(uid, contactsCol, snap, peer, pushName, fromMe)
       return cached
     }
   }
@@ -463,19 +473,20 @@ async function resolveContact(
   }
 
   if (fallback) {
-    await maybeRenameOwnNameAutoContact(contactsCol, fallback.id, peer, fromMe, pushName)
-    await healGhostContact(contactsCol, fallback, peer, pushName, fromMe)
+    await maybeRenameOwnNameAutoContact(uid, contactsCol, fallback.id, peer, fromMe, pushName)
+    await healGhostContact(uid, contactsCol, fallback, peer, pushName, fromMe)
     return rememberContact(contactsCol, cacheKey, fallback.id, peer)
   }
 
   const det = await contactsCol.doc(detId).get()
   if (det.exists) {
-    await maybeRenameOwnNameAutoContact(contactsCol, detId, peer, fromMe, pushName)
-    await healGhostContact(contactsCol, det, peer, pushName, fromMe)
+    await maybeRenameOwnNameAutoContact(uid, contactsCol, detId, peer, fromMe, pushName)
+    await healGhostContact(uid, contactsCol, det, peer, pushName, fromMe)
     return rememberContact(contactsCol, cacheKey, detId, peer)
   }
 
-  await contactsCol.doc(detId).set(autoContactDefaults(peer, pushName, fromMe), { merge: true })
+  const agendaName = peer.phone ? await agendaNameFor(uid, peer.phone) : null
+  await contactsCol.doc(detId).set(autoContactDefaults(peer, pushName, fromMe, agendaName), { merge: true })
   contactCache.set(cacheKey, detId)
   // Migra a foto de perfil do WhatsApp para o contato recém-criado (não bloqueia a ingestão).
   if (fetchProfilePhoto && peer.jid) {

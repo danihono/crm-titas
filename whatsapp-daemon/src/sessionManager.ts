@@ -20,6 +20,7 @@ import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
 import { ingestMessages } from './messages.js'
 import { onHistorySet, type GapFillState } from './history.js'
+import { onAgendaContacts } from './agenda.js'
 import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
 
 interface Session {
@@ -127,6 +128,8 @@ export async function fetchProfilePhotoSmart(
   const s = sessions.get(uid)
   if (!s) throw new Error('whatsapp_not_connected')
 
+  // Trace por tentativa — vai no 504 para diagnóstico visível no alerta do front.
+  const trace: string[] = []
   const candidates: string[] = []
   if (digits) {
     const fallbackJid = `${digits}@s.whatsapp.net`
@@ -137,6 +140,7 @@ export async function fetchProfilePhotoSmart(
     // consultar só pelo número pendura sem resposta. LID entra PRIMEIRO na fila.
     const lid = await lidForPn(s, pnJid)
     if (lid) candidates.push(lid)
+    else trace.push('lid=nao-mapeado')
     candidates.push(pnJid)
   }
   if (storedJid) candidates.push(storedJid)
@@ -155,34 +159,41 @@ export async function fetchProfilePhotoSmart(
 
   let sawNotFound = false
   for (const { jid, type, legacy } of attempts) {
+    const label = `${jid.endsWith('@lid') ? 'lid' : 'pn'}.${legacy ? 'legado' : type}`
     try {
       const url = legacy
         ? await legacyProfilePictureUrl(s, jid, type, config.photoQueryTimeoutMs)
         : await s.sock.profilePictureUrl(jid, type, config.photoQueryTimeoutMs)
       if (url) return url
       sawNotFound = true // resposta sem URL = contato sem foto
+      trace.push(`${label}=vazio`)
     } catch (err) {
       const code = (err as Boom)?.output?.statusCode
       if (code === DisconnectReason.timedOut) {
+        trace.push(`${label}=timeout`)
         logger.warn({ uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa sem resposta (timeout)')
         continue
       }
       if (code === 404 || code === 401) {
         sawNotFound = true // sem foto ou privacidade — resposta válida do WhatsApp
+        trace.push(`${label}=${code}`)
         continue
       }
+      trace.push(`${label}=erro${code ?? ''}`)
       logger.warn({ err, uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa falhou')
     }
   }
 
   if (sawNotFound) return undefined
-  logger.warn({ uid, tried: jids.length }, 'foto de perfil: nenhuma combinação respondeu — reconectando socket')
+  logger.warn({ uid, tried: jids.length, trace }, 'foto de perfil: nenhuma combinação respondeu — reconectando socket')
   try {
     s.sock.end(undefined)
   } catch {
     /* ignore */
   }
-  throw new Error('photo_timeout')
+  const timeoutErr = new Error('photo_timeout') as Error & { trace?: string }
+  timeoutErr.trace = trace.join(' ')
+  throw timeoutErr
 }
 
 /**
@@ -268,6 +279,17 @@ export async function startSession(uid: string): Promise<void> {
   sock.ev.on('messaging-history.set', (ev) => {
     onHistorySet(uid, ev, mediaCtx, session.gapFill).catch((err) =>
       logger.error({ err, uid }, 'handler messaging-history.set falhou'),
+    )
+  })
+  // Nomes da agenda do celular editados/recebidos com a sessão ativa.
+  sock.ev.on('contacts.upsert', (contacts) => {
+    onAgendaContacts(uid, contacts).catch((err) =>
+      logger.warn({ err, uid }, 'handler contacts.upsert falhou'),
+    )
+  })
+  sock.ev.on('contacts.update', (contacts) => {
+    onAgendaContacts(uid, contacts).catch((err) =>
+      logger.warn({ err, uid }, 'handler contacts.update falhou'),
     )
   })
 }

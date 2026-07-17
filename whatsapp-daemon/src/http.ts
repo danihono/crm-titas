@@ -312,7 +312,12 @@ export function createHttpServer(): Express {
           return
         }
         if (msg === 'photo_timeout') {
-          res.status(504).json({ error: 'O WhatsApp não respondeu a tempo. Tente novamente em instantes.' })
+          // O trace vai na mensagem de propósito: o alert do front o exibe, e um print
+          // do usuário mostra qual endereço/modo o WhatsApp ignorou.
+          const trace = (err as { trace?: string }).trace
+          res.status(504).json({
+            error: `O WhatsApp não respondeu a tempo. Tente novamente em instantes.${trace ? ` [diag: ${trace}]` : ''}`,
+          })
           return
         }
         logger.error({ err, uid, contactId }, 'refresh de foto do WhatsApp falhou')

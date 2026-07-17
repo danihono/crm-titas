@@ -12,7 +12,7 @@ function toDate(v: unknown): Date | undefined {
 }
 
 function toContactNameSource(v: unknown): ContactNameSource | undefined {
-  return v === 'phone' || v === 'profile' || v === 'manual' ? v : undefined
+  return v === 'phone' || v === 'profile' || v === 'agenda' || v === 'manual' ? v : undefined
 }
 
 function toPhotoSource(v: unknown): PhotoSource | undefined {

@@ -5,7 +5,7 @@ export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
 export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
-export type ContactNameSource = 'phone' | 'profile' | 'manual'
+export type ContactNameSource = 'phone' | 'profile' | 'agenda' | 'manual'
 export type HistoryImportStatus = 'loading' | 'done' | 'error'
 /** Origem da foto do contato: migrada do WhatsApp, enviada à mão, ou removida pelo usuário. */
 export type PhotoSource = 'whatsapp' | 'manual' | 'removed'

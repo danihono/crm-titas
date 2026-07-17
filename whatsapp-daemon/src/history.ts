@@ -11,6 +11,7 @@ import {
   type MediaDownloadContext,
 } from './messages.js'
 import { requestMessageHistory } from './sessionManager.js'
+import { onAgendaContacts, type WaAgendaContact } from './agenda.js'
 
 const ON_DEMAND = proto.HistorySync.HistorySyncType.ON_DEMAND
 
@@ -275,6 +276,15 @@ export async function onHistorySet(
   mediaCtx?: MediaDownloadContext,
   gapFill?: GapFillState,
 ): Promise<void> {
+  // O sync do pareamento traz a AGENDA do celular (contacts[].name = nome salvo pelo
+  // usuário). Grava e aplica aos contatos do CRM — sem isso todo mundo vira número.
+  const waContacts = (ev.contacts ?? []) as WaAgendaContact[]
+  if (waContacts.length) {
+    onAgendaContacts(uid, waContacts).catch((err) =>
+      logger.warn({ err, uid }, 'falha ao processar nomes da agenda do sync'),
+    )
+  }
+
   if (ev.syncType !== ON_DEMAND) {
     if (gapFill?.initialSnapshot && ev.syncType != null && INITIAL_SYNC_TYPES.has(ev.syncType)) {
       await ingestInitialSnapshot(uid, ev, mediaCtx)
