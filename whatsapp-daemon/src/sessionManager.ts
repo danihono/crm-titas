@@ -69,6 +69,20 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
   return sent
 }
 
+/** Resolve o @lid de um JID de telefone via mapeamento LID da sessão (sync do pareamento
+ *  + fallback USYNC interno do Baileys). null quando não há mapeamento. */
+async function lidForPn(s: Session, pnJid: string): Promise<string | null> {
+  try {
+    const repo = (s.sock as unknown as {
+      signalRepository?: { lidMapping?: { getLIDForPN?: (pn: string) => Promise<string | null> } }
+    }).signalRepository
+    const lid = await repo?.lidMapping?.getLIDForPN?.(pnJid)
+    return typeof lid === 'string' && lid.endsWith('@lid') ? lid : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Busca "esforço máximo" da foto de perfil de um contato. Na era LID do WhatsApp há contas
  * em que a query só responde por UMA combinação de endereço (JID de telefone vs @lid) e
@@ -90,9 +104,13 @@ export async function fetchProfilePhotoSmart(
   if (digits) {
     const fallbackJid = `${digits}@s.whatsapp.net`
     const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
-    const match = matches?.[0] as { jid?: string; lid?: string } | undefined
-    candidates.push(match?.jid || fallbackJid)
-    if (match?.lid) candidates.push(match.lid)
+    const pnJid = matches?.[0]?.jid || fallbackJid
+    // O @lid vem do mapeamento LID da sessão (onWhatsApp NÃO retorna lid). Em conta
+    // migrada, a query de foto (e o tctoken de privacidade) são roteados por LID —
+    // consultar só pelo número pendura sem resposta. LID entra PRIMEIRO na fila.
+    const lid = await lidForPn(s, pnJid)
+    if (lid) candidates.push(lid)
+    candidates.push(pnJid)
   }
   if (storedJid) candidates.push(storedJid)
   const jids = [...new Set(candidates)]
