@@ -70,16 +70,64 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
 }
 
 /**
- * Resolve o JID canônico de um número via `onWhatsApp` — o MESMO endereço que o envio de
- * mensagem usa. O `waJid` persistido pode ser um `@lid` (v7), e queries de foto de perfil
- * sobre `@lid` costumam ficar sem resposta (timeout); o JID resolvido não sofre disso.
+ * Busca "esforço máximo" da foto de perfil de um contato. Na era LID do WhatsApp há contas
+ * em que a query só responde por UMA combinação de endereço (JID de telefone vs @lid) e
+ * modo ('image' vs 'preview') — as demais penduram até o timeout. Tenta todas em ordem e
+ * retorna a primeira URL obtida.
+ * - `undefined` = o WhatsApp respondeu "sem foto" (404/privacidade) em alguma tentativa.
+ * - `Error('photo_timeout')` = NENHUMA combinação respondeu; derruba o socket para a
+ *   reconexão automática reerguê-lo (recupera socket zumbi do Cloud Run).
  */
-export async function resolveWaJid(uid: string, phoneDigits: string): Promise<string> {
+export async function fetchProfilePhotoSmart(
+  uid: string,
+  digits: string,
+  storedJid: string,
+): Promise<string | undefined> {
   const s = sessions.get(uid)
   if (!s) throw new Error('whatsapp_not_connected')
-  const fallbackJid = `${phoneDigits}@s.whatsapp.net`
-  const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
-  return matches?.[0]?.jid || fallbackJid
+
+  const candidates: string[] = []
+  if (digits) {
+    const fallbackJid = `${digits}@s.whatsapp.net`
+    const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
+    const match = matches?.[0] as { jid?: string; lid?: string } | undefined
+    candidates.push(match?.jid || fallbackJid)
+    if (match?.lid) candidates.push(match.lid)
+  }
+  if (storedJid) candidates.push(storedJid)
+  const jids = [...new Set(candidates)]
+  if (jids.length === 0) return undefined
+
+  let sawNotFound = false
+  for (const jid of jids) {
+    for (const type of ['image', 'preview'] as const) {
+      try {
+        const url = await s.sock.profilePictureUrl(jid, type, config.photoQueryTimeoutMs)
+        if (url) return url
+        sawNotFound = true // resposta sem URL = contato sem foto
+      } catch (err) {
+        const code = (err as Boom)?.output?.statusCode
+        if (code === DisconnectReason.timedOut) {
+          logger.warn({ uid, jidHost: jid.split('@')[1], type }, 'foto de perfil: tentativa sem resposta (timeout)')
+          continue
+        }
+        if (code === 404 || code === 401) {
+          sawNotFound = true // sem foto ou privacidade — resposta válida do WhatsApp
+          continue
+        }
+        logger.warn({ err, uid, jidHost: jid.split('@')[1], type }, 'foto de perfil: tentativa falhou')
+      }
+    }
+  }
+
+  if (sawNotFound) return undefined
+  logger.warn({ uid, tried: jids.length }, 'foto de perfil: nenhuma combinação respondeu — reconectando socket')
+  try {
+    s.sock.end(undefined)
+  } catch {
+    /* ignore */
+  }
+  throw new Error('photo_timeout')
 }
 
 /**
@@ -96,32 +144,6 @@ export async function requestMessageHistory(
   const s = sessions.get(uid)
   if (!s) throw new Error('whatsapp_not_connected')
   return s.sock.fetchMessageHistory(count, oldestMsgKey, oldestMsgTimestampMs)
-}
-
-/**
- * Busca a URL da foto de perfil de um JID pela sessão do uid (para migrar foto do contato).
- * Timeout explícito na query (o default do Baileys é 60s — mais que o front espera). Um
- * timeout aqui costuma indicar socket "zumbi" (Cloud Run throttled): derruba o socket para
- * o fluxo de reconexão em onConnectionUpdate reerguê-lo, e sinaliza 'photo_timeout'.
- */
-export async function fetchProfilePhoto(uid: string, jid: string): Promise<string | undefined> {
-  const s = sessions.get(uid)
-  if (!s) throw new Error('whatsapp_not_connected')
-  try {
-    return await s.sock.profilePictureUrl(jid, 'image', config.photoQueryTimeoutMs)
-  } catch (err) {
-    const boom = err as Boom
-    if (boom?.output?.statusCode === DisconnectReason.timedOut) {
-      logger.warn({ uid, jid }, 'timeout na foto de perfil — derrubando socket para reconectar')
-      try {
-        s.sock.end(undefined)
-      } catch {
-        /* ignore */
-      }
-      throw new Error('photo_timeout')
-    }
-    throw err
-  }
 }
 
 /**

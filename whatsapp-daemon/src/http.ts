@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
-import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhoto, resolveWaJid } from './sessionManager.js'
+import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhotoSmart } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { purgeConnection, purgeContact } from './purge.js'
 import { saveOutgoingTextMessage } from './messages.js'
@@ -296,11 +296,11 @@ export function createHttpServer(): Express {
       }
 
       try {
-        // Com número: resolve o JID canônico (mesmo endereço do envio, que funciona).
-        // O waJid salvo pode ser @lid — query de foto sobre @lid pendura até o timeout —
-        // então ele fica só como fallback para contato lid-only (sem número).
-        const jid = digits ? await resolveWaJid(uid, digits) : storedJid
-        const found = await fetchAndStoreContactPhoto(uid, contactId, jid, (j) => fetchProfilePhoto(uid, j), { force: true })
+        // Busca multi-candidato: JID resolvido, @lid e waJid salvo, em 'image' e 'preview' —
+        // na era LID só uma dessas combinações costuma responder. O jid posicional abaixo é
+        // apenas para log; quem decide o endereço é o fetchProfilePhotoSmart.
+        const jidLog = digits ? `${digits}@s.whatsapp.net` : storedJid
+        const found = await fetchAndStoreContactPhoto(uid, contactId, jidLog, () => fetchProfilePhotoSmart(uid, digits, storedJid), { force: true })
         res.json({ ok: true, found })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'photo_refresh_failed'
