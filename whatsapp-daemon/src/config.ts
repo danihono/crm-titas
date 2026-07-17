@@ -35,7 +35,7 @@ export const config = {
   gapFillWindowMs: Number(process.env.WA_GAP_FILL_WINDOW_MS ?? 300_000),
 
   /** Tempo máx. (ms) da consulta de foto de perfil ao WhatsApp (evita query pendurada). */
-  photoQueryTimeoutMs: Number(process.env.WA_PHOTO_TIMEOUT_MS ?? 25000),
+  photoQueryTimeoutMs: Number(process.env.WA_PHOTO_TIMEOUT_MS ?? 15000),
 
   /** Tempo máx. (ms) do download da imagem de perfil a partir da CDN do WhatsApp. */
   photoDownloadTimeoutMs: Number(process.env.WA_PHOTO_DOWNLOAD_TIMEOUT_MS ?? 10000),

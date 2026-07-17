@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
-import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhoto } from './sessionManager.js'
+import { sendTextToPhone, startSession, stopSession, sessionCount, fetchProfilePhoto, resolveWaJid } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { purgeConnection, purgeContact } from './purge.js'
 import { saveOutgoingTextMessage } from './messages.js'
@@ -289,15 +289,17 @@ export function createHttpServer(): Express {
         phoneDigits(contact.get('whatsappDigits')) ||
         phoneDigits(contact.get('whatsapp')) ||
         phoneDigits(contact.get('phone'))
-      const jid =
-        (typeof contact.get('waJid') === 'string' && (contact.get('waJid') as string)) ||
-        (digits ? `${digits}@s.whatsapp.net` : '')
-      if (!jid) {
+      const storedJid = typeof contact.get('waJid') === 'string' ? (contact.get('waJid') as string) : ''
+      if (!digits && !storedJid) {
         res.status(400).json({ error: 'contact has no valid WhatsApp number' })
         return
       }
 
       try {
+        // Com número: resolve o JID canônico (mesmo endereço do envio, que funciona).
+        // O waJid salvo pode ser @lid — query de foto sobre @lid pendura até o timeout —
+        // então ele fica só como fallback para contato lid-only (sem número).
+        const jid = digits ? await resolveWaJid(uid, digits) : storedJid
         const found = await fetchAndStoreContactPhoto(uid, contactId, jid, (j) => fetchProfilePhoto(uid, j), { force: true })
         res.json({ ok: true, found })
       } catch (err) {

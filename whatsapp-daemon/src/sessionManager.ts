@@ -70,6 +70,19 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
 }
 
 /**
+ * Resolve o JID canônico de um número via `onWhatsApp` — o MESMO endereço que o envio de
+ * mensagem usa. O `waJid` persistido pode ser um `@lid` (v7), e queries de foto de perfil
+ * sobre `@lid` costumam ficar sem resposta (timeout); o JID resolvido não sofre disso.
+ */
+export async function resolveWaJid(uid: string, phoneDigits: string): Promise<string> {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+  const fallbackJid = `${phoneDigits}@s.whatsapp.net`
+  const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
+  return matches?.[0]?.jid || fallbackJid
+}
+
+/**
  * Pede ao WhatsApp mensagens mais antigas de uma conversa (recuperação de histórico
  * on-demand). A resposta chega assíncrona via evento `messaging-history.set`
  * (`syncType: ON_DEMAND`) → tratada em `onHistorySet`. Mantém o `Map sessions` privado.

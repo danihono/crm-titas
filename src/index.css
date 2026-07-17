@@ -32,6 +32,10 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
 
 @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
+/* Rotação para ícones de "trabalhando…" (ex.: puxar foto do WhatsApp). */
+@keyframes icon-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.icon-spin { animation: icon-spin 1s linear infinite; }
+
 /* ── Aurora da tela de login (preto + roxo) ────────────────────────────────
    O <AuroraBackground> usa var(--blue-500)/--indigo-300/... dentro do gradiente
    --aurora. Reescrevemos essas variáveis no contêiner do login (a camada da
