@@ -58,6 +58,21 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   to   { transform: translate(-50%, -50%) rotate(1turn); }
 }
 
+/* Gradiente cônico roxo compartilhado (sidebar + botões). ~90% tons de roxo
+   (violeta escuro → roxo vivo → lavanda), 2 hotspots brancos estreitos e
+   franjas mínimas rosa/azul. Padrão repetido 2x nos 360°. */
+:root {
+  --purple-ring-grad: conic-gradient(
+    from 0deg,
+    #2a1245 0%, #8b5cf6 18%, #e9d8ff 30%,
+    #ffc0cb 33.5%, #ffffff 35%, #ffffff 38%, #c3d3ff 39.5%,
+    #8b5cf6 43%, #2a1245 50%,
+    #8b5cf6 68%, #e9d8ff 80%,
+    #ffc0cb 83.5%, #ffffff 85%, #ffffff 88%, #c3d3ff 89.5%,
+    #8b5cf6 93%, #2a1245 100%
+  );
+}
+
 .nav-ring {
   position: absolute;
   left: 0;
@@ -86,35 +101,78 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   width: 220%;
   aspect-ratio: 1 / 1;
   animation: nav-ring-spin 4.5s linear infinite;
-  /* Padrão repetido 2x em 360°. ~90% tons de roxo (violeta escuro → roxo
-     vivo → lavanda clara); cada metade tem 1 hotspot branco de ~3% com
-     franjas de ~1,5% de rosa/azul — iridescência mínima, o anel lê ROXO. */
-  background: conic-gradient(
-    from 0deg,
-    #2a1245 0%,
-    #8b5cf6 18%,
-    #e9d8ff 30%,
-    #ffc0cb 33.5%,
-    #ffffff 35%,
-    #ffffff 38%,
-    #c3d3ff 39.5%,
-    #8b5cf6 43%,
-    #2a1245 50%,
-    #8b5cf6 68%,
-    #e9d8ff 80%,
-    #ffc0cb 83.5%,
-    #ffffff 85%,
-    #ffffff 88%,
-    #c3d3ff 89.5%,
-    #8b5cf6 93%,
-    #2a1245 100%
-  );
+  background: var(--purple-ring-grad);
 }
 .nav-ring__plate {
   position: absolute;
   inset: 2px;
   border-radius: 10px;
   background: linear-gradient(90deg, #261c33, #100b16 70%);
+}
+
+/* ── Anel roxo giratório como BORDA de botão (componente <RingButton>) ──────
+   O wrapper .ring-btn envolve qualquer botão; o anel gira atrás e "vaza"
+   ~1.6px em volta, virando uma borda viva. O fundo do próprio botão é a placa
+   central. --rr controla o raio. Só anima no hover para não sobrecarregar a
+   tela; o glow acende junto. */
+.ring-btn {
+  --rr: 11px;
+  position: relative;
+  display: inline-flex;
+  border-radius: var(--rr);
+  isolation: isolate;
+}
+.ring-btn > * {
+  position: relative;
+  z-index: 1;
+}
+.ring-btn__glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: calc(var(--rr) + 5px);
+  background: #a855f7;
+  filter: blur(11px);
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity .35s ease;
+}
+.ring-btn__anim {
+  position: absolute;
+  inset: -1.6px;
+  border-radius: calc(var(--rr) + 1.6px);
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity .35s ease;
+}
+.ring-btn__anim::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 260%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  background: var(--purple-ring-grad);
+  animation: nav-ring-spin 4.5s linear infinite;
+}
+/* Padrão (CTAs roxos): anel sempre girando + glow sutil; hover intensifica. */
+.ring-btn__glow { opacity: 0.3; }
+.ring-btn:hover .ring-btn__glow { opacity: 0.55; }
+
+/* Variante "quiet" (abas/chips não selecionados): anel só aparece no hover,
+   para não poluir. `.is-active` reativa o anel permanente. */
+.ring-btn.ring-quiet .ring-btn__anim { opacity: 0; }
+.ring-btn.ring-quiet .ring-btn__glow { opacity: 0; }
+.ring-btn.ring-quiet:hover .ring-btn__anim { opacity: 1; }
+.ring-btn.ring-quiet:hover .ring-btn__glow { opacity: 0.45; }
+.ring-btn.ring-quiet.is-active .ring-btn__anim { opacity: 1; }
+.ring-btn.ring-quiet.is-active .ring-btn__glow { opacity: 0.4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-btn__anim::before { animation: none; }
 }
 
 /* Ícones Material Symbols (classe .ms) */

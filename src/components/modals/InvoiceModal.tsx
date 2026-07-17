@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
+import RingButton from '../common/RingButton'
 import { sx } from '../../styles/sx'
 import { saveInvoice } from '../../hooks/useInvoices'
 import { parseValueBR, dateKeyOf } from '../../lib/format'
@@ -58,7 +59,7 @@ export default function InvoiceModal({ invoices, clientOptions, onClose, onSaved
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-        <button onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', borderRadius: 11, padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>Emitir nota</button>
+        <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>Emitir nota</RingButton>
       </div>
     </Modal>
   )

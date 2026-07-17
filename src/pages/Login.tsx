@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AuroraBackground } from '@/components/ui/aurora-background'
 import { useAuth } from '../contexts/AuthContext'
+import RingButton from '../components/common/RingButton'
 import { sx } from '../styles/sx'
 
 export default function Login() {
@@ -96,14 +97,14 @@ export default function Login() {
             </div>
           )}
 
-          <button
+          <RingButton
+            radius={12}
+            block
             type="submit"
             disabled={busy}
             style={{
-              width: '100%',
               background: 'linear-gradient(140deg,#7a52a0,#553578)',
               border: '1px solid rgba(200,160,230,0.3)',
-              borderRadius: 12,
               padding: '13px',
               color: '#f4eefa',
               fontSize: 14,
@@ -114,7 +115,7 @@ export default function Login() {
             }}
           >
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
-          </button>
+          </RingButton>
         </form>
 
         <div style={{ fontSize: 12.5, color: '#8a7d97', marginTop: 18, textAlign: 'center' }}>

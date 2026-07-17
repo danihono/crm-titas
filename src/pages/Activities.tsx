@@ -5,6 +5,7 @@ import { useContacts } from '../hooks/useContacts'
 import { activityBadgeMap } from '../lib/theme'
 import { dueInfo } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
+import RingButton from '../components/common/RingButton'
 import ActivityModal from '../components/modals/ActivityModal'
 import TypeModal from '../components/modals/TypeModal'
 import { sx } from '../styles/sx'
@@ -37,24 +38,27 @@ export default function Activities() {
         {FILTERS.map((f) => {
           const on = ui.actFilter === f.id
           return (
-            <button
+            <RingButton
               key={f.id}
+              radius={11}
+              active={on}
+              quiet
               onClick={() => ui.setActFilter(f.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7, borderRadius: 11, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                 ...(on
                   ? { background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', color: '#f4eefa', boxShadow: '0 4px 12px rgba(110,65,150,0.2)' }
                   : { background: '#ffffff', border: '1px solid #e6e3ee', color: '#6e6780' }),
               }}
             >
               {f.label} <span style={{ opacity: 0.6 }}>{counts[f.id]}</span>
-            </button>
+            </RingButton>
           )
         })}
         <div style={{ flex: 1 }} />
         {!readOnly && <>
           <button onClick={ui.openTypeModal} style={{ ...sx.btnGhost }}><MaterialIcon name="category" size={18} /> Tipos</button>
-          <button onClick={ui.openActModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="add_task" size={18} /> Nova atividade</button>
+          <RingButton radius={11} onClick={ui.openActModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="add_task" size={18} /> Nova atividade</RingButton>
         </>}
       </div>
 
