@@ -353,6 +353,57 @@ function extractContent(message: WAMessage['message']): Extracted | null {
   return null
 }
 
+/** Campos padrão de um contato auto-criado pelo espelho (inclui createdAt — sem ele o
+ *  contato não aparece na lista do CRM, que ordena por esse campo). */
+function autoContactDefaults(peer: Peer, pushName?: string | null, fromMe = false): Record<string, unknown> {
+  const remotePushName = fromMe ? '' : pushName?.trim()
+  const name = (remotePushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
+  return {
+    name,
+    company: '—',
+    initials: initialsOf(name) || '?',
+    online: false,
+    role: '—',
+    email: '',
+    phone: peer.phone ?? '',
+    whatsapp: peer.phone ?? '',
+    whatsappDigits: peer.phone ?? '',
+    waJid: peer.jid,
+    status: 'WhatsApp',
+    nameSource: remotePushName ? 'profile' : 'phone',
+    source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
+    lastMessage: '',
+    // lastMessageAt fica de fora de propósito: quem preenche é a própria mensagem
+    // (ingestOne ao vivo / refreshContactPreview no histórico). Um serverTimestamp aqui
+    // mostraria hora errada na lista até a primeira mensagem ser gravada.
+    createdAt: FieldValue.serverTimestamp(),
+  }
+}
+
+/**
+ * Cura doc "fantasma": contato recriado por merge parcial (ex.: exclusão pelo fallback
+ * local do front com o daemon fora do ar + mensagem nova gravada em cima) fica sem
+ * `createdAt` — e o Firestore omite docs sem o campo do orderBy, então ele some da lista
+ * do CRM para sempre. Preenche APENAS os campos ausentes com os defaults de auto-criação.
+ */
+async function healGhostContact(
+  contactsCol: CollectionReference<DocumentData>,
+  snap: { id: string; get(fieldPath: string): unknown },
+  peer: Peer,
+  pushName?: string | null,
+  fromMe = false,
+): Promise<void> {
+  if (snap.get('createdAt') !== undefined) return
+  const defaults = autoContactDefaults(peer, pushName, fromMe)
+  const patch: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(defaults)) {
+    if (snap.get(k) === undefined) patch[k] = v
+  }
+  if (Object.keys(patch).length === 0) return
+  await contactsCol.doc(snap.id).set(patch, { merge: true })
+  logger.info({ contactId: snap.id }, 'contato fantasma curado (sem createdAt)')
+}
+
 /**
  * Resolve (ou auto-cria) o contato do interlocutor sob users/{uid}/contacts.
  * - match por whatsapp==phone em contato existente (cadastrado à mão);
@@ -373,11 +424,20 @@ async function resolveContact(
   const detId = peer.phone ? `wa_${peer.phone}` : `lid_${peer.jid.split('@')[0]}`
   const cached = contactCache.get(cacheKey)
   if (cached) {
-    if (peer.phone && cached === detId) {
-      const manual = await findManualContactByNormalizedPhone(contactsCol, peer.phone)
-      if (manual) return useManualContact(uid, contactsCol, cacheKey, manual, peer, detId)
+    // O doc pode ter sido apagado por fora do daemon (fallback local de exclusão no front):
+    // confiar cegamente no cache recriaria um doc fantasma sem createdAt, invisível no CRM.
+    // Valida a existência (1 read por mensagem viva) e cura fantasmas antigos.
+    const snap = await contactsCol.doc(cached).get()
+    if (!snap.exists) {
+      contactCache.delete(cacheKey)
+    } else {
+      if (peer.phone && cached === detId) {
+        const manual = await findManualContactByNormalizedPhone(contactsCol, peer.phone)
+        if (manual) return useManualContact(uid, contactsCol, cacheKey, manual, peer, detId)
+      }
+      await healGhostContact(contactsCol, snap, peer, pushName, fromMe)
+      return cached
     }
-    return cached
   }
 
   let fallback: ContactDoc | null = null
@@ -404,41 +464,18 @@ async function resolveContact(
 
   if (fallback) {
     await maybeRenameOwnNameAutoContact(contactsCol, fallback.id, peer, fromMe, pushName)
+    await healGhostContact(contactsCol, fallback, peer, pushName, fromMe)
     return rememberContact(contactsCol, cacheKey, fallback.id, peer)
   }
 
   const det = await contactsCol.doc(detId).get()
   if (det.exists) {
     await maybeRenameOwnNameAutoContact(contactsCol, detId, peer, fromMe, pushName)
+    await healGhostContact(contactsCol, det, peer, pushName, fromMe)
     return rememberContact(contactsCol, cacheKey, detId, peer)
   }
 
-  const remotePushName = fromMe ? '' : pushName?.trim()
-  const name = (remotePushName || (peer.phone ? `+${peer.phone}` : 'Contato WhatsApp')).trim()
-  const nameSource = remotePushName ? 'profile' : 'phone'
-  await contactsCol.doc(detId).set(
-    {
-      name,
-      company: '—',
-      initials: initialsOf(name) || '?',
-      online: false,
-      role: '—',
-      email: '',
-      phone: peer.phone ?? '',
-      whatsapp: peer.phone ?? '',
-      whatsappDigits: peer.phone ?? '',
-      waJid: peer.jid,
-      status: 'WhatsApp',
-      nameSource,
-      source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
-      lastMessage: '',
-      // lastMessageAt fica de fora de propósito: quem preenche é a própria mensagem
-      // (ingestOne ao vivo / refreshContactPreview no histórico). Um serverTimestamp aqui
-      // mostraria hora errada na lista até a primeira mensagem ser gravada.
-      createdAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  )
+  await contactsCol.doc(detId).set(autoContactDefaults(peer, pushName, fromMe), { merge: true })
   contactCache.set(cacheKey, detId)
   // Migra a foto de perfil do WhatsApp para o contato recém-criado (não bloqueia a ingestão).
   if (fetchProfilePhoto && peer.jid) {
