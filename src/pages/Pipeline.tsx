@@ -4,6 +4,7 @@ import { useTenantStore } from '../store/tenantStore'
 import { useBoards, useAllDeals, addBoard, addColumn, addDeal, moveDeal } from '../hooks/useDeals'
 import Column from '../components/kanban/Column'
 import MaterialIcon from '../components/common/MaterialIcon'
+import RingButton from '../components/common/RingButton'
 import { fmtK } from '../lib/format'
 import { sx } from '../styles/sx'
 
@@ -55,11 +56,14 @@ export default function Pipeline() {
           const on = b.id === boardId
           const count = allDeals.filter((d) => d.boardId === b.id).length
           return (
-            <button
+            <RingButton
               key={b.id}
+              radius={11}
+              active={on}
+              quiet
               onClick={() => setActiveBoard(b.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7, borderRadius: 11, padding: '8px 14px',
+                display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                 ...(on
                   ? { background: 'linear-gradient(140deg,#7a52a0,#553578)', color: '#f4eefa', border: '1px solid rgba(200,160,230,0.3)', boxShadow: '0 4px 12px rgba(110,65,150,0.22)' }
@@ -68,7 +72,7 @@ export default function Pipeline() {
             >
               <MaterialIcon name={b.icon} size={16} />
               {b.name} <span style={{ opacity: 0.55, fontWeight: 600 }}>{count}</span>
-            </button>
+            </RingButton>
           )
         })}
         {!readOnly && <>
@@ -80,9 +84,9 @@ export default function Pipeline() {
             placeholder="Nome do quadro..."
             style={{ width: 160, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '9px 12px', color: '#1d1726', fontSize: 13, outline: 'none' }}
           />
-          <button onClick={handleAddBoard} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1d1726', border: '1px solid #1d1726', borderRadius: 11, padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <RingButton radius={11} onClick={handleAddBoard} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1d1726', border: '1px solid #1d1726', padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <MaterialIcon name="dashboard_customize" size={18} /> Novo quadro
-          </button>
+          </RingButton>
         </>}
       </div>
 
@@ -99,12 +103,13 @@ export default function Pipeline() {
         <div style={{ flex: 1 }} />
         <button style={{ ...sx.btnGhost }}><MaterialIcon name="tune" size={18} /> Filtros</button>
         {!readOnly && (
-          <button
+          <RingButton
+            radius={11}
             onClick={() => { if (columns[0]) addDeal(boardId, columns[0].id, deals) }}
             style={{ ...sx.btnPrimary }}
           >
             <MaterialIcon name="add" size={18} /> Novo negócio
-          </button>
+          </RingButton>
         )}
       </div>
 
@@ -133,9 +138,9 @@ export default function Pipeline() {
                 placeholder="Nova etapa..."
                 style={{ flex: 1, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 12px', color: '#1d1726', fontSize: 13, outline: 'none' }}
               />
-              <button onClick={handleAddColumn} style={{ width: 42, borderRadius: 11, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <RingButton radius={11} onClick={handleAddColumn} style={{ width: 42, alignSelf: 'stretch', background: 'linear-gradient(140deg,#7a52a0,#553578)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialIcon name="add" size={20} />
-              </button>
+              </RingButton>
             </div>
             <div style={{ fontSize: 11.5, color: '#9c95a8', lineHeight: 1.5, padding: '0 4px' }}>
               Crie suas próprias etapas e arraste os negócios entre elas. O pipeline é 100% seu.

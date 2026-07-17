@@ -9,6 +9,7 @@ import { useInvoices } from '../hooks/useInvoices'
 import { useContacts } from '../hooks/useContacts'
 import { fmtMoney } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
+import RingButton from '../components/common/RingButton'
 import type { AgentConfig } from '../types'
 
 const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: string; icon: string; desc: string }[] = [
@@ -183,9 +184,9 @@ export default function Agent() {
               placeholder="Pergunte algo sobre seu negócio..."
               style={{ flex: 1, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 14, padding: '14px 17px', color: '#1d1726', fontSize: 13.5, outline: 'none', boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}
             />
-            <button onClick={() => send()} style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(110,65,150,0.3)' }}>
+            <RingButton radius={14} onClick={() => send()} style={{ width: 48, height: 48, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(110,65,150,0.3)' }}>
               <MaterialIcon name="send" size={21} color="#f4eefa" />
-            </button>
+            </RingButton>
           </div>
         </div>
         )}
