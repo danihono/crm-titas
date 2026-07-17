@@ -7,7 +7,7 @@ import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, daemonConfigured } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, purgeWhatsappContact, daemonConfigured } from '../lib/whatsapp'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
@@ -118,19 +118,6 @@ export default function Contacts() {
       await removeContactPhoto(active.id, active.photoPath || undefined)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Falha ao remover a foto.')
-    } finally {
-      setPhotoBusy(false)
-    }
-  }
-
-  async function handleRefreshPhoto() {
-    if (!active || photoBusy) return
-    setPhotoBusy(true)
-    try {
-      const r = await refreshWhatsappPhoto(active.id)
-      if (r && r.found === false) alert('Este contato não tem foto de perfil visível no WhatsApp.')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao puxar a foto do WhatsApp.')
     } finally {
       setPhotoBusy(false)
     }
@@ -373,9 +360,6 @@ export default function Contacts() {
                         <div style={{ display: 'flex', gap: 5 }}>
                           <PhotoAction icon="photo_camera" title={active.photoUrl ? 'Trocar foto' : 'Adicionar foto'} onClick={() => photoInput.current?.click()} disabled={photoBusy} />
                           {active.photoUrl && <PhotoAction icon="delete" title="Remover foto" onClick={handleRemovePhoto} disabled={photoBusy} rose />}
-                          {waEnabled && wa.status === 'connected' && active.whatsapp && (
-                            <PhotoAction icon="sync" title="Puxar foto do WhatsApp" onClick={handleRefreshPhoto} disabled={photoBusy} busy={photoBusy} green />
-                          )}
                         </div>
                       )}
                       <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
@@ -498,12 +482,12 @@ function Avatar({ photoUrl, initials, size, bg, fontSize }: { photoUrl?: string;
   )
 }
 
-function PhotoAction({ icon, title, onClick, disabled, busy, rose, green }: { icon: string; title: string; onClick: () => void; disabled?: boolean; busy?: boolean; rose?: boolean; green?: boolean }) {
-  const color = rose ? '#b73d6d' : green ? '#1f8a4c' : '#7a52a0'
-  const bg = rose ? 'rgba(193,77,119,0.1)' : green ? 'rgba(52,199,89,0.12)' : 'rgba(150,110,200,0.1)'
+function PhotoAction({ icon, title, onClick, disabled, rose }: { icon: string; title: string; onClick: () => void; disabled?: boolean; rose?: boolean }) {
+  const color = rose ? '#b73d6d' : '#7a52a0'
+  const bg = rose ? 'rgba(193,77,119,0.1)' : 'rgba(150,110,200,0.1)'
   return (
-    <button type="button" title={busy ? 'Trabalhando…' : title} onClick={onClick} disabled={disabled} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: bg, cursor: disabled ? 'wait' : 'pointer', opacity: disabled && !busy ? 0.5 : 1 }}>
-      <MaterialIcon name={busy ? 'progress_activity' : icon} size={16} color={color} className={busy ? 'icon-spin' : undefined} />
+    <button type="button" title={title} onClick={onClick} disabled={disabled} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: bg, cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.5 : 1 }}>
+      <MaterialIcon name={icon} size={16} color={color} />
     </button>
   )
 }
