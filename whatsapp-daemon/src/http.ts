@@ -124,13 +124,16 @@ export function createHttpServer(): Express {
   )
 
   // Desconecta e, opcionalmente (?purge=1), expurga todos os dados espelhados (LGPD).
+  // Sempre 'logout': desvincula o aparelho (próxima conexão exige QR novo) e atualiza o
+  // status para 'disconnected'. O modo 'end' (fechar socket mantendo o vínculo, sem tocar
+  // no status) é interno de deploy/SIGTERM — usado aqui, o botão parecia não fazer nada.
   app.post(
     '/session/disconnect',
     requireUid,
     asyncH(async (req, res) => {
       const uid = req.uid!
       const purge = req.query.purge === '1' || req.body?.purge === true
-      await stopSession(uid, purge ? 'logout' : 'end')
+      await stopSession(uid, 'logout')
       if (purge) await purgeConnection(uid)
       res.json({ ok: true, purged: purge })
     }),
