@@ -34,8 +34,8 @@ export const config = {
    *  de mensagens do período desconectado (gap-fill). Depois disso, volta a ser ignorado. */
   gapFillWindowMs: Number(process.env.WA_GAP_FILL_WINDOW_MS ?? 300_000),
 
-  /** Tempo máx. (ms) POR TENTATIVA da consulta de foto de perfil (são até 4 tentativas). */
-  photoQueryTimeoutMs: Number(process.env.WA_PHOTO_TIMEOUT_MS ?? 8000),
+  /** Tempo máx. (ms) POR TENTATIVA da consulta de foto de perfil (são até 5 tentativas). */
+  photoQueryTimeoutMs: Number(process.env.WA_PHOTO_TIMEOUT_MS ?? 6000),
 
   /** Tempo máx. (ms) do download da imagem de perfil a partir da CDN do WhatsApp. */
   photoDownloadTimeoutMs: Number(process.env.WA_PHOTO_DOWNLOAD_TIMEOUT_MS ?? 10000),

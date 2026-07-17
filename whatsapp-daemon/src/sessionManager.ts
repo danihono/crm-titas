@@ -1,6 +1,7 @@
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
+  getBinaryNodeChild,
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
   type ConnectionState,
@@ -69,6 +70,32 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
   return sent
 }
 
+/**
+ * Consulta de foto no formato LEGADO (iq com to=<jid>, sem target) — o endereçamento das
+ * versões 6.x do Baileys, que parte dos servidores ainda responde quando o formato novo
+ * (to=server + target + tctoken) fica mudo. Mesmos erros Boom (408 timeout / 404 sem foto).
+ */
+async function legacyProfilePictureUrl(
+  s: Session,
+  jid: string,
+  type: 'image' | 'preview',
+  timeoutMs: number,
+): Promise<string | undefined> {
+  const sock = s.sock as unknown as {
+    query: (node: unknown, timeoutMs?: number) => Promise<unknown>
+  }
+  const result = await sock.query(
+    {
+      tag: 'iq',
+      attrs: { to: jid, type: 'get', xmlns: 'w:profile:picture' },
+      content: [{ tag: 'picture', attrs: { type, query: 'url' } }],
+    },
+    timeoutMs,
+  )
+  const child = getBinaryNodeChild(result as Parameters<typeof getBinaryNodeChild>[0], 'picture')
+  return child?.attrs?.url
+}
+
 /** Resolve o @lid de um JID de telefone via mapeamento LID da sessão (sync do pareamento
  *  + fallback USYNC interno do Baileys). null quando não há mapeamento. */
 async function lidForPn(s: Session, pnJid: string): Promise<string | null> {
@@ -116,25 +143,35 @@ export async function fetchProfilePhotoSmart(
   const jids = [...new Set(candidates)]
   if (jids.length === 0) return undefined
 
+  // Tentativas em ordem: para cada endereço, os modos modernos; por último, o formato
+  // LEGADO de IQ (to=<jid>, sem target) que servidores antigos/transitórios ainda aceitam.
+  type Attempt = { jid: string; type: 'image' | 'preview'; legacy?: boolean }
+  const attempts: Attempt[] = jids.flatMap((jid): Attempt[] => [
+    { jid, type: 'image' },
+    { jid, type: 'preview' },
+  ])
+  const legacyJid = jids.find((j) => j.endsWith('@s.whatsapp.net'))
+  if (legacyJid) attempts.push({ jid: legacyJid, type: 'image', legacy: true })
+
   let sawNotFound = false
-  for (const jid of jids) {
-    for (const type of ['image', 'preview'] as const) {
-      try {
-        const url = await s.sock.profilePictureUrl(jid, type, config.photoQueryTimeoutMs)
-        if (url) return url
-        sawNotFound = true // resposta sem URL = contato sem foto
-      } catch (err) {
-        const code = (err as Boom)?.output?.statusCode
-        if (code === DisconnectReason.timedOut) {
-          logger.warn({ uid, jidHost: jid.split('@')[1], type }, 'foto de perfil: tentativa sem resposta (timeout)')
-          continue
-        }
-        if (code === 404 || code === 401) {
-          sawNotFound = true // sem foto ou privacidade — resposta válida do WhatsApp
-          continue
-        }
-        logger.warn({ err, uid, jidHost: jid.split('@')[1], type }, 'foto de perfil: tentativa falhou')
+  for (const { jid, type, legacy } of attempts) {
+    try {
+      const url = legacy
+        ? await legacyProfilePictureUrl(s, jid, type, config.photoQueryTimeoutMs)
+        : await s.sock.profilePictureUrl(jid, type, config.photoQueryTimeoutMs)
+      if (url) return url
+      sawNotFound = true // resposta sem URL = contato sem foto
+    } catch (err) {
+      const code = (err as Boom)?.output?.statusCode
+      if (code === DisconnectReason.timedOut) {
+        logger.warn({ uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa sem resposta (timeout)')
+        continue
       }
+      if (code === 404 || code === 401) {
+        sawNotFound = true // sem foto ou privacidade — resposta válida do WhatsApp
+        continue
+      }
+      logger.warn({ err, uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa falhou')
     }
   }
 
