@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
+import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
 import { useWhatsappStatus } from '../../hooks/useWhatsappStatus'
 import { giveConsent, connectWhatsapp, disconnectWhatsapp } from '../../lib/whatsapp'
@@ -103,13 +104,15 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
             <span>Li e concordo com o aviso acima e confirmo ter base legal para espelhar estas conversas.</span>
           </label>
 
-          <button
+          <RingButton
+            radius={11}
+            block
             onClick={handleConnect}
             disabled={!consented || busy}
-            style={{ ...sx.btnPrimary, width: '100%', justifyContent: 'center', opacity: !consented || busy ? 0.55 : 1, cursor: !consented || busy ? 'not-allowed' : 'pointer' }}
+            style={{ ...sx.btnPrimary, justifyContent: 'center', opacity: !consented || busy ? 0.55 : 1, cursor: !consented || busy ? 'not-allowed' : 'pointer' }}
           >
             <MaterialIcon name="qr_code_2" size={18} /> {busy ? 'Gerando QR…' : 'Gerar QR e conectar'}
-          </button>
+          </RingButton>
         </>
       )}
 

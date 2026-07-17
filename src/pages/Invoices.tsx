@@ -4,6 +4,7 @@ import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
 import { invoiceStatusMap } from '../lib/theme'
 import { fmtMoney, dueDateShort } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
+import RingButton from '../components/common/RingButton'
 import InvoiceModal from '../components/modals/InvoiceModal'
 import { sx } from '../styles/sx'
 
@@ -31,7 +32,7 @@ export default function Invoices() {
       <div style={{ background: '#ffffff', border: '1px solid #ececf3', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #eeebf3' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Notas de faturamento</div>
-          {!readOnly && <button onClick={ui.openInvoiceModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="receipt_long" size={18} /> Emitir nota</button>}
+          {!readOnly && <RingButton radius={11} onClick={ui.openInvoiceModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="receipt_long" size={18} /> Emitir nota</RingButton>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 1fr 1fr 110px 40px', gap: 14, padding: '12px 22px', fontSize: 11, color: '#9c95a8', fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
           <span>NOTA</span><span>CLIENTE</span><span>VALOR</span><span>VENCIMENTO</span><span>STATUS</span><span />

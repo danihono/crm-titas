@@ -7,6 +7,7 @@ import { useOwnerStats } from '../../hooks/useOwnerStats'
 import { useTenantStore } from '../../store/tenantStore'
 import { fmtMoney } from '../../lib/format'
 import MaterialIcon from '../../components/common/MaterialIcon'
+import RingButton from '../../components/common/RingButton'
 
 export default function ClientsList() {
   const navigate = useNavigate()
@@ -71,13 +72,15 @@ export default function ClientsList() {
                   <div className="text-[10.5px] text-[#9a8fa8]">negócios</div>
                 </div>
               </div>
-              <button
+              <RingButton
+                radius={12}
+                block
                 onClick={() => open(c.uid, c.displayName)}
-                className="w-full h-10 rounded-xl text-[13px] font-bold text-[#f4eefa] flex items-center justify-center gap-1.5"
+                className="h-10 text-[13px] font-bold text-[#f4eefa] flex items-center justify-center gap-1.5"
                 style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', boxShadow: '0 8px 20px rgba(110,65,150,0.3)' }}
               >
                 Abrir CRM <MaterialIcon name="arrow_forward" size={17} />
-              </button>
+              </RingButton>
             </motion.div>
           )
         })}

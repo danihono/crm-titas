@@ -11,6 +11,7 @@ import { sendWhatsappMessage, fetchWhatsappHistory, purgeWhatsappContact, daemon
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
+import RingButton from '../components/common/RingButton'
 import AudioMessage from '../components/common/AudioMessage'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
@@ -408,9 +409,9 @@ export default function Contacts() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Arquivos de {active.name}</div>
                   {!readOnly && (
-                    <button onClick={() => fileInput.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', borderRadius: 11, padding: '9px 15px', color: '#f4eefa', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(110,65,150,0.22)' }}>
+                    <RingButton radius={11} onClick={() => fileInput.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '9px 15px', color: '#f4eefa', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(110,65,150,0.22)' }}>
                       <MaterialIcon name="upload_file" size={18} /> Adicionar arquivo
-                    </button>
+                    </RingButton>
                   )}
                   <input ref={fileInput} type="file" hidden onChange={onPickFile} />
                 </div>

@@ -3,6 +3,7 @@ import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
 import { greeting } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
+import RingButton from '../common/RingButton'
 
 const TITLES: Record<string, string> = {
   '/': 'Visão geral',
@@ -73,12 +74,13 @@ export default function Topbar() {
         <span style={{ position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: '50%', background: '#cd8ae0', boxShadow: '0 0 8px #cd8ae0' }} />
       </button>
 
-      <button
+      <RingButton
+        radius={11}
         onClick={() => navigate('/agente')}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', borderRadius: 11, padding: '0 16px', height: 42, color: '#f4eefa', fontWeight: 600, fontSize: 13, cursor: 'pointer', boxShadow: '0 6px 18px rgba(110,65,150,0.35)' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '0 16px', height: 42, color: '#f4eefa', fontWeight: 600, fontSize: 13, cursor: 'pointer', boxShadow: '0 6px 18px rgba(110,65,150,0.35)' }}
       >
         <MaterialIcon name="auto_awesome" size={19} /> Titã IA
-      </button>
+      </RingButton>
     </header>
   )
 }
