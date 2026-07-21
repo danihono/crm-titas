@@ -15,6 +15,12 @@ interface AskData {
   question?: string
 }
 
+// Tetos de entrada (defesa de custo): o cliente legítimo envia ≤8 turnos de
+// histórico e um system enxuto; qualquer coisa muito acima disso é abuso.
+const MAX_HISTORY_ITEMS = 16
+const MAX_CONTENT_CHARS = 4_000
+const MAX_SYSTEM_CHARS = 20_000
+
 /**
  * Callable: recebe { system, history, question } montados no cliente (single-tenant)
  * e retorna { reply }. Exige autenticação + App Check.
@@ -34,14 +40,19 @@ export const askTitaIA = onCall(
     if (!question || !question.trim()) {
       throw new HttpsError('invalid-argument', 'Pergunta vazia.')
     }
+    if (question.length > MAX_CONTENT_CHARS) {
+      throw new HttpsError('invalid-argument', 'Pergunta longa demais.')
+    }
 
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
 
     const messages = [
-      ...(Array.isArray(history) ? history : []).map((m) => ({
-        role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-        content: m.content,
-      })),
+      ...(Array.isArray(history) ? history : [])
+        .slice(-MAX_HISTORY_ITEMS)
+        .map((m) => ({
+          role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+          content: String(m.content ?? '').slice(0, MAX_CONTENT_CHARS),
+        })),
       { role: 'user' as const, content: question },
     ]
 
@@ -49,7 +60,7 @@ export const askTitaIA = onCall(
       const msg = await client.messages.create({
         model: MODEL,
         max_tokens: 1024,
-        system: system || 'Você é um assistente comercial. Responda em português do Brasil, de forma objetiva.',
+        system: (system || 'Você é um assistente comercial. Responda em português do Brasil, de forma objetiva.').slice(0, MAX_SYSTEM_CHARS),
         messages,
       })
       const reply = msg.content

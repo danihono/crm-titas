@@ -56,6 +56,13 @@ const ALLOWED_ORIGINS = ALLOWED_ORIGIN
   .map((s) => s.trim())
   .filter((s) => s === '*' || /^https?:\/\//.test(s))
 
+if (ALLOWED_ORIGINS.includes('*')) {
+  logger.warn(
+    'WA_ALLOWED_ORIGIN não definido — CORS aberto para qualquer origem (*). ' +
+      'Em produção, defina a origem do frontend (ex.: https://titas-c8967.web.app).',
+  )
+}
+
 function corsOriginFor(req: Request): string | null {
   if (ALLOWED_ORIGINS.includes('*')) return '*'
   const origin = req.header('origin')
@@ -158,7 +165,10 @@ export function createHttpServer(): Express {
         return
       }
 
-      const digits = phoneDigits(contact.get('whatsapp')) || phoneDigits(contact.get('phone'))
+      const digits =
+        phoneDigits(contact.get('whatsappDigits')) ||
+        phoneDigits(contact.get('whatsapp')) ||
+        phoneDigits(contact.get('phone'))
       if (digits.length < 8) {
         res.status(400).json({ error: 'contact has no valid WhatsApp number' })
         return

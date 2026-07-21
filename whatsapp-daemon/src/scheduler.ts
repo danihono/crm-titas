@@ -121,7 +121,9 @@ async function sendClaimed(s: ClaimedSchedule): Promise<void> {
     phoneDigits(contact.get('whatsapp')) ||
     phoneDigits(contact.get('phone'))
   if (digits.length < 8) {
-    await markFailed(s.uid, s.id, s.attempts, 'invalid_contact_phone')
+    // Falha permanente — sem MAX_ATTEMPTS o status voltaria a 'pending' e o
+    // scheduler re-tentaria para sempre um telefone que nunca vai resolver.
+    await markFailed(s.uid, s.id, MAX_ATTEMPTS, 'invalid_contact_phone')
     return
   }
 
