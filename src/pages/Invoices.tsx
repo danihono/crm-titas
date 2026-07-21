@@ -34,19 +34,18 @@ export default function Invoices() {
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Notas de faturamento</div>
           {!readOnly && <RingButton radius={11} onClick={ui.openInvoiceModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="receipt_long" size={18} /> Emitir nota</RingButton>}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 1fr 1fr 110px 40px', gap: 14, padding: '12px 22px', fontSize: 11, color: '#9c95a8', fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
-          <span>NOTA</span><span>CLIENTE</span><span>VALOR</span><span>VENCIMENTO</span><span>STATUS</span><span />
+        <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 1fr 1fr 110px', gap: 14, padding: '12px 22px', fontSize: 11, color: '#9c95a8', fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
+          <span>NOTA</span><span>CLIENTE</span><span>VALOR</span><span>VENCIMENTO</span><span>STATUS</span>
         </div>
         {withStatus.map(({ iv, status }) => {
           const [color, bg] = invoiceStatusMap[status]
           return (
-            <div key={iv.id} style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 1fr 1fr 110px 40px', gap: 14, padding: '15px 22px', alignItems: 'center', borderBottom: '1px solid #f4f2f8' }}>
+            <div key={iv.id} style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 1fr 1fr 110px', gap: 14, padding: '15px 22px', alignItems: 'center', borderBottom: '1px solid #f4f2f8' }}>
               <span style={{ fontSize: 13, color: '#7a52a0', fontWeight: 700 }}>{iv.num}</span>
               <span style={{ fontSize: 13.5, color: '#1d1726', fontWeight: 600 }}>{iv.client}</span>
               <span style={{ fontSize: 13.5, color: '#1d1726', fontWeight: 700 }}>R$ {fmtMoney(iv.value)}</span>
               <span style={{ fontSize: 12.5, color: '#6e6780' }}>{dueDateShort(iv.dueAt)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 700, color, background: bg, borderRadius: 20, padding: '4px 11px', textAlign: 'center', justifySelf: 'start' }}>{status}</span>
-              <MaterialIcon name="download" size={19} color="#c4bfd0" style={{ cursor: 'pointer' }} />
             </div>
           )
         })}

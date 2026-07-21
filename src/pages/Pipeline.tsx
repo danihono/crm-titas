@@ -18,13 +18,25 @@ export default function Pipeline() {
   const [dragId, setDragId] = useState<string | null>(null)
   const [newColName, setNewColName] = useState('')
   const [newBoardName, setNewBoardName] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterText, setFilterText] = useState('')
+  const [filterTag, setFilterTag] = useState('')
 
   const current = boards.find((b) => b.id === activeBoard) ?? boards[0]
   const boardId = current?.id ?? ''
+  // `deals` (quadro inteiro) alimenta as mutações (cálculo de order);
+  // `visibleDeals` é o que as colunas renderizam com os filtros aplicados.
   const deals = allDeals.filter((d) => d.boardId === boardId)
   const columns = current ? [...current.columns].sort((a, b) => a.order - b.order) : []
 
-  const boardTotal = deals.reduce((s, d) => s + (d.value || 0), 0)
+  const tags = Array.from(new Set(deals.map((d) => d.tag).filter(Boolean))).sort()
+  const ft = filterText.trim().toLowerCase()
+  const visibleDeals = deals.filter((d) =>
+    (!ft || d.company.toLowerCase().includes(ft) || d.contact.toLowerCase().includes(ft))
+    && (!filterTag || d.tag === filterTag))
+  const filtersActive = (ft ? 1 : 0) + (filterTag ? 1 : 0)
+
+  const boardTotal = visibleDeals.reduce((s, d) => s + (d.value || 0), 0)
 
   async function handleAddBoard() {
     const n = newBoardName.trim()
@@ -113,11 +125,39 @@ export default function Pipeline() {
             <span style={{ color: '#6e6780' }}>Valor total · </span><span style={{ fontWeight: 700, color: '#1d1726' }}>R$ {fmtK(boardTotal)}</span>
           </div>
           <div style={{ background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
-            <span style={{ color: '#6e6780' }}>Negócios · </span><span style={{ fontWeight: 700, color: '#1d1726' }}>{deals.length}</span>
+            <span style={{ color: '#6e6780' }}>Negócios · </span><span style={{ fontWeight: 700, color: '#1d1726' }}>{visibleDeals.length}{filtersActive > 0 && ` de ${deals.length}`}</span>
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button style={{ ...sx.btnGhost }}><MaterialIcon name="tune" size={18} /> Filtros</button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowFilters((v) => !v)} style={{ ...sx.btnGhost, ...(filtersActive > 0 ? { color: '#7a52a0', borderColor: 'rgba(150,110,200,0.4)', background: 'rgba(150,110,200,0.08)' } : {}) }}>
+            <MaterialIcon name="tune" size={18} /> Filtros{filtersActive > 0 && ` (${filtersActive})`}
+          </button>
+          {showFilters && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 13, boxShadow: '0 10px 28px rgba(28,20,50,0.14)', padding: 14, zIndex: 20 }}>
+              <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Buscar por empresa/contato</label>
+              <input
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Ex.: Atlas, Marina..."
+                style={{ width: '100%', margin: '6px 0 12px', background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 10, padding: '9px 11px', color: '#1d1726', fontSize: 13, outline: 'none' }}
+              />
+              <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Etiqueta</label>
+              <select
+                value={filterTag}
+                onChange={(e) => setFilterTag(e.target.value)}
+                style={{ width: '100%', margin: '6px 0 12px', background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 10, padding: '9px 11px', color: '#1d1726', fontSize: 13, outline: 'none' }}
+              >
+                <option value="">Todas</option>
+                {tags.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <button onClick={() => { setFilterText(''); setFilterTag('') }} disabled={filtersActive === 0} style={{ border: 'none', background: 'transparent', color: filtersActive ? '#b73d6d' : '#c4bfd0', fontSize: 12.5, fontWeight: 700, cursor: filtersActive ? 'pointer' : 'default', padding: '6px 4px' }}>Limpar filtros</button>
+                <button onClick={() => setShowFilters(false)} style={{ border: 'none', background: 'rgba(150,110,200,0.1)', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', borderRadius: 9, padding: '6px 12px' }}>Fechar</button>
+              </div>
+            </div>
+          )}
+        </div>
         {!readOnly && (
           <RingButton
             radius={11}
@@ -135,7 +175,7 @@ export default function Pipeline() {
           <Column
             key={col.id}
             column={col}
-            cards={deals.filter((d) => d.columnId === col.id)}
+            cards={visibleDeals.filter((d) => d.columnId === col.id)}
             readOnly={readOnly}
             onDragStart={setDragId}
             onDrop={onDrop}

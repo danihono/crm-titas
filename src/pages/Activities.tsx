@@ -113,7 +113,6 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
         </div>
       </div>
       <span style={{ fontSize: 11, fontWeight: 700, color: badgeColor, background: badgeBg, borderRadius: 20, padding: '4px 12px' }}>{badgeLabel}</span>
-      <MaterialIcon name="more_horiz" size={19} color="#c4bfd0" style={{ cursor: 'pointer' }} />
     </div>
   )
 }

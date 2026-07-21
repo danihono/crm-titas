@@ -35,7 +35,12 @@ export default function Contacts() {
   // WhatsApp liberado para todos os usuários (sem feature-flag). Só o modo
   // somente-leitura (dono visualizando outro tenant) esconde a UI de WhatsApp.
   const waEnabled = !readOnly
+  const [search, setSearch] = useState('')
   const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
+  const q = search.trim().toLowerCase()
+  const shownContacts = q
+    ? contacts.filter((c) => [c.name, c.company, c.email, c.phone, c.whatsapp].some((v) => v?.toLowerCase().includes(q)))
+    : contacts
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
   const { docs: messages } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
@@ -224,12 +229,18 @@ export default function Contacts() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 10, padding: '8px 11px' }}>
             <MaterialIcon name="search" size={17} color="#a39bb0" />
-            <input placeholder="Buscar contato..." style={{ background: 'transparent', border: 'none', outline: 'none', color: '#1d1726', fontSize: 13, width: '100%' }} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar contato..." style={{ background: 'transparent', border: 'none', outline: 'none', color: '#1d1726', fontSize: 13, width: '100%' }} />
+            {search && (
+              <button onClick={() => setSearch('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
+                <MaterialIcon name="close" size={15} color="#a39bb0" />
+              </button>
+            )}
           </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {contacts.map((c, i) => {
+          {shownContacts.map((c) => {
+            const i = contacts.indexOf(c)
             const sel = active?.id === c.id
             const scheduled = scheduleByContact.get(c.id)
             return (
@@ -277,6 +288,9 @@ export default function Contacts() {
               </div>
             )
           })}
+          {q && shownContacts.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: '#a39bb0' }}>Nenhum contato encontrado para "{search}".</div>
+          )}
         </div>
       </div>
 
@@ -309,8 +323,6 @@ export default function Contacts() {
                 </div>
                 <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{active.role} · {active.company}</div>
               </div>
-              <MaterialIcon name="call" size={21} color="#9c95a8" style={{ cursor: 'pointer' }} />
-              <MaterialIcon name="more_vert" size={21} color="#9c95a8" style={{ cursor: 'pointer' }} />
             </div>
 
             {/* Tabs */}
@@ -351,8 +363,6 @@ export default function Contacts() {
                 </div>
                 {!readOnly && (
                   <div style={{ flexShrink: 0, padding: '14px 22px 18px', borderTop: '1px solid #e2def0', background: '#ffffff', display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <MaterialIcon name="add_circle" size={23} color="#9c95a8" style={{ cursor: 'pointer' }} />
-                    <MaterialIcon name="mood" size={22} color="#9c95a8" style={{ cursor: 'pointer' }} />
                     <input
                       value={waInput}
                       onChange={(e) => setWaInput(e.target.value)}
