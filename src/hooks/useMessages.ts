@@ -1,13 +1,16 @@
-import { collection, query, orderBy, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, query, orderBy, limitToLast, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { col, ref } from '../lib/paths'
 import { messageFromDoc } from '../lib/converters'
 import { useCollection } from './useCollection'
 import type { Message } from '../types'
 
+/** Teto do listener da conversa — históricos importados podem ter milhares de docs. */
+const MESSAGES_WINDOW = 500
+
 export function useMessages(contactId: string | null) {
   return useCollection<Message>(
-    (uid) => (contactId ? query(collection(db, `users/${uid}/contacts/${contactId}/messages`), orderBy('sentAt')) : null),
+    (uid) => (contactId ? query(collection(db, `users/${uid}/contacts/${contactId}/messages`), orderBy('sentAt'), limitToLast(MESSAGES_WINDOW)) : null),
     messageFromDoc,
     [contactId],
   )

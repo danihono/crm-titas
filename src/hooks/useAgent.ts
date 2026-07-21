@@ -3,24 +3,30 @@ import { doc, onSnapshot, collection, query, orderBy, addDoc, setDoc, serverTime
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTenantStore } from '../store/tenantStore'
 import { col, userRef } from '../lib/paths'
 import { agentMessageFromDoc } from '../lib/converters'
 import { defaultAgentConfig } from '../lib/theme'
 import { useCollection } from './useCollection'
 import type { AgentConfig, AgentMessage } from '../types'
 
-/** Config do agente (campo `agent` em users/{uid}), em tempo real. */
+/**
+ * Config do agente (campo `agent` em users/{uid}), em tempo real.
+ * Lê o tenant EFETIVO (cliente selecionado por um dono, senão o próprio usuário).
+ */
 export function useAgentConfig(): AgentConfig {
   const { user } = useAuth()
+  const tenantUid = useTenantStore((s) => s.tenantUid)
   const [cfg, setCfg] = useState<AgentConfig>(defaultAgentConfig)
   useEffect(() => {
-    const uid = user?.uid
+    const uid = tenantUid ?? user?.uid
     if (!uid) return
+    setCfg(defaultAgentConfig)
     return onSnapshot(doc(db, 'users', uid), (snap) => {
       const a = snap.data()?.agent
       if (a) setCfg(a as AgentConfig)
     })
-  }, [user?.uid])
+  }, [user?.uid, tenantUid])
   return cfg
 }
 

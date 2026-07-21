@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   useAgentConfig, useAgentChat, updateAgentField, toggleAgentSource, pushAgentMessage, callTitaIA, fallbackReply,
 } from '../hooks/useAgent'
@@ -21,6 +21,39 @@ const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: string; icon: str
 ]
 const SUGGESTIONS = ['Qual meu foco hoje?', 'Analisar a Atlas Cloud', 'Cobrar notas vencidas']
 
+function saveAgentField(field: 'name' | 'persona' | 'instructions', value: string) {
+  updateAgentField(field, value).catch((e) => {
+    alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração do agente.')
+  })
+}
+
+/**
+ * Campo de texto do agente com escrita debounced no Firestore (1 write ~600ms
+ * após parar de digitar, com flush no blur) — antes era 1 write por tecla.
+ */
+function useDebouncedAgentField(field: 'name' | 'instructions', remote: string) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const timer = useRef<number>()
+  useEffect(() => {
+    if (draft !== null && draft === remote) setDraft(null)
+  }, [remote, draft])
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  return {
+    value: draft ?? remote,
+    onChange(v: string) {
+      setDraft(v)
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => saveAgentField(field, v), 600)
+    },
+    onBlur() {
+      if (draft !== null) {
+        window.clearTimeout(timer.current)
+        saveAgentField(field, draft)
+      }
+    },
+  }
+}
+
 export default function Agent() {
   const cfg = useAgentConfig()
   const { docs: chat } = useAgentChat()
@@ -33,6 +66,8 @@ export default function Agent() {
 
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
+  const nameField = useDebouncedAgentField('name', cfg.name)
+  const instrField = useDebouncedAgentField('instructions', cfg.instructions)
 
   const colTitle: Record<string, string> = {}
   boards.forEach((b) => b.columns.forEach((c) => { colTitle[c.id] = c.title }))
@@ -113,16 +148,16 @@ export default function Agent() {
 
         <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#a39bb0', fontWeight: 700, margin: '24px 0 10px' }}>IDENTIDADE</div>
         <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Nome do agente</label>
-        <input value={cfg.name} disabled={readOnly} onChange={(e) => updateAgentField('name', e.target.value)} style={fieldStyle} />
+        <input value={nameField.value} disabled={readOnly} onChange={(e) => nameField.onChange(e.target.value)} onBlur={nameField.onBlur} style={fieldStyle} />
         <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Função / Persona</label>
-        <select value={cfg.persona} disabled={readOnly} onChange={(e) => updateAgentField('persona', e.target.value)} style={fieldStyle}>
+        <select value={cfg.persona} disabled={readOnly} onChange={(e) => saveAgentField('persona', e.target.value)} style={fieldStyle}>
           <option>Consultor de Vendas</option>
           <option>SDR / Pré-vendas</option>
           <option>Gerente de Sucesso</option>
           <option>Analista de Dados</option>
         </select>
         <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Instruções</label>
-        <textarea value={cfg.instructions} disabled={readOnly} onChange={(e) => updateAgentField('instructions', e.target.value)} rows={4} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
+        <textarea value={instrField.value} disabled={readOnly} onChange={(e) => instrField.onChange(e.target.value)} onBlur={instrField.onBlur} rows={4} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
 
         <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#a39bb0', fontWeight: 700, margin: '22px 0 10px' }}>FONTES DE CONHECIMENTO</div>
         <div style={{ fontSize: 12, color: '#6e6780', lineHeight: 1.5, marginBottom: 14 }}>Escolha o que o agente pode acessar. Ele lê os dados em tempo real para entender todo o seu negócio.</div>
@@ -130,7 +165,12 @@ export default function Agent() {
           {SOURCE_DEFS.map((s) => {
             const on = cfg.sources[s.key]
             return (
-              <div key={s.key} onClick={() => { if (!readOnly) toggleAgentSource(s.key, on) }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? 'rgba(150,110,200,0.07)' : '#f7f5fa', border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : '#e6e3ee'), borderRadius: 12, padding: '12px 14px', cursor: readOnly ? 'default' : 'pointer' }}>
+              <div key={s.key} onClick={() => {
+                if (readOnly) return
+                toggleAgentSource(s.key, on).catch((e) => {
+                  alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração do agente.')
+                })
+              }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? 'rgba(150,110,200,0.07)' : '#f7f5fa', border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : '#e6e3ee'), borderRadius: 12, padding: '12px 14px', cursor: readOnly ? 'default' : 'pointer' }}>
                 <MaterialIcon name={s.icon} size={20} color={on ? '#7a52a0' : '#b8b2c4'} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1726' }}>{s.label}</div>

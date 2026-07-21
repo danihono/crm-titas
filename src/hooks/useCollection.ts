@@ -46,7 +46,7 @@ export function useCollection<T>(
     )
     return unsub
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, ...deps])
+  }, [user?.uid, tenantUid, ...deps])
 
   return { docs, loading }
 }

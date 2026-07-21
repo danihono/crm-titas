@@ -29,21 +29,37 @@ export default function Pipeline() {
   async function handleAddBoard() {
     const n = newBoardName.trim()
     if (!n) return
-    const id = await addBoard(n)
-    setActiveBoard(id)
-    setNewBoardName('')
+    try {
+      const id = await addBoard(n)
+      setActiveBoard(id)
+      setNewBoardName('')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao criar o quadro.')
+    }
   }
 
   async function handleAddColumn() {
     const n = newColName.trim()
     if (!n || !current) return
-    await addColumn(current, n)
-    setNewColName('')
+    try {
+      await addColumn(current, n)
+      setNewColName('')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao criar a etapa.')
+    }
+  }
+
+  function handleAddDeal(colId: string) {
+    addDeal(boardId, colId, deals).catch((e) => {
+      alert(e instanceof Error ? e.message : 'Falha ao criar o negócio.')
+    })
   }
 
   function onDrop(columnId: string) {
     if (readOnly || !dragId) return
-    moveDeal(dragId, columnId, deals)
+    moveDeal(dragId, columnId, deals).catch((e) => {
+      alert(e instanceof Error ? e.message : 'Falha ao mover o negócio.')
+    })
     setDragId(null)
   }
 
@@ -105,7 +121,7 @@ export default function Pipeline() {
         {!readOnly && (
           <RingButton
             radius={11}
-            onClick={() => { if (columns[0]) addDeal(boardId, columns[0].id, deals) }}
+            onClick={() => { if (columns[0]) handleAddDeal(columns[0].id) }}
             style={{ ...sx.btnPrimary }}
           >
             <MaterialIcon name="add" size={18} /> Novo negócio
@@ -123,7 +139,7 @@ export default function Pipeline() {
             readOnly={readOnly}
             onDragStart={setDragId}
             onDrop={onDrop}
-            onAddCard={(colId) => addDeal(boardId, colId, deals)}
+            onAddCard={handleAddDeal}
           />
         ))}
 

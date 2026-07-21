@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTenantStore } from '../store/tenantStore'
 
 export type WhatsappConnState =
   | 'disconnected'
@@ -21,15 +22,16 @@ export interface WhatsappStatus {
 const INITIAL: WhatsappStatus = { status: 'disconnected', qr: null, phoneNumber: null, lastError: null }
 
 /**
- * Status da conexão de WhatsApp do usuário logado, em tempo real
+ * Status da conexão de WhatsApp do tenant efetivo, em tempo real
  * (whatsappStatus/{uid}). Nada de polling — só onSnapshot.
  */
 export function useWhatsappStatus(): WhatsappStatus {
   const { user } = useAuth()
+  const tenantUid = useTenantStore((s) => s.tenantUid)
   const [st, setSt] = useState<WhatsappStatus>(INITIAL)
 
   useEffect(() => {
-    const uid = user?.uid
+    const uid = tenantUid ?? user?.uid
     if (!uid) {
       setSt(INITIAL)
       return
@@ -54,7 +56,7 @@ export function useWhatsappStatus(): WhatsappStatus {
         console.error('[useWhatsappStatus]', err)
       },
     )
-  }, [user?.uid])
+  }, [user?.uid, tenantUid])
 
   return st
 }

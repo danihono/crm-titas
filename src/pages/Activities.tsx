@@ -93,7 +93,12 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#ffffff', border: '1px solid #ececf3', borderLeft: `3px solid ${accent}`, borderRadius: 14, padding: '15px 18px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 4px 14px rgba(28,20,50,0.04)' }}>
       <button
-        onClick={() => { if (!readOnly) toggleActivity(a) }}
+        onClick={() => {
+          if (readOnly) return
+          toggleActivity(a).catch((e) => {
+            alert(e instanceof Error ? e.message : 'Falha ao atualizar a atividade.')
+          })
+        }}
         style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, cursor: readOnly ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid ' + (a.done ? '#34c759' : '#d4cfe0'), background: a.done ? '#34c759' : 'transparent' }}
       >
         {a.done && <MaterialIcon name="check" size={17} color="#fff" />}
