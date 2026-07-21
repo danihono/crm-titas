@@ -92,8 +92,13 @@ export default function Contacts() {
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
-    if (f && active) await uploadContactFile(active.id, f)
     e.target.value = ''
+    if (!f || !active) return
+    try {
+      await uploadContactFile(active.id, f)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao enviar o arquivo.')
+    }
   }
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {

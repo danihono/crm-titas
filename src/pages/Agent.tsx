@@ -7,7 +7,7 @@ import { useAllDeals, useBoards } from '../hooks/useDeals'
 import { useActivities, statusOf } from '../hooks/useActivities'
 import { useInvoices } from '../hooks/useInvoices'
 import { useContacts } from '../hooks/useContacts'
-import { fmtMoney } from '../lib/format'
+import { fmtMoney, relativeLabel } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import type { AgentConfig } from '../types'
@@ -55,6 +55,19 @@ export default function Agent() {
     if (s.contatos) {
       ctx += '\nCONTATOS: ' + contacts.map((c) => `${c.name} (${c.company})`).join(', ') + '\n'
     }
+    if (s.conversas) {
+      const recentes = contacts
+        .filter((c) => c.lastMessage)
+        .sort((a, b) => (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0))
+        .slice(0, 30)
+      if (recentes.length) {
+        ctx += '\nCONVERSAS RECENTES (WhatsApp — última mensagem de cada contato):\n'
+        recentes.forEach((c) => {
+          const quando = c.lastMessageAt ? ` (${relativeLabel(c.lastMessageAt)})` : ''
+          ctx += `- ${c.name}: "${c.lastMessage}"${quando}\n`
+        })
+      }
+    }
     return ctx
   }
 
@@ -63,18 +76,23 @@ export default function Agent() {
     if (!q || typing) return
     setInput('')
     setTyping(true)
-    await pushAgentMessage('user', q)
-    let reply = ''
     try {
-      const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. Responda em português do Brasil, de forma objetiva (máx ~120 palavras).\n${buildContext()}`
-      const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
-      reply = await callTitaIA({ system, history, question: q })
-      if (!reply) reply = fallbackReply(q)
-    } catch {
-      reply = fallbackReply(q)
+      await pushAgentMessage('user', q)
+      let reply = ''
+      try {
+        const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. Responda em português do Brasil, de forma objetiva (máx ~120 palavras).\n${buildContext()}`
+        const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
+        reply = await callTitaIA({ system, history, question: q })
+        if (!reply) reply = fallbackReply(q)
+      } catch {
+        reply = fallbackReply(q)
+      }
+      await pushAgentMessage('agent', reply)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao enviar a mensagem ao agente.')
+    } finally {
+      setTyping(false)
     }
-    await pushAgentMessage('agent', reply)
-    setTyping(false)
   }
 
   const activeSources = Object.values(cfg.sources).filter(Boolean).length
