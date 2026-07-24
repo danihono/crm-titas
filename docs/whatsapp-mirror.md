@@ -1,5 +1,14 @@
 # Espelhamento de WhatsApp — spec do módulo
 
+> ⚠️ **DESATIVADO POR CUSTO (kill-switch ativo).** O daemon do Cloud Run é always-on
+> (`min-instances=1`, CPU sempre alocada) e por isso é o maior gasto do projeto. Está
+> desligado. Para reativar:
+> 1. Redeploy do daemon (seção "Deploy (Cloud Run)" abaixo).
+> 2. Em `src/lib/whatsapp.ts`, troque `WHATSAPP_KILL_SWITCH` para `false` e refaça o
+>    build/deploy do hosting.
+> Enquanto `WHATSAPP_KILL_SWITCH === true`, toda a UI de WhatsApp some e nenhuma chamada
+> ao daemon é feita — ninguém consegue religar o custo por acidente.
+
 Módulo que espelha, em tempo real, as conversas de WhatsApp de um usuário dentro do CRM
 (aba Contatos). É **leitura/espelho primeiro** — enviar pelo CRM é fase posterior.
 

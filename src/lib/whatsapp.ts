@@ -1,10 +1,32 @@
 import { auth } from './firebase'
 
+/**
+ * KILL-SWITCH GLOBAL do WhatsApp.
+ *
+ * Enquanto `true`, TODA a funcionalidade de WhatsApp fica desligada no app: o botão
+ * "Conectar" some, o envio volta a ser local, nenhuma chamada ao daemon é feita — mesmo
+ * que o status salvo em `whatsappStatus/{uid}` ainda diga "connected". Isso existe para
+ * conter custo: o daemon do Cloud Run é always-on (min-instances=1, CPU sempre alocada) e
+ * fica desativado por padrão.
+ *
+ * PARA REATIVAR quando quiser voltar a usar:
+ *   1. Redeploy do daemon:  cd whatsapp-daemon && gcloud run deploy whatsapp-daemon --source . \
+ *        --min-instances=1 --max-instances=1 --no-cpu-throttling  (ver docs/whatsapp-mirror.md)
+ *   2. Troque esta constante para `false` e refaça o build/deploy do hosting.
+ * Assim ninguém consegue religar o custo por acidente — só um deploy seu reativa.
+ */
+const WHATSAPP_KILL_SWITCH = true
+
 // URL base do daemon de WhatsApp (Cloud Run). Configurável por env; vazio = não configurado.
 const DAEMON_URL = (import.meta.env.VITE_WHATSAPP_DAEMON_URL || '').replace(/\/$/, '')
 
+/** WhatsApp está ligado no app? Falso enquanto o kill-switch estiver ativo. */
+export function whatsappEnabled(): boolean {
+  return !WHATSAPP_KILL_SWITCH
+}
+
 export function daemonConfigured(): boolean {
-  return !!DAEMON_URL
+  return !WHATSAPP_KILL_SWITCH && !!DAEMON_URL
 }
 
 /** Teto (ms) para uma chamada ao daemon — evita ficar preso num spinner se o HTTP não responder. */
@@ -26,6 +48,9 @@ interface DaemonError extends Error {
 
 /** Chama um endpoint autenticado do daemon com o Firebase ID token do usuário. */
 async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIMEOUT_MS): Promise<Record<string, unknown>> {
+  if (WHATSAPP_KILL_SWITCH) {
+    throw new Error('O WhatsApp está temporariamente desativado.')
+  }
   if (!DAEMON_URL) {
     throw new Error('Serviço de WhatsApp não configurado (defina VITE_WHATSAPP_DAEMON_URL).')
   }

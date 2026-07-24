@@ -7,7 +7,7 @@ import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, daemonConfigured } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, daemonConfigured, whatsappEnabled } from '../lib/whatsapp'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
@@ -32,9 +32,10 @@ export default function Contacts() {
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
   const wa = useWhatsappStatus()
-  // WhatsApp liberado para todos os usuários (sem feature-flag). Só o modo
-  // somente-leitura (dono visualizando outro tenant) esconde a UI de WhatsApp.
-  const waEnabled = !readOnly
+  // WhatsApp liberado para todos os usuários (sem feature-flag por tenant). Some
+  // no modo somente-leitura (dono visualizando outro tenant) e enquanto o
+  // kill-switch global estiver ativo (daemon do Cloud Run desligado por custo).
+  const waEnabled = !readOnly && whatsappEnabled()
   const [search, setSearch] = useState('')
   const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
   const q = search.trim().toLowerCase()
