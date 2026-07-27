@@ -1,139 +1,270 @@
-import { auth } from './firebase'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  runTransaction,
+  serverTimestamp,
+  Timestamp,
+  type DocumentReference,
+} from 'firebase/firestore'
+import { auth, db } from './firebase'
+
+/**
+ * Canal de comandos com o daemon de WhatsApp — via Firestore, não HTTP.
+ *
+ * O daemon é self-hosted (PC/VM caseira, atrás de NAT) e não tem URL pública: o CRM
+ * escreve um doc em `users/{uid}/waCommands/{id}` e o daemon, que escuta essa coleção,
+ * executa e devolve o resultado no próprio doc. Assim o daemon precisa apenas de
+ * internet de SAÍDA — sem porta aberta, sem HTTPS, sem domínio, sem CORS.
+ *
+ * A autorização é a própria security rule: `users/{uid}/{document=**}` só aceita escrita
+ * do dono, então o daemon confia no PATH do doc para saber de quem é o comando.
+ *
+ * O QR e o estado da conexão continuam vindo de `whatsappStatus/{uid}` (useWhatsappStatus).
+ */
 
 /**
  * KILL-SWITCH GLOBAL do WhatsApp.
  *
- * Enquanto `true`, TODA a funcionalidade de WhatsApp fica desligada no app: o botão
- * "Conectar" some, o envio volta a ser local, nenhuma chamada ao daemon é feita — mesmo
- * que o status salvo em `whatsappStatus/{uid}` ainda diga "connected". Isso existe para
- * conter custo: o daemon do Cloud Run é always-on (min-instances=1, CPU sempre alocada) e
- * fica desativado por padrão.
+ * Enquanto `true`, TODA a funcionalidade fica desligada no app: o botão "Conectar" some e
+ * nenhum comando é enfileirado. Existe porque o daemon rodava no Cloud Run como instância
+ * always-on, o que dominava a fatura — o serviço foi deletado e a feature, desligada.
  *
- * PARA REATIVAR quando quiser voltar a usar:
- *   1. Redeploy do daemon:  cd whatsapp-daemon && gcloud run deploy whatsapp-daemon --source . \
- *        --min-instances=1 --max-instances=1 --no-cpu-throttling  (ver docs/whatsapp-mirror.md)
+ * PARA REATIVAR (nesta ordem):
+ *   1. Suba o daemon na máquina que vai hospedá-lo (ver docs/whatsapp-selfhost.md) e
+ *      confirme o doc `whatsappDaemon/heartbeat` avançando no console do Firestore.
  *   2. Troque esta constante para `false` e refaça o build/deploy do hosting.
- * Assim ninguém consegue religar o custo por acidente — só um deploy seu reativa.
  */
 const WHATSAPP_KILL_SWITCH = true
-
-// URL base do daemon de WhatsApp (Cloud Run). Configurável por env; vazio = não configurado.
-const DAEMON_URL = (import.meta.env.VITE_WHATSAPP_DAEMON_URL || '').replace(/\/$/, '')
 
 /** WhatsApp está ligado no app? Falso enquanto o kill-switch estiver ativo. */
 export function whatsappEnabled(): boolean {
   return !WHATSAPP_KILL_SWITCH
 }
 
-export function daemonConfigured(): boolean {
-  return !WHATSAPP_KILL_SWITCH && !!DAEMON_URL
+const WA_COMMANDS = 'waCommands'
+
+/** Validade do doc de comando — casada com o TTL nativo configurado em `expireAt`. */
+const COMMAND_TTL_MS = 3_600_000
+
+type WaCommandType =
+  | 'session.consent'
+  | 'session.connect'
+  | 'session.disconnect'
+  | 'message.send'
+  | 'history.fetch'
+  | 'contact.purge'
+  | 'contact.photoRefresh'
+
+/** Erro de comando; `code` é estável para lógica, `isTimeout` marca o que vale reintentar. */
+interface WaError extends Error {
+  code?: string
+  isTimeout?: boolean
 }
 
-/** Teto (ms) para uma chamada ao daemon — evita ficar preso num spinner se o HTTP não responder. */
-const DAEMON_TIMEOUT_MS = 20_000
+function waErr(code: string | undefined, message: string, isTimeout = false): WaError {
+  const err = new Error(message) as WaError
+  err.code = code
+  err.isTimeout = isTimeout
+  return err
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat do daemon
+//
+// Com HTTP, um daemon fora do ar dava erro de conexão na hora. Numa fila o comando
+// apenas fica parado — então o app precisa de outro sinal para não prender o usuário
+// num spinner (e para o fallback local de expurgo continuar funcionando).
+// ---------------------------------------------------------------------------
+
+/** Batidas a cada 30s no daemon; 120s de folga cobre uma perdida + atraso de rede. */
+const HEARTBEAT_STALE_MS = 120_000
+
+let lastBeatMs = 0
+let beatKnown = false
+let beatUnsub: (() => void) | null = null
+const beatListeners = new Set<() => void>()
+
+/** Assina o heartbeat (ref-counted: um único listener para todos os componentes). */
+export function subscribeDaemonHeartbeat(cb: () => void): () => void {
+  beatListeners.add(cb)
+  if (!beatUnsub) {
+    beatUnsub = onSnapshot(
+      doc(db, 'whatsappDaemon', 'heartbeat'),
+      (snap) => {
+        const ts = snap.data()?.updatedAt
+        lastBeatMs = ts instanceof Timestamp ? ts.toMillis() : 0
+        beatKnown = true
+        for (const l of beatListeners) l()
+      },
+      () => {
+        // Sem leitura confiável, seguimos "sem saber" de propósito: assim runCommand não
+        // bloqueia por engano e o comando cai no timeout normal.
+        for (const l of beatListeners) l()
+      },
+    )
+  }
+  return () => {
+    beatListeners.delete(cb)
+    if (beatListeners.size === 0 && beatUnsub) {
+      beatUnsub()
+      beatUnsub = null
+      beatKnown = false
+    }
+  }
+}
+
+/** Há um daemon vivo do outro lado da fila? */
+export function daemonOnline(): boolean {
+  return Date.now() - lastBeatMs < HEARTBEAT_STALE_MS
+}
+
+/** Já recebemos alguma leitura do heartbeat? Se não, não dá para afirmar que está offline. */
+export function heartbeatKnown(): boolean {
+  return beatKnown
+}
+
+// ---------------------------------------------------------------------------
+// Execução de comandos
+// ---------------------------------------------------------------------------
+
+/** Cancela o comando se o daemon ainda não o tiver pegado (não aborta algo em execução). */
+async function cancelIfPending(ref: DocumentReference): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || snap.get('status') !== 'pending') return
+    tx.update(ref, { status: 'canceled' })
+  }).catch(() => {})
+}
 
 /**
- * Teto maior para operações que dependem de resposta do WhatsApp (ex.: foto de perfil):
- * precisa cobrir cold start do Cloud Run + reconexão do socket + timeouts internos do
- * daemon (query ~25s + download 10s), para o erro específico do daemon chegar ao usuário
- * em vez do abort genérico do cliente.
+ * Enfileira um comando e resolve quando o daemon grava o resultado — mantendo a mesma
+ * interface de Promise que as chamadas HTTP tinham, para os call-sites não mudarem.
  */
-const DAEMON_SLOW_TIMEOUT_MS = 45_000
-
-/** Erro de chamada ao daemon; `isTimeout` marca os casos em que vale a pena reintentar. */
-interface DaemonError extends Error {
-  isTimeout?: boolean
-  status?: number
-}
-
-/** Chama um endpoint autenticado do daemon com o Firebase ID token do usuário. */
-async function daemonFetch(path: string, body?: unknown, timeoutMs = DAEMON_TIMEOUT_MS): Promise<Record<string, unknown>> {
+async function runCommand(
+  type: WaCommandType,
+  args: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<Record<string, unknown>> {
   if (WHATSAPP_KILL_SWITCH) {
     throw new Error('O WhatsApp está temporariamente desativado.')
   }
-  if (!DAEMON_URL) {
-    throw new Error('Serviço de WhatsApp não configurado (defina VITE_WHATSAPP_DAEMON_URL).')
-  }
   const user = auth.currentUser
   if (!user) throw new Error('Sem usuário autenticado.')
-  const token = await user.getIdToken()
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let res: Response
-  try {
-    res = await fetch(`${DAEMON_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    })
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') {
-      const err = new Error('O serviço de WhatsApp demorou a responder. Tente novamente.') as DaemonError
-      err.isTimeout = true
-      throw err
+  // Falha rápida quando sabemos que não há daemon: evita esperar o timeout inteiro.
+  if (heartbeatKnown() && !daemonOnline()) {
+    throw waErr('daemon_offline', 'O serviço de WhatsApp está fora do ar. Inicie-o e tente de novo.')
+  }
+
+  // Sempre o uid do usuário autenticado — nunca o tenant impersonado pelo super-owner,
+  // que cairia num path onde a rule nega a escrita.
+  const ref = await addDoc(collection(db, 'users', user.uid, WA_COMMANDS), {
+    type,
+    args,
+    status: 'pending',
+    attempts: 0,
+    createdAt: serverTimestamp(),
+    expireAt: Timestamp.fromMillis(Date.now() + COMMAND_TTL_MS),
+  })
+
+  return new Promise<Record<string, unknown>>((resolve, reject) => {
+    let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let unsub: (() => void) | undefined
+
+    const settle = (fn: () => void, remove: boolean) => {
+      if (settled) return
+      settled = true
+      if (timer) clearTimeout(timer)
+      if (unsub) unsub()
+      // Limpeza imediata do caso feliz; o TTL/sweep cobre o resto.
+      if (remove) void deleteDoc(ref).catch(() => {})
+      fn()
     }
-    throw e
-  } finally {
-    clearTimeout(timer)
-  }
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  if (!res.ok) {
-    const err = new Error((data.error as string) || `Falha na chamada ao daemon (${res.status})`) as DaemonError
-    err.status = res.status
-    if (res.status === 504) err.isTimeout = true // daemon: WhatsApp não respondeu a tempo
-    throw err
-  }
-  return data
+
+    timer = setTimeout(() => {
+      void cancelIfPending(ref).finally(() =>
+        settle(
+          () => reject(waErr('timeout', 'O serviço de WhatsApp demorou a responder. Tente novamente.', true)),
+          false,
+        ),
+      )
+    }, timeoutMs)
+
+    unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return // eco local da própria escrita
+        const data = snap.data()
+        if (!snap.exists() || !data) return
+        if (data.status === 'done') {
+          settle(() => resolve((data.result ?? {}) as Record<string, unknown>), true)
+          return
+        }
+        if (data.status === 'error') {
+          const code = data.error?.code as string | undefined
+          settle(
+            () => reject(waErr(code, data.error?.message ?? 'Falha no serviço de WhatsApp.', code === 'photo_timeout')),
+            true,
+          )
+        }
+      },
+      (err) => settle(() => reject(err), false),
+    )
+  })
 }
+
+// ---------------------------------------------------------------------------
+// API pública — assinaturas idênticas às do transporte HTTP anterior
+// ---------------------------------------------------------------------------
 
 /** Registra o consentimento LGPD + retenção (obrigatório antes de conectar). */
 export function giveConsent(retentionDays = 0): Promise<Record<string, unknown>> {
-  return daemonFetch('/session/consent', { retentionDays })
+  return runCommand('session.consent', { retentionDays }, 20_000)
 }
 
-/** Inicia (ou retoma) a sessão de WhatsApp do usuário. */
+/** Inicia (ou retoma) a sessão de WhatsApp do usuário. O QR chega por whatsappStatus/{uid}. */
 export function connectWhatsapp(): Promise<Record<string, unknown>> {
-  return daemonFetch('/session/connect')
+  return runCommand('session.connect', {}, 45_000)
 }
 
 /** Desconecta; com purge=true, expurga todos os dados espelhados (LGPD). */
 export function disconnectWhatsapp(purge = false): Promise<Record<string, unknown>> {
-  return daemonFetch(`/session/disconnect${purge ? '?purge=1' : ''}`, { purge })
+  return runCommand('session.disconnect', { purge }, 150_000)
 }
 
 /** Envia uma mensagem real pelo WhatsApp conectado ao daemon. */
 export function sendWhatsappMessage(contactId: string, text: string): Promise<Record<string, unknown>> {
-  return daemonFetch('/message/send', { contactId, text })
+  return runCommand('message.send', { contactId, text }, 45_000)
 }
 
 /**
  * Dispara a recuperação do histórico antigo de um contato (on-demand, auto-paginado).
- * `maxDays` limita a janela (só os últimos N dias); omitido = máximo que der.
- * Retorna assim que o pedido é aceito — as mensagens chegam de forma assíncrona e
- * aparecem ao vivo pela conversa; o progresso é acompanhado por contact.historyImport.
+ * `maxDays` limita a janela; omitido = máximo que der. Retorna assim que o pedido é
+ * aceito — as mensagens chegam de forma assíncrona e aparecem ao vivo pela conversa.
  */
 export function fetchWhatsappHistory(contactId: string, maxDays?: number): Promise<Record<string, unknown>> {
-  return daemonFetch('/history/fetch', { contactId, ...(maxDays ? { maxDays } : {}) })
+  return runCommand('history.fetch', { contactId, ...(maxDays ? { maxDays } : {}) }, 60_000)
 }
 
 /**
  * Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM.
  *
- * Quando o socket do daemon está "zumbi" (Cloud Run que dormiu), a 1ª chamada estoura o
- * timeout: o daemon derruba o socket e dispara a reconexão automática, respondendo com erro.
- * Por isso, num timeout, esperamos o socket reabrir e tentamos UMA vez mais — assim o botão
- * costuma resolver num clique só. Erros não-timeout (ex.: "Conecte o WhatsApp primeiro")
- * propagam de imediato, sem retry.
+ * Na era LID há contas em que só uma combinação de endereço/modo responde e as demais
+ * penduram; quando nenhuma responde, o daemon derruba o socket para forçar a reconexão e
+ * devolve `photo_timeout`. Uma segunda tentativa costuma resolver, então tentamos de novo.
+ * Erros não-timeout (ex.: "Conecte o WhatsApp primeiro") propagam de imediato.
  */
 export async function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
   try {
-    return await daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
+    return await runCommand('contact.photoRefresh', { contactId }, 90_000)
   } catch (e) {
-    if (!(e as DaemonError).isTimeout) throw e
+    if (!(e as WaError).isTimeout) throw e
     await new Promise((r) => setTimeout(r, 6000)) // dá tempo do socket reconectar
-    return daemonFetch('/contact/photo/refresh', { contactId }, DAEMON_SLOW_TIMEOUT_MS)
+    return runCommand('contact.photoRefresh', { contactId }, 90_000)
   }
 }
 
@@ -142,5 +273,5 @@ export async function refreshWhatsappPhoto(contactId: string): Promise<Record<st
  * marcador anti-replay). `keepContact=true` limpa só a conversa, mantendo o cadastro.
  */
 export function purgeWhatsappContact(contactId: string, keepContact = false): Promise<Record<string, unknown>> {
-  return daemonFetch('/contact/purge', { contactId, keepContact })
+  return runCommand('contact.purge', { contactId, keepContact }, 150_000)
 }

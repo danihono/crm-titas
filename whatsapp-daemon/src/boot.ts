@@ -8,7 +8,7 @@ import { startSession } from './sessionManager.js'
  * Rehidratação no boot: recria silenciosamente (sem QR) cada sessão que estava
  * conectada antes do restart. Concorrência limitada + jitter evitam thundering-herd
  * de handshakes (e rate-limit do WhatsApp) quando há dezenas de números.
- * Chamar SÓ depois que o servidor HTTP já estiver ouvindo em $PORT.
+ * Sessões cuja lease está com outra instância são puladas (ver lease.ts).
  */
 export async function rehydrateAll(): Promise<void> {
   const snap = await db
@@ -30,6 +30,11 @@ export async function rehydrateAll(): Promise<void> {
         try {
           await startSession(doc.id)
         } catch (err) {
+          // Outra instância já segura esta sessão — situação esperada (não é falha).
+          if (err instanceof Error && err.message === 'session_lease_taken') {
+            logger.info({ uid: doc.id }, 'rehidratação pulada: sessão detida por outra instância')
+            return
+          }
           logger.error({ err, uid: doc.id }, 'rehidratação falhou')
         }
       }),

@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto'
 
-/** Configuração do daemon, resolvida a partir do ambiente (Cloud Run injeta a maioria). */
+/** Configuração do daemon, resolvida a partir do ambiente. */
 export const config = {
-  port: Number(process.env.PORT ?? 8080),
+  /**
+   * Porta do `/healthz` OPCIONAL. Ausente/0 = nenhuma porta é aberta — o canal com o CRM
+   * é a fila no Firestore, então rodar atrás de NAT (PC/VM caseira) é o caso normal.
+   */
+  httpPort: Number(process.env.WA_HTTP_PORT ?? 0) || 0,
 
   projectId:
     process.env.GOOGLE_CLOUD_PROJECT ??

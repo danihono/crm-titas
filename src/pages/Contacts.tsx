@@ -7,7 +7,8 @@ import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, daemonConfigured, whatsappEnabled } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, whatsappEnabled } from '../lib/whatsapp'
+import { useDaemonOnline } from '../hooks/useDaemonOnline'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
@@ -36,6 +37,9 @@ export default function Contacts() {
   // no modo somente-leitura (dono visualizando outro tenant) e enquanto o
   // kill-switch global estiver ativo (daemon do Cloud Run desligado por custo).
   const waEnabled = !readOnly && whatsappEnabled()
+  // O daemon é self-hosted e pode estar desligado — decide entre expurgo pelo daemon
+  // (completo) e o caminho local.
+  const waOnline = useDaemonOnline()
   const [search, setSearch] = useState('')
   const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
   const q = search.trim().toLowerCase()
@@ -155,7 +159,7 @@ export default function Contacts() {
     try {
       // Expurgo completo via daemon: Firestore recursivo + Storage por prefixo (pega até
       // arquivo órfão) + marcador anti-replay. Sem daemon, cai no caminho local.
-      if (daemonConfigured()) await purgeWhatsappContact(active.id, false)
+      if (waOnline) await purgeWhatsappContact(active.id, false)
       else await deleteContact(active.id, active.photoPath || undefined)
     } catch {
       try {
@@ -173,7 +177,7 @@ export default function Contacts() {
     if (!confirm(`Limpar TODA a conversa com "${active.name}"? Mensagens, arquivos e mídias serão apagados — o contato continua no CRM.`)) return
     setConvBusy(true)
     try {
-      if (daemonConfigured()) await purgeWhatsappContact(active.id, true)
+      if (waOnline) await purgeWhatsappContact(active.id, true)
       else await clearConversationLocal(active.id)
     } catch {
       try {

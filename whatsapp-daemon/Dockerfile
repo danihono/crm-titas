@@ -1,7 +1,9 @@
-# WhatsApp mirror daemon — long-lived Baileys process for Cloud Run.
-# DEPLOY CONSTRAINT: this service must run as a SINGLE always-on instance
-# (min-instances=1, max-instances=1, --no-cpu-throttling). Two instances holding
-# the same auth => WhatsApp logs both out. See docs/whatsapp-mirror.md.
+# WhatsApp mirror daemon — long-lived Baileys process, self-hosted.
+# DEPLOY CONSTRAINT: this process must be always-on, and only ONE copy may hold a
+# given session — two instances on the same auth => WhatsApp logs both out. That is
+# enforced by the per-session lease in whatsappSessions/{uid}.lock (src/lease.ts).
+# It talks to the CRM through a Firestore queue, so it needs NO inbound port.
+# See docs/whatsapp-selfhost.md.
 
 FROM node:20-slim AS build
 WORKDIR /app
@@ -17,6 +19,5 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/lib ./lib
-# Cloud Run injects $PORT; the HTTP health/control server listens on it.
-EXPOSE 8080
+# No EXPOSE: the daemon opens no port by default (set WA_HTTP_PORT for a local /healthz).
 CMD ["node", "lib/index.js"]

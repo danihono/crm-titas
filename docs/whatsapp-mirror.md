@@ -1,33 +1,44 @@
 # Espelhamento de WhatsApp — spec do módulo
 
-> ⚠️ **DESATIVADO POR CUSTO (kill-switch ativo).** O daemon do Cloud Run é always-on
-> (`min-instances=1`, CPU sempre alocada) e por isso é o maior gasto do projeto. Está
-> desligado. Para reativar:
-> 1. Redeploy do daemon (seção "Deploy (Cloud Run)" abaixo).
-> 2. Em `src/lib/whatsapp.ts`, troque `WHATSAPP_KILL_SWITCH` para `false` e refaça o
->    build/deploy do hosting.
-> Enquanto `WHATSAPP_KILL_SWITCH === true`, toda a UI de WhatsApp some e nenhuma chamada
-> ao daemon é feita — ninguém consegue religar o custo por acidente.
+> ⚠️ **SAIU DO CLOUD RUN — agora é self-hosted, e o kill-switch segue ativo.**
+> O daemon precisa ficar ligado 24/7 (o Baileys mantém um WebSocket vivo), o que no Cloud Run
+> exigia `min-instances=1` + CPU sempre alocada e dominava a fatura. O serviço foi deletado e o
+> transporte mudou de HTTP para uma **fila no Firestore**, então o daemon roda em qualquer
+> máquina com internet de saída — sem porta, sem TLS, sem domínio.
+>
+> Para reativar: siga **`docs/whatsapp-selfhost.md`** e, só depois de ver o
+> `whatsappDaemon/heartbeat` avançando, troque `WHATSAPP_KILL_SWITCH` para `false` em
+> `src/lib/whatsapp.ts` e refaça o build/deploy do hosting.
 
 Módulo que espelha, em tempo real, as conversas de WhatsApp de um usuário dentro do CRM
 (aba Contatos). É **leitura/espelho primeiro** — enviar pelo CRM é fase posterior.
 
 - Conexão: `@whiskeysockets/baileys` (protocolo do WhatsApp Web / dispositivo vinculado).
   **Não** é a Cloud API oficial (que não espelha conversa). Fixado em `7.0.0-rc13` (v7).
-- Daemon long-lived em **Cloud Run** (`whatsapp-daemon/`), separado das Cloud Functions.
-- Frontend lê status/QR e mensagens **só por `onSnapshot`** (nada de polling).
+- Daemon long-lived **self-hosted** (`whatsapp-daemon/`), separado das Cloud Functions.
+- Frontend e daemon conversam **só pelo Firestore** — nada de HTTP entre eles.
 
 ## Arquitetura
 
 ```
-Frontend (React)                    whatsapp-daemon (Cloud Run, sempre ligado)
+Frontend (React)                    whatsapp-daemon (self-hosted, atrás de NAT)
+  ├─ runCommand ─addDoc──► users/{uid}/waCommands/{id} ──onSnapshot──► dispatcher
+  │     └─ onSnapshot ◄─── mesmo doc (status/result/error) ◄── ACK do daemon
   ├─ useWhatsappStatus  ──onSnapshot── whatsappStatus/{uid}  ◄── writeStatus (Admin)
-  ├─ WhatsappConnectModal ─HTTP+IDtoken─► /session/{consent,connect,disconnect}
-  ├─ sendWhatsappMessage ─HTTP+IDtoken─► /message/send
+  ├─ useDaemonOnline    ──onSnapshot── whatsappDaemon/heartbeat ◄── heartbeat (Admin)
   └─ useMessages        ──onSnapshot── users/{uid}/contacts/{c}/messages ◄── ingest (Admin)
 
 Baileys socket  ─(Map<uid,sock> em memória)─  auth em whatsappSessions/{uid}(+/keys) (Admin)
 ```
+
+O daemon precisa apenas de **internet de saída**: nenhuma porta aberta, nenhum TLS, nenhum
+domínio, nenhum CORS. Autorização vem do **path** do doc — a rule `users/{uid}/{document=**}
+allow write: if owner(uid)` garante que só o dono conseguiu enfileirar ali, o que substitui
+o `verifyIdToken` que existia no transporte HTTP.
+
+> As security rules do Firestore são UNIÃO permissiva, então **não** dá para restringir o
+> schema/volume da fila por rule. A validação (whitelist de `type`, cap de args, rate-limit
+> por uid) é feita no daemon, em `actions.ts`/`commands.ts` — não remova.
 
 - **connectionId = uid** (CRM é single-tenant-por-uid; um número por conta no v1).
 - **Registro em memória:** `Map<uid, sock>` — efêmero, reconstruído no boot (rehidratação).
@@ -37,7 +48,9 @@ Baileys socket  ─(Map<uid,sock> em memória)─  auth em whatsappSessions/{uid
 
 | Path | Quem escreve | Quem lê | Conteúdo |
 |---|---|---|---|
-| `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock`, `lastMirrorAt` (watermark do gap-fill) |
+| `users/{uid}/waCommands/{id}` | app (cria) + daemon (executa/ACK) | dono | `type`, `args`, `status` (`pending`→`running`→`done`/`error`), `attempts`, `claimedBy`, `lockUntil`, `result`, `error`, `expireAt` (TTL) |
+| `whatsappDaemon/heartbeat` | daemon (Admin) | qualquer autenticado | `instanceId`, `updatedAt` — sinal de vida (sem dado de tenant) |
+| `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock` (lease), `lastMirrorAt` (watermark do gap-fill) |
 | `whatsappSessions/{uid}/keys/{keyId}` | daemon (Admin) | **ninguém** | uma chave do Signal por doc (`{v}` BufferJSON) |
 | `whatsappStatus/{uid}` | daemon (Admin) | dono + super-owner (read-only nas rules) | `status`, `qr` (data URL), `phoneNumber`, `lastError` |
 | `users/{uid}/contacts/{c}` | daemon + app | dono | contato (auto-criado tem `source:'whatsapp'`) |
@@ -75,17 +88,19 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   - **Re-vínculo** (já espelhou antes): só o **gap-fill** (abaixo) — mensagens mais novas
     que o último instante espelhado, nunca mais antigas.
   Histórico mais antigo continua só via recuperação on-demand por contato.
-- **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth →
-  o WhatsApp desloga os dois. Por isso `max-instances=1`.
-- **Cloud Run:** `min-instances=1`, `max-instances=1` e **CPU sempre alocada**
-  (`--no-cpu-throttling`). CPU estrangulada entre requests mata o WebSocket. Um daemon
-  stateful de conexões vivas às vezes vive melhor numa VM pequena sempre-ligada ou
-  Fly.io/Railway — aqui usamos Cloud Run porque o projeto já é GCP.
-- **Overlap em deploy** (revisão nova sobe enquanto a antiga drena) é o risco real de
-  duplo-holder. Mitigação: SIGTERM faz `sock.end()` (fecha o WS **mantendo** o device —
-  nunca `logout()` no shutdown) e a rehidratação da nova revisão roda após o boot HTTP.
-  Reforço planejado: lease por sessão em `whatsappSessions/{uid}.lock` (transação + TTL +
-  heartbeat) para a nova instância só abrir depois da antiga soltar.
+- **Só UM processo pode segurar uma sessão por vez.** Dois processos no mesmo auth → o
+  WhatsApp **desloga os dois** e exige QR novo. Isso é garantido pelo **lease** em
+  `whatsappSessions/{uid}.lock` (`lease.ts`): transação + TTL de 90s + renovação a cada 30s.
+  Quem não toma a lease não abre socket (`startSession` lança `session_lease_taken`); quem
+  perde a lease em voo fecha o socket com `end` (nunca `logout`).
+  Antes isso dependia do `max-instances=1` do Cloud Run — fora dele, o lease é a única
+  proteção, e é por isso que ele existe.
+- **O processo precisa ficar ligado 24/7.** O WebSocket morre se o processo dormir, então
+  não existe versão "serverless" disto. É o motivo de ter saído do Cloud Run: lá, manter
+  isso de pé significa `min-instances=1` + `--no-cpu-throttling`, que é justamente o que
+  custa caro. Numa máquina que já fica ligada, o custo é zero.
+- **Shutdown** faz `sock.end()` (fecha o WS **mantendo** o device — nunca `logout()`) e
+  solta as leases, para reiniciar/trocar de máquina sem esperar o TTL.
 - **Segurança:** nunca logar conteúdo de mensagem nem creds. O logger do Baileys fica em
   `warn`+ (ele loga corpo/chaves em debug/trace). Creds/chaves só em `whatsappSessions/**`.
 
@@ -173,35 +188,36 @@ O botão "Conectar WhatsApp" só aparece quando `users/{uid}.features.whatsapp =
 features: { whatsapp: true }
 ```
 
-## Deploy (Cloud Run)
+## Deploy
+
+O daemon é self-hosted — ver **`docs/whatsapp-selfhost.md`** para o passo a passo (Windows,
+VM e credenciais). Não há mais URL para apontar no frontend: o canal é a fila no Firestore.
+
+Antes de subir o daemon, publique as regras e o índice:
 
 ```bash
-cd whatsapp-daemon
-gcloud run deploy whatsapp-daemon \
-  --source . \
-  --project titas-c8967 --region southamerica-east1 \
-  --min-instances=1 --max-instances=1 --no-cpu-throttling \
-  --port=8080 --timeout=3600 --concurrency=80 \
-  --set-env-vars WA_ALLOWED_ORIGIN=https://titas-c8967.web.app,WA_DEFAULT_RETENTION_DAYS=0
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-A service account do runtime precisa de acesso ao Firestore (papel
-`roles/datastore.user`) e à verificação de tokens (Firebase Admin já resolve com ADC).
-Depois, aponte o frontend com `VITE_WHATSAPP_DAEMON_URL=<url-do-cloud-run>` e faça o build/deploy do hosting.
+> O índice de `waCommands` é **`COLLECTION_GROUP`** (os demais do projeto são `COLLECTION`).
+> Sem ele o listener do daemon morre com `FAILED_PRECONDITION` — e o emulador **não** valida
+> índices, então isso só aparece em produção. Espere sair de *Building* antes de seguir.
 
 ## Desenvolvimento local
 
 1. Emuladores: `firebase emulators:start` (Auth 9099, Firestore 8080).
-2. Daemon:
+2. Daemon (sem `WA_HTTP_PORT` ele não abre porta nenhuma):
    ```bash
    cd whatsapp-daemon && npm install
    FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
    FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
    GOOGLE_CLOUD_PROJECT=titas-c8967 npm run dev
    ```
-3. Frontend: `.env.local` com `VITE_USE_EMULATORS=true` e
-   `VITE_WHATSAPP_DAEMON_URL=http://127.0.0.1:8080`, depois `npm run dev`.
-4. Habilite a flag no doc do usuário de teste e clique em "Conectar WhatsApp".
+3. Frontend: `.env.local` com `VITE_USE_EMULATORS=true`, depois `npm run dev`.
+4. Ponha `WHATSAPP_KILL_SWITCH = false` (só localmente) e clique em "Conectar WhatsApp".
+
+Limitações do emulador: não valida índices compostos, não executa TTL, e o Baileys tenta
+parear de verdade (use um número de teste).
 
 ## Verificação end-to-end
 

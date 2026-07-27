@@ -4,3 +4,9 @@ lib
 .env
 .env.*
 !.env.example
+
+# Chave da service account (Admin SDK: ignora TODAS as security rules e alcança todos
+# os tenants). NUNCA versionar — de preferência, guardar fora da árvore do repositório.
+service-account.json
+*-sa.json
+*.serviceaccount.json

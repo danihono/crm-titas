@@ -43,6 +43,19 @@ service cloud.firestore {
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
     // SEM nenhuma regra aqui, então caem no default-deny abaixo (só o Admin SDK acessa).
 
+    // Sinal de vida do daemon self-hosted. O cliente lê para saber se há alguém do outro
+    // lado da fila (users/{uid}/waCommands) antes de esperar por um comando que ninguém
+    // vai atender. Doc global e sem dado de tenant — por isso basta estar autenticado.
+    match /whatsappDaemon/{doc} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // NOTA: a fila de comandos vive em users/{uid}/waCommands/{id} e já é coberta pelo
+    // `allow write: if owner(uid)` recursivo acima. Como as regras são UNIÃO permissiva,
+    // NÃO é possível restringir aqui o schema/volume do que é enfileirado — essa validação
+    // (whitelist de `type`, cap de args, rate-limit) é feita no daemon, em actions.ts.
+
     // Nega tudo o que não casar acima.
     match /{document=**} {
       allow read, write: if false;

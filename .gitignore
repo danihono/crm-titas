@@ -10,6 +10,9 @@ functions/lib
 .env
 .env.local
 .env.*.local
+service-account.json
+*-sa.json
+*.serviceaccount.json
 
 # firebase
 .firebase

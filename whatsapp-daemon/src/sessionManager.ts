@@ -22,6 +22,7 @@ import { ingestMessages } from './messages.js'
 import { onHistorySet, type GapFillState } from './history.js'
 import { onAgendaContacts } from './agenda.js'
 import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
+import { acquireSessionLease, releaseSessionLease } from './lease.js'
 
 interface Session {
   sock: WASocket
@@ -215,10 +216,24 @@ export async function requestMessageHistory(
 /**
  * Cria (ou retoma) o socket Baileys para um uid. Idempotente: um socket vivo por uid.
  * Carrega o auth persistido — silencioso (sem QR) quando já existe sessão salva.
+ *
+ * Lança `session_lease_taken` quando OUTRA instância detém a lease desta sessão. Dois
+ * processos no mesmo auth fazem o WhatsApp deslogar os dois e exigir QR novo — sem o
+ * `max-instances=1` do Cloud Run, a lease é a única coisa que impede isso.
  */
 export async function startSession(uid: string): Promise<void> {
   if (sessions.has(uid)) return // um socket por uid
 
+  if (!(await acquireSessionLease(uid))) throw new Error('session_lease_taken')
+  try {
+    await openSession(uid)
+  } catch (err) {
+    await releaseSessionLease(uid) // nada chegou a abrir — não deixe a sessão presa
+    throw err
+  }
+}
+
+async function openSession(uid: string): Promise<void> {
   const { state, saveCreds, clearAuth } = await useFirestoreAuthState(db, uid)
 
   // Snapshot do watermark ANTES de abrir o socket: mensagens ao vivo pós-conexão avançam o
@@ -363,6 +378,8 @@ async function onConnectionUpdate(uid: string, u: Partial<ConnectionState>): Pro
         .doc(uid)
         .set({ desiredState: 'disconnected' }, { merge: true })
       await writeStatus(db, uid, { status: 'loggedOut', qr: null })
+      // Sessão morta e sem reconexão: solta a lease (clearAuth não mexe no lock).
+      await releaseSessionLease(uid)
       return
     }
 
@@ -393,6 +410,7 @@ export async function stopSession(uid: string, mode: 'end' | 'logout'): Promise<
       const { clearAuth } = await useFirestoreAuthState(db, uid)
       await clearAuth()
       await writeStatus(db, uid, { status: 'disconnected', qr: null })
+      await releaseSessionLease(uid)
     }
     return
   }
@@ -416,6 +434,10 @@ export async function stopSession(uid: string, mode: 'end' | 'logout'): Promise<
   } else {
     s.sock.end(undefined) // fecha WS, mantém o device
   }
+
+  // Encerramento intencional (não há backoff a proteger) — libera a sessão para outra
+  // instância assumir sem esperar o TTL. No-op quando já não somos o holder.
+  await releaseSessionLease(uid)
 }
 
 /** SIGTERM: fecha todos os sockets SEM deslogar (mantém os devices vinculados). */

@@ -4,7 +4,8 @@ import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
 import { useWhatsappStatus } from '../../hooks/useWhatsappStatus'
-import { giveConsent, connectWhatsapp, disconnectWhatsapp } from '../../lib/whatsapp'
+import { useDaemonOnline } from '../../hooks/useDaemonOnline'
+import { giveConsent, connectWhatsapp, disconnectWhatsapp, heartbeatKnown } from '../../lib/whatsapp'
 
 const RETENTION_OPTIONS = [
   { v: 0, label: 'Guardar para sempre' },
@@ -13,8 +14,20 @@ const RETENTION_OPTIONS = [
   { v: 180, label: 'Apagar após 180 dias' },
 ]
 
+/**
+ * Erros assíncronos vindos do daemon (whatsappStatus.lastError). Só os que dizem algo ao
+ * usuário: o campo também recebe códigos de desconexão do WhatsApp (ex.: "515"), que são
+ * ruído — os não mapeados ficam de fora de propósito.
+ */
+const LAST_ERROR_LABEL: Record<string, string> = {
+  lease_taken: 'Outra cópia do serviço de WhatsApp já está usando esta conexão. Encerre-a e tente de novo.',
+  lease_lost: 'Outra cópia do serviço assumiu esta conexão.',
+  'connect failed': 'Não foi possível conectar ao WhatsApp. Tente novamente.',
+}
+
 export default function WhatsappConnectModal({ onClose }: { onClose: () => void }) {
   const st = useWhatsappStatus()
+  const daemonUp = useDaemonOnline()
   const [consented, setConsented] = useState(false)
   const [retention, setRetention] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -50,6 +63,9 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
 
   const connected = st.status === 'connected'
   const showConsent = !connected && st.status !== 'qr' && st.status !== 'connecting'
+  // Só avisa depois de ter lido o heartbeat ao menos uma vez — senão o aviso pisca ao abrir.
+  const showOffline = heartbeatKnown() && !daemonUp
+  const lastErrorLabel = st.lastError ? LAST_ERROR_LABEL[st.lastError] : undefined
 
   return (
     <Modal width={460} onClose={onClose}>
@@ -62,6 +78,15 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       </div>
 
       <StatusLine st={st.status} phone={st.phoneNumber} />
+
+      {showOffline && (
+        <div style={{ marginTop: 10, background: 'rgba(193,77,119,0.09)', border: '1px solid rgba(193,77,119,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
+          <b style={{ color: C.rose }}>Serviço de WhatsApp offline.</b> Ele roda na máquina que hospeda
+          o espelho — ligue-a para conectar ou trocar mensagens.
+        </div>
+      )}
+
+      {lastErrorLabel && <div style={{ marginTop: 10, fontSize: 12.3, color: C.rose }}>{lastErrorLabel}</div>}
 
       {/* QR */}
       {st.status === 'qr' && st.qr && (
