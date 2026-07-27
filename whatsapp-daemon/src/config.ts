@@ -1,3 +1,9 @@
+// Carrega o .env ANTES de qualquer leitura de process.env. Fica aqui, e não no index.ts,
+// porque config.js é importado por todos os pontos de entrada (index.ts, firebase.ts e os
+// scripts/*.mjs) — e é o firebase-admin quem lê GOOGLE_APPLICATION_CREDENTIALS, em
+// applicationDefault(). Sem .env (VM da GCP, Cloud Run) o dotenv não acha o arquivo e
+// segue em silêncio, deixando o metadata server resolver a credencial.
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 
 /** Configuração do daemon, resolvida a partir do ambiente. */

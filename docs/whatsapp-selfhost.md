@@ -89,12 +89,21 @@ npm run build
 
 ## 5. Configurar
 
-Crie `whatsapp-daemon\.env` (copie de `.env.example`). O mínimo:
+Crie `whatsapp-daemon\.env` (copie de `.env.example`). O daemon carrega esse arquivo sozinho no
+boot — `src/config.ts` importa `dotenv/config` antes de qualquer leitura do ambiente. O mínimo:
 
 ```
 FIREBASE_PROJECT_ID=titas-c8967
 GOOGLE_APPLICATION_CREDENTIALS=C:\wa-daemon\service-account.json
 ```
+
+A que realmente decide se o daemon sobe é a **segunda**: é o firebase-admin que a lê, dentro de
+`applicationDefault()`. Sem ela o processo morre na autenticação. (`FIREBASE_PROJECT_ID` tem
+default no código, então é redundante aqui — fica pelo explícito.)
+
+Numa VM da GCP o `.env` é dispensável: sem arquivo, o dotenv segue em silêncio e a credencial
+vem do metadata server. Variáveis já definidas no ambiente também têm precedência sobre o
+arquivo, então um `systemd` com `Environment=` continua mandando.
 
 Deixe `WA_HTTP_PORT` **vazio** — assim o daemon não abre porta nenhuma. Defina-a só se quiser
 um `/healthz` local para depurar (ele escuta apenas em `127.0.0.1`).
