@@ -28,16 +28,17 @@ import { auth, db } from './firebase'
 /**
  * KILL-SWITCH GLOBAL do WhatsApp.
  *
- * Enquanto `true`, TODA a funcionalidade fica desligada no app: o botão "Conectar" some e
- * nenhum comando é enfileirado. Existe porque o daemon rodava no Cloud Run como instância
- * always-on, o que dominava a fatura — o serviço foi deletado e a feature, desligada.
+ * Enquanto `true`, TODA a funcionalidade some do app: o botão "Conectar" desaparece e nenhum
+ * comando é enfileirado. Foi ligado quando o daemon rodava no Cloud Run como instância
+ * always-on — o que dominava a fatura — e desligado depois que o daemon virou self-hosted
+ * (custo zero, ver docs/whatsapp-selfhost.md).
  *
- * PARA REATIVAR (nesta ordem):
- *   1. Suba o daemon na máquina que vai hospedá-lo (ver docs/whatsapp-selfhost.md) e
- *      confirme o doc `whatsappDaemon/heartbeat` avançando no console do Firestore.
- *   2. Troque esta constante para `false` e refaça o build/deploy do hosting.
+ * NÃO é ele que trata "o daemon está fora do ar": para isso existe o heartbeat abaixo, que
+ * mostra "Serviço de WhatsApp offline" sem esconder a UI. Este switch é só para desativar a
+ * feature por completo — trocar para `true` + `npm run build && firebase deploy --only hosting`.
+ * O pareamento no WhatsApp continua intacto de qualquer forma.
  */
-const WHATSAPP_KILL_SWITCH = true
+const WHATSAPP_KILL_SWITCH = false
 
 /** WhatsApp está ligado no app? Falso enquanto o kill-switch estiver ativo. */
 export function whatsappEnabled(): boolean {

@@ -35,7 +35,8 @@ export default function Contacts() {
   const wa = useWhatsappStatus()
   // WhatsApp liberado para todos os usuários (sem feature-flag por tenant). Some
   // no modo somente-leitura (dono visualizando outro tenant) e enquanto o
-  // kill-switch global estiver ativo (daemon do Cloud Run desligado por custo).
+  // kill-switch global estiver ativo. Daemon fora do ar NÃO esconde nada — isso é
+  // sinalizado pelo heartbeat (waOnline abaixo).
   const waEnabled = !readOnly && whatsappEnabled()
   // O daemon é self-hosted e pode estar desligado — decide entre expurgo pelo daemon
   // (completo) e o caminho local.

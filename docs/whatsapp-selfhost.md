@@ -131,13 +131,21 @@ Alternativas: [NSSM](https://nssm.cc/) ou PM2, se preferir gerenciar como servi�
 
 ## 7. Ligar no CRM
 
-Só depois de ver o heartbeat batendo:
+A UI já vem ligada (`WHATSAPP_KILL_SWITCH = false` em `src/lib/whatsapp.ts`), então basta
+publicar o hosting uma vez:
 
-1. Em `src/lib/whatsapp.ts`, troque `WHATSAPP_KILL_SWITCH` para `false`.
-2. `npm run build && firebase deploy --only hosting`.
-3. Abra o CRM → Contatos → **Conectar WhatsApp** → escaneie o QR.
+```powershell
+npm run build
+firebase deploy --only hosting
+```
 
-Para voltar atrás a qualquer momento: `WHATSAPP_KILL_SWITCH = true` + deploy do hosting. O
+Depois: CRM → Contatos → **Conectar WhatsApp** → escaneie o QR.
+
+Se abrir antes do daemon estar de pé, o botão aparece do mesmo jeito e o modal avisa
+"Serviço de WhatsApp offline" — nada trava, e não é preciso publicar de novo quando o daemon
+subir.
+
+Para desativar a feature por completo: `WHATSAPP_KILL_SWITCH = true` + deploy do hosting. O
 pareamento continua intacto.
 
 ---

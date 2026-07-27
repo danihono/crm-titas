@@ -1,14 +1,14 @@
 # Espelhamento de WhatsApp — spec do módulo
 
-> ⚠️ **SAIU DO CLOUD RUN — agora é self-hosted, e o kill-switch segue ativo.**
+> ⚠️ **SAIU DO CLOUD RUN — agora é self-hosted.**
 > O daemon precisa ficar ligado 24/7 (o Baileys mantém um WebSocket vivo), o que no Cloud Run
 > exigia `min-instances=1` + CPU sempre alocada e dominava a fatura. O serviço foi deletado e o
 > transporte mudou de HTTP para uma **fila no Firestore**, então o daemon roda em qualquer
 > máquina com internet de saída — sem porta, sem TLS, sem domínio.
 >
-> Para reativar: siga **`docs/whatsapp-selfhost.md`** e, só depois de ver o
-> `whatsappDaemon/heartbeat` avançando, troque `WHATSAPP_KILL_SWITCH` para `false` em
-> `src/lib/whatsapp.ts` e refaça o build/deploy do hosting.
+> A UI está ligada (`WHATSAPP_KILL_SWITCH = false`), mas **o espelho só funciona com o daemon
+> rodando em algum lugar** — veja **`docs/whatsapp-selfhost.md`**. Sem daemon, o CRM mostra
+> "Serviço de WhatsApp offline" em vez de travar.
 
 Módulo que espelha, em tempo real, as conversas de WhatsApp de um usuário dentro do CRM
 (aba Contatos). É **leitura/espelho primeiro** — enviar pelo CRM é fase posterior.
@@ -214,7 +214,7 @@ firebase deploy --only firestore:rules,firestore:indexes
    GOOGLE_CLOUD_PROJECT=titas-c8967 npm run dev
    ```
 3. Frontend: `.env.local` com `VITE_USE_EMULATORS=true`, depois `npm run dev`.
-4. Ponha `WHATSAPP_KILL_SWITCH = false` (só localmente) e clique em "Conectar WhatsApp".
+4. Clique em "Conectar WhatsApp" (o kill-switch já está desligado).
 
 Limitações do emulador: não valida índices compostos, não executa TTL, e o Baileys tenta
 parear de verdade (use um número de teste).
