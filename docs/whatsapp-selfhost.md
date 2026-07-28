@@ -16,8 +16,8 @@ casa sem configurar nada no roteador.
 
 | Opção | Custo | Chave em disco? | Observação |
 |---|---|---|---|
-| **VM e2-micro da GCP** (free tier, região EUA) | R$ 0 | **Não** — metadata server | Melhor postura de segurança; 1 GB de RAM é apertado (use swap) |
-| **VM da Oracle Always Free** (ARM, até 24 GB) | R$ 0 | Sim | Bem folgada, pode ficar em região Brasil |
+| **VM da Oracle Always Free** (ARM, até 24 GB) | R$ 0 | Sim | Gratuita de verdade e em região Brasil. **Runbook próprio: `whatsapp-selfhost-oracle.md`** |
+| **VM e2-micro da GCP** (free tier, região EUA) | ~US$ 3/mês | **Não** — metadata server | A instância é free, mas o IPv4 externo é cobrado desde 2024. Melhor postura de segurança |
 | **PC / mini-PC / Raspberry** | R$ 0 | Sim | Só espelha com a máquina ligada; ver §7 |
 
 O passo a passo abaixo assume **Windows**; numa VM Linux é o mesmo, trocando o Agendador de
