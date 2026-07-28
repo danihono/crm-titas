@@ -16,6 +16,13 @@ export interface WaAgendaContact {
   name?: string | null
 }
 
+/**
+ * Traduz um JID `@lid` para o JID de telefone correspondente (`null` quando o WhatsApp
+ * ainda não mandou o mapeamento). Vive aqui, e não em messages.ts, porque agenda.ts é
+ * importado por messages.ts — o contrário criaria ciclo.
+ */
+export type LidResolver = (lidJid: string) => Promise<string | null>
+
 /** Iniciais a partir do nome — espelha src/lib/format.ts initialsOf. */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -38,19 +45,32 @@ interface AgendaEntry {
   name: string
 }
 
-function entriesOf(contacts: WaAgendaContact[]): AgendaEntry[] {
+/**
+ * A agenda é indexada por dígitos, então um contato que chega só com `@lid` seria
+ * descartado — e é justamente por aí que o WhatsApp passou a entregar as conversas.
+ * Com o resolver, traduzimos antes de jogar fora.
+ */
+async function entriesOf(contacts: WaAgendaContact[], resolveLid?: LidResolver): Promise<AgendaEntry[]> {
   const out: AgendaEntry[] = []
   for (const c of contacts) {
     const name = c.name?.trim()
-    const digits = digitsOfPnJid(c.id)
-    if (name && digits) out.push({ digits, name })
+    if (!name) continue
+    let digits = digitsOfPnJid(c.id)
+    if (!digits && c.id?.endsWith('@lid') && resolveLid) {
+      digits = digitsOfPnJid(await resolveLid(c.id).catch(() => null))
+    }
+    if (digits) out.push({ digits, name })
   }
   return out
 }
 
 /** Grava os nomes de agenda recebidos (lotes de 450). Retorna quantas entradas úteis havia. */
-export async function harvestAgendaNames(uid: string, contacts: WaAgendaContact[]): Promise<number> {
-  const entries = entriesOf(contacts)
+export async function harvestAgendaNames(
+  uid: string,
+  contacts: WaAgendaContact[],
+  resolveLid?: LidResolver,
+): Promise<number> {
+  const entries = await entriesOf(contacts, resolveLid)
   if (!entries.length) return 0
   let batch = db.batch()
   let n = 0
@@ -98,7 +118,11 @@ export async function applyAgendaToContacts(uid: string): Promise<number> {
 }
 
 /** Fluxo completo para um lote de contatos vindo de evento: grava e aplica. */
-export async function onAgendaContacts(uid: string, contacts: WaAgendaContact[]): Promise<void> {
-  const harvested = await harvestAgendaNames(uid, contacts)
+export async function onAgendaContacts(
+  uid: string,
+  contacts: WaAgendaContact[],
+  resolveLid?: LidResolver,
+): Promise<void> {
+  const harvested = await harvestAgendaNames(uid, contacts, resolveLid)
   if (harvested > 0) await applyAgendaToContacts(uid)
 }

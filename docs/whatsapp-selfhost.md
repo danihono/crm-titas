@@ -195,3 +195,4 @@ Aceite conscientemente (ou prefira a VM da GCP, que elimina o primeiro item):
 | CRM diz "Serviço de WhatsApp offline" | Daemon parado, ou `whatsappDaemon/heartbeat` sem escrita há mais de 2 min |
 | `lease detida por outra instância` | Há outra cópia rodando (outro terminal, ou a tarefa agendada). Encerre uma |
 | Comando fica parado e dá timeout | Daemon vivo mas sem processar: veja o log; comando órfão volta a `pending` em até 10 min |
+| Contato aparece como "Contato WhatsApp", às vezes duplicando um contato que já existia | A conversa chegou pelo endereçamento novo do WhatsApp (`@lid`), sem número. O daemon traduz o LID de volta para telefone e funde a duplicata na primeira mensagem seguinte daquela conversa. Se persistir, o log mostra `LID sem mapeamento para telefone` — o WhatsApp ainda não enviou o mapeamento. `node scripts/lid-report.mjs <email>` mede quantos faltam |

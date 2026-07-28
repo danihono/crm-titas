@@ -19,7 +19,7 @@ import {
 } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger, waLogger } from './logger.js'
-import { agendaNameFor, initialsOf } from './agenda.js'
+import { agendaNameFor, initialsOf, type LidResolver } from './agenda.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
 import { touchMirrorWatermark } from './watermark.js'
@@ -35,6 +35,8 @@ export type MediaDownloadContext = {
   reuploadRequest: (msg: WAMessage) => Promise<WAMessage>
   /** Busca a URL da foto de perfil de um JID — usada para migrar a foto do contato. */
   fetchProfilePhoto?: ProfilePhotoFetcher
+  /** Traduz `@lid` → JID de telefone. Sem ele, conversa migrada para LID vira contato novo. */
+  resolveLidToPhone?: LidResolver
 }
 
 type MediaMessageKey = 'imageMessage' | 'videoMessage' | 'audioMessage' | 'documentMessage' | 'stickerMessage'
@@ -127,6 +129,9 @@ async function rememberContact(
     {
       waJid: peer.jid,
       ...(peer.phone ? { whatsappDigits: peer.phone } : {}),
+      // Grava o @lid para a conversa reencontrar este contato mesmo numa reconexão em que
+      // o mapeamento LID↔telefone não esteja disponível.
+      ...(peer.lid ? { waLid: peer.lid } : {}),
     },
     { merge: true },
   )
@@ -248,6 +253,12 @@ interface Peer {
   jid: string
   /** Só dígitos (ex.: '5511999998888'), ou null quando só temos o @lid. */
   phone: string | null
+  /**
+   * JID `@lid` da conversa, quando ela chega pelo endereçamento novo do WhatsApp.
+   * Guardado no contato (`waLid`) para reencontrá-lo mesmo quando o mapeamento
+   * LID↔telefone não estiver disponível numa reconexão futura.
+   */
+  lid: string | null
 }
 
 /**
@@ -266,7 +277,68 @@ function resolvePeer(key: WAMessageKey): Peer | null {
   const pnJid = candidates.find((j) => j.endsWith('@s.whatsapp.net'))
   const jid = jidNormalizedUser(pnJid ?? remote)
   const phone = pnJid ? jid.split('@')[0].replace(/\D/g, '') : null
-  return { jid, phone }
+  const lid = candidates.find((j) => j.endsWith('@lid')) ?? null
+  return { jid, phone, lid }
+}
+
+/** Chave do marcador de expurgo derivada de um JID `@lid`. */
+function lidPurgeKey(lidJid: string): string {
+  return `lid:${lidJid.split('@')[0]}`
+}
+
+/**
+ * Chaves de expurgo desta conversa, da mais atual para a herdada. Com o telefone resolvido
+ * a chave passa a ser os dígitos, mas o marcador antigo pode estar sob o `lid:` — as duas
+ * precisam ser consultadas enquanto houver conversas de antes da migração.
+ */
+function purgeKeysOf(peer: Peer): string[] {
+  const keys = [peer.phone ?? lidPurgeKey(peer.jid)]
+  if (peer.phone && peer.lid) keys.push(lidPurgeKey(peer.lid))
+  return keys
+}
+
+/**
+ * Cache LID → JID de telefone. Só guarda acerto: um `null` significa que o WhatsApp ainda
+ * não mandou o mapeamento, e ele pode chegar depois — cachear isso congelaria o contato
+ * no nome genérico para sempre.
+ */
+const lidPhoneCache = new Map<string, string>()
+/** LIDs já reportados como não resolvidos, para o log não repetir a cada mensagem. */
+const lidMisses = new Set<string>()
+
+/**
+ * Completa o telefone de um interlocutor que chegou só com `@lid`.
+ *
+ * O WhatsApp migrou o endereçamento de conversas para LID, e sem o número TUDO que
+ * identifica contato quebra de uma vez: três das quatro buscas por contato existente em
+ * `resolveContact` são puladas (nasce uma duplicata em cima do contato que já existia), a
+ * agenda não é consultada e o nome cai no fallback genérico.
+ *
+ * Quando o mapeamento não existe, devolve o peer intacto — o comportamento volta a ser
+ * exatamente o de antes, sem regressão.
+ */
+async function enrichPeerWithLid(peer: Peer, ctx?: MediaDownloadContext): Promise<Peer> {
+  if (peer.phone || !peer.lid || !ctx?.resolveLidToPhone) return peer
+
+  const cached = lidPhoneCache.get(peer.lid)
+  const pnJid = cached ?? (await ctx.resolveLidToPhone(peer.lid).catch(() => null))
+  if (!pnJid || !pnJid.endsWith('@s.whatsapp.net')) {
+    if (!lidMisses.has(peer.lid)) {
+      lidMisses.add(peer.lid)
+      logger.info({ lid: peer.lid }, 'LID sem mapeamento para telefone — contato seguirá pelo @lid')
+    }
+    return peer
+  }
+
+  const jid = jidNormalizedUser(pnJid)
+  const phone = jid.split('@')[0].replace(/\D/g, '')
+  if (!phone) return peer
+  if (!cached) {
+    lidPhoneCache.set(peer.lid, pnJid)
+    lidMisses.delete(peer.lid)
+    logger.info({ lid: peer.lid, resolved: true }, 'LID resolvido para telefone')
+  }
+  return { jid, phone, lid: peer.lid }
 }
 
 interface Extracted {
@@ -377,6 +449,7 @@ function autoContactDefaults(
     whatsapp: peer.phone ?? '',
     whatsappDigits: peer.phone ?? '',
     waJid: peer.jid,
+    ...(peer.lid ? { waLid: peer.lid } : {}),
     status: 'WhatsApp',
     nameSource: agendaName?.trim() ? 'agenda' : remotePushName ? 'profile' : 'phone',
     source: 'whatsapp', // marca auto-criado → expurgo LGPD em uma operação
@@ -429,7 +502,7 @@ async function resolveContact(
 ): Promise<string> {
   const contactsCol = db.collection('users').doc(uid).collection('contacts')
 
-  const digitsKey = peer.phone ?? `lid:${peer.jid.split('@')[0]}`
+  const digitsKey = peer.phone ?? lidPurgeKey(peer.jid)
   const cacheKey = `${uid}:${digitsKey}`
   const detId = peer.phone ? `wa_${peer.phone}` : `lid_${peer.jid.split('@')[0]}`
   const cached = contactCache.get(cacheKey)
@@ -472,6 +545,15 @@ async function resolveContact(
     if (manual) return useManualContact(uid, contactsCol, cacheKey, manual, peer, detId)
   }
 
+  // Por último de propósito: um contato gravado sob o @lid (criado antes de o telefone
+  // resolver) só deve ganhar a conversa se nenhuma busca por telefone tiver achado o
+  // contato "de verdade" — senão a duplicata venceria o original.
+  if (peer.lid) {
+    const lidMatch = await queryContactField(contactsCol, 'waLid', peer.lid)
+    if (lidMatch.manual) return useManualContact(uid, contactsCol, cacheKey, lidMatch.manual, peer, detId)
+    fallback ??= lidMatch.fallback
+  }
+
   if (fallback) {
     await maybeRenameOwnNameAutoContact(uid, contactsCol, fallback.id, peer, fromMe, pushName)
     await healGhostContact(uid, contactsCol, fallback, peer, pushName, fromMe)
@@ -493,6 +575,41 @@ async function resolveContact(
     void fetchAndStoreContactPhoto(uid, detId, peer.jid, fetchProfilePhoto).catch(() => {})
   }
   return detId
+}
+
+/**
+ * uids+lids já verificados neste processo — a checagem custa 1 read e só faz sentido uma
+ * vez por conversa, não a cada mensagem.
+ */
+const lidMergeChecked = new Set<string>()
+
+/**
+ * Funde a duplicata `lid_<x>` criada antes de o telefone ser resolvido.
+ *
+ * Enquanto o LID não resolvia, as buscas por telefone em `resolveContact` eram puladas e a
+ * conversa nascia num contato novo, ao lado do que já existia — deixando o histórico
+ * partido em dois. Agora que o telefone resolve, este é o momento em que sabemos qual
+ * `lid_` corresponde a qual contato, então a fusão acontece aqui, sozinha.
+ *
+ * Feito no daemon, e não num script avulso, porque só aqui existe o socket que traduz o
+ * LID. `moveAutoContactMessages` protege contato manual e é idempotente, então uma falha
+ * no meio é retomada na mensagem seguinte.
+ */
+async function mergeLegacyLidContact(uid: string, peer: Peer, contactId: string): Promise<void> {
+  if (!peer.phone || !peer.lid) return
+  const legacyId = `lid_${peer.lid.split('@')[0]}`
+  if (legacyId === contactId) return
+
+  const checkKey = `${uid}:${legacyId}`
+  if (lidMergeChecked.has(checkKey)) return
+  lidMergeChecked.add(checkKey)
+
+  const contactsCol = db.collection('users').doc(uid).collection('contacts')
+  const legacy = await contactsCol.doc(legacyId).get()
+  if (!legacy.exists) return
+
+  await moveAutoContactMessages(uid, contactsCol, legacyId, contactId)
+  logger.info({ uid, fromContactId: legacyId, toContactId: contactId }, 'duplicata de LID fundida ao contato')
 }
 
 async function downloadAndStoreMedia(
@@ -571,8 +688,10 @@ type IngestOptions = {
  *  Retorna o contactId afetado (ou undefined quando a mensagem foi descartada). */
 async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadContext, opts?: IngestOptions): Promise<string | undefined> {
   if (!m.message || !m.key?.id) return
-  const peer = resolvePeer(m.key)
-  if (!peer) return
+  const rawPeer = resolvePeer(m.key)
+  if (!rawPeer) return
+  // Antes de qualquer coisa: sem o telefone, este contato nasceria duplicado e sem nome.
+  const peer = await enrichPeerWithLid(rawPeer, mediaCtx)
   const content = extractContent(m.message)
   if (!content) return
 
@@ -581,12 +700,20 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   // ignora o marcador — é pedido consciente do usuário. Mensagem NOVA (timestamp > expurgo)
   // passa e recria o contato.
   if (!opts?.importedFromHistory || opts?.respectPurgeMarkers) {
-    const digitsKey = peer.phone ?? `lid:${peer.jid.split('@')[0]}`
     const msgTsMs = Number(m.messageTimestamp ?? 0) * 1000
-    if (msgTsMs > 0 && (await isPurgedAt(uid, digitsKey, msgTsMs))) return
+    // Checa TODAS as chaves sob as quais esta conversa já pode ter sido expurgada. Uma
+    // conversa apagada quando ainda era só `@lid` tem o marcador gravado sob `lid:...`;
+    // com o telefone resolvido a chave muda, e olhar só a nova ressuscitaria o que o
+    // usuário mandou apagar.
+    for (const digitsKey of purgeKeysOf(peer)) {
+      if (msgTsMs > 0 && (await isPurgedAt(uid, digitsKey, msgTsMs))) return
+    }
   }
 
   const contactId = await resolveContact(uid, peer, m.pushName, !!m.key.fromMe, mediaCtx?.fetchProfilePhoto)
+  // Recolhe a duplicata que a conversa tenha deixado enquanto o LID não resolvia. Antes de
+  // gravar a mensagem, para o preview do contato já sair correto logo abaixo.
+  await mergeLegacyLidContact(uid, peer, contactId)
 
   const tsSeconds = Number(m.messageTimestamp ?? 0)
   const sentAt = tsSeconds > 0 ? Timestamp.fromMillis(tsSeconds * 1000) : Timestamp.now()

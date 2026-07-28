@@ -280,7 +280,9 @@ export async function onHistorySet(
   // usuário). Grava e aplica aos contatos do CRM — sem isso todo mundo vira número.
   const waContacts = (ev.contacts ?? []) as WaAgendaContact[]
   if (waContacts.length) {
-    onAgendaContacts(uid, waContacts).catch((err) =>
+    // Passar o resolver aqui é o que mais importa: é neste lote que a agenda INTEIRA chega,
+    // e as entradas endereçadas por @lid seriam descartadas antes de virar nome.
+    onAgendaContacts(uid, waContacts, mediaCtx?.resolveLidToPhone).catch((err) =>
       logger.warn({ err, uid }, 'falha ao processar nomes da agenda do sync'),
     )
   }

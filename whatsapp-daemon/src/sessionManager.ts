@@ -282,9 +282,13 @@ async function openSession(uid: string): Promise<void> {
       logger.error({ err, uid }, 'handler connection.update falhou'),
     )
   })
+  // Traduz o endereçamento novo do WhatsApp (@lid) de volta para o telefone. É o socket que
+  // guarda esse mapeamento, então ele chega ao resto do código por closure, como os demais.
+  const resolveLidToPhone = (lidJid: string) => sock.signalRepository.lidMapping.getPNForLID(lidJid)
   const mediaCtx = {
     reuploadRequest: async (msg: WAMessage) => sock.updateMediaMessage(msg),
     fetchProfilePhoto: (jid: string) => sock.profilePictureUrl(jid, 'image'),
+    resolveLidToPhone,
   }
   sock.ev.on('messages.upsert', (ev) => {
     ingestMessages(uid, ev, mediaCtx).catch((err) =>
@@ -298,12 +302,12 @@ async function openSession(uid: string): Promise<void> {
   })
   // Nomes da agenda do celular editados/recebidos com a sessão ativa.
   sock.ev.on('contacts.upsert', (contacts) => {
-    onAgendaContacts(uid, contacts).catch((err) =>
+    onAgendaContacts(uid, contacts, resolveLidToPhone).catch((err) =>
       logger.warn({ err, uid }, 'handler contacts.upsert falhou'),
     )
   })
   sock.ev.on('contacts.update', (contacts) => {
-    onAgendaContacts(uid, contacts).catch((err) =>
+    onAgendaContacts(uid, contacts, resolveLidToPhone).catch((err) =>
       logger.warn({ err, uid }, 'handler contacts.update falhou'),
     )
   })
