@@ -17,6 +17,12 @@ mudança de casa, não a primeira instalação.
   caso dá para usar a `VM.Standard.E2.1.Micro` (AMD, 1 GB), mas aí precisa de swap.
 - **Cartão de crédito é exigido no cadastro**, para verificação. Não há cobrança enquanto você
   ficar dentro do Always Free, mas fique atento a não criar recurso fora dele por engano.
+- **A Oracle recupera instâncias Always Free ociosas** — critério oficial: p95 de CPU abaixo de
+  20% durante 7 dias. Este daemon é justamente isso: um WebSocket parado, perto de 1–2% de CPU.
+  Ou seja, a VM pode sumir sem você ter feito nada errado. Converter a conta para Pay As You Go
+  (continuando dentro dos limites do Always Free, sem passar a pagar) tira a instância da fila
+  de reclamação, e é o que torna esta opção viável a sério. Se não quiser esse risco, veja
+  `whatsapp-selfhost-hetzner.md`.
 - **A chave da service account vai para o disco da VM.** É a diferença para a GCP, onde o
   metadata server resolve sem arquivo. Quem tem esse arquivo alcança o CRM inteiro.
 
