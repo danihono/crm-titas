@@ -16,7 +16,8 @@ casa sem configurar nada no roteador.
 
 | Opção | Custo | Chave em disco? | Observação |
 |---|---|---|---|
-| **VM da Oracle Always Free** (ARM, até 24 GB) | R$ 0 | Sim | Gratuita de verdade e em região Brasil. **Runbook próprio: `whatsapp-selfhost-oracle.md`** |
+| **VM da Hetzner Cloud** (CX23, 4 GB) | ~€4,50/mês | Sim | Sempre tem máquina disponível, mas **não tem região no Brasil** (Europa/EUA). **Runbook próprio: `whatsapp-selfhost-hetzner.md`** |
+| **VM da Oracle Always Free** (ARM, até 24 GB) | R$ 0 | Sim | Gratuita de verdade e em região Brasil, mas a capacidade ARM vive esgotada. **Runbook próprio: `whatsapp-selfhost-oracle.md`** |
 | **VM e2-micro da GCP** (free tier, região EUA) | ~US$ 3/mês | **Não** — metadata server | A instância é free, mas o IPv4 externo é cobrado desde 2024. Melhor postura de segurança |
 | **PC / mini-PC / Raspberry** | R$ 0 | Sim | Só espelha com a máquina ligada; ver §7 |
 
