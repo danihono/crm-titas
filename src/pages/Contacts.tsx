@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
-import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto } from '../hooks/useContacts'
+import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto, markContactRead } from '../hooks/useContacts'
 import { useMessages, sendMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
@@ -48,6 +48,13 @@ export default function Contacts() {
     ? contacts.filter((c) => [c.name, c.company, c.email, c.phone, c.whatsapp].some((v) => v?.toLowerCase().includes(q)))
     : contacts
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
+  // Conversa aberta é conversa lida. Depende de unreadCount (e não só do id) para zerar de
+  // novo quando chega mensagem com a conversa já na tela.
+  const activeId = active?.id
+  const activeUnread = active?.unreadCount ?? 0
+  useEffect(() => {
+    if (!readOnly && activeId && activeUnread > 0) void markContactRead(activeId)
+  }, [readOnly, activeId, activeUnread])
   const { docs: messages } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
   const { docs: pendingSchedules } = useScheduledMessages()
@@ -249,6 +256,8 @@ export default function Contacts() {
             const i = contacts.indexOf(c)
             const sel = active?.id === c.id
             const scheduled = scheduleByContact.get(c.id)
+            // A conversa aberta é zerada pelo efeito abaixo; não mostra badge nem negrito.
+            const unread = sel ? 0 : (c.unreadCount ?? 0)
             return (
               <div
                 key={c.id}
@@ -263,14 +272,21 @@ export default function Contacts() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: unread ? 800 : 600, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
                         {scheduled && (
                           <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 800, color: '#8a5f12', background: 'rgba(216,169,96,0.18)', border: '1px solid rgba(216,169,96,0.28)', borderRadius: 999, padding: '2px 6px' }}>
                             <MaterialIcon name="schedule_send" size={11} color="#b3801f" /> Agendada
                           </span>
                         )}
                       </div>
-                      <span style={{ fontSize: 10.5, color: '#a39bb0', flexShrink: 0, marginLeft: 6 }}>{c.lastMessageAt ? chatTimeLabel(c.lastMessageAt) : ''}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0, marginLeft: 6 }}>
+                        <span style={{ fontSize: 10.5, color: unread ? '#1f8a4c' : '#a39bb0' }}>{c.lastMessageAt ? chatTimeLabel(c.lastMessageAt) : ''}</span>
+                        {unread > 0 && (
+                          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#34c759', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#9c95a8', margin: '1px 0 3px' }}>{c.company}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

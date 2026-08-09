@@ -73,6 +73,8 @@ export interface Contact {
   historyImport?: HistoryImport
   lastMessage?: string
   lastMessageAt?: Date
+  /** Mensagens recebidas desde a última vez que a conversa foi aberta. */
+  unreadCount?: number
   createdAt?: Date
 }
 

@@ -77,6 +77,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     historyImport: toHistoryImport(d.historyImport),
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
+    unreadCount: typeof d.unreadCount === 'number' ? d.unreadCount : 0,
     createdAt: toDate(d.createdAt),
   }
 }

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
+import { useMessageNotifications, requestNotificationPermission } from '../../hooks/useMessageNotifications'
 import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
 import { useInvoices } from '../../hooks/useInvoices'
@@ -46,6 +47,10 @@ export default function Topbar() {
 
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
+
+  // Vive no Topbar, e não na página de Conversas, para o aviso valer em qualquer tela.
+  useMessageNotifications(contacts)
+  const unreadTotal = contacts.reduce((n, c) => n + (c.unreadCount ?? 0), 0)
 
   const results = useMemo<SearchResult[]>(() => {
     const q = query.trim().toLowerCase()
@@ -158,9 +163,21 @@ export default function Topbar() {
         )}
       </div>
 
-      <button style={{ position: 'relative', width: 42, height: 42, borderRadius: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(176,148,210,0.12)', color: '#b9aec6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <MaterialIcon name="notifications" size={21} />
-        <span style={{ position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: '50%', background: '#cd8ae0', boxShadow: '0 0 8px #cd8ae0' }} />
+      <button
+        onClick={() => {
+          // O clique é o único momento em que o navegador aceita o pedido de permissão.
+          void requestNotificationPermission()
+          navigate('/contatos')
+        }}
+        title={unreadTotal ? `${unreadTotal} mensagem(ns) não lida(s)` : 'Conversas e notificações'}
+        style={{ position: 'relative', width: 42, height: 42, borderRadius: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(176,148,210,0.12)', color: '#b9aec6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <MaterialIcon name={unreadTotal ? 'notifications_active' : 'notifications'} size={21} />
+        {unreadTotal > 0 && (
+          <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#34c759', color: '#08210f', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(52,199,89,0.5)' }}>
+            {unreadTotal > 99 ? '99+' : unreadTotal}
+          </span>
+        )}
       </button>
 
       <RingButton

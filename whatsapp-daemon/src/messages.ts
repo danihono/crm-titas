@@ -758,6 +758,10 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
       // Fluxo ao vivo: a mensagem que chegou É a mais recente → preview direto.
       // Histórico chega fora de ordem → o chamador recomputa via refreshContactPreview.
       ...(opts?.importedFromHistory ? {} : { lastMessage: content.text, lastMessageAt: sentAt }),
+      // Não lidas: só o que CHEGOU conta. Mensagem enviada pelo próprio usuário (inclusive
+      // pelo celular) volta por aqui como fromMe, e marcá-la faria o badge subir sozinho.
+      // Histórico também fica de fora — é mensagem velha, já vista.
+      ...(!m.key.fromMe && !opts?.importedFromHistory ? { unreadCount: FieldValue.increment(1) } : {}),
       waJid: peer.jid,
       ...(peer.phone ? { whatsappDigits: peer.phone } : {}),
     },

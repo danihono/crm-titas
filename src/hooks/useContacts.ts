@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore'
 import { deleteObject, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
@@ -7,12 +8,26 @@ import { initialsOf } from '../lib/format'
 import { useCollection } from './useCollection'
 import type { Contact } from '../types'
 
+/** Mais recente primeiro, como no WhatsApp. Sem conversa ainda, vale a criação. */
+function byRecent(a: Contact, b: Contact): number {
+  const ta = (a.lastMessageAt ?? a.createdAt)?.getTime() ?? 0
+  const tb = (b.lastMessageAt ?? b.createdAt)?.getTime() ?? 0
+  return tb - ta
+}
+
 export function useContacts() {
-  return useCollection<Contact>(
+  // A query segue em createdAt de propósito: o Firestore OMITE da consulta todo doc que não
+  // tem o campo do orderBy, e o daemon não grava lastMessageAt ao criar o contato (ver
+  // autoContactDefaults). Ordenar por lastMessageAt aqui sumiria com todo contato cadastrado
+  // à mão que ainda não trocou mensagem. Como a coleção vem inteira (sem paginação), ordenar
+  // no cliente dá o mesmo resultado e ainda dispensa índice composto.
+  const { docs, loading } = useCollection<Contact>(
     (uid) => query(collection(db, `users/${uid}/contacts`), orderBy('createdAt', 'desc')),
     contactFromDoc,
     [],
   )
+  const sorted = useMemo(() => [...docs].sort(byRecent), [docs])
+  return { docs: sorted, loading }
 }
 
 export interface NewContactForm {
@@ -49,6 +64,14 @@ export async function saveContact(form: NewContactForm): Promise<string> {
     createdAt: serverTimestamp(),
   })
   return r.id
+}
+
+/**
+ * Zera as não lidas ao abrir a conversa. Best-effort de propósito: é enfeite de UI, e
+ * falhar (modo somente-leitura, rede fora) não pode atrapalhar a leitura das mensagens.
+ */
+export async function markContactRead(id: string): Promise<void> {
+  await updateDoc(ref(`contacts/${id}`), { unreadCount: 0 }).catch(() => {})
 }
 
 /** Atualiza os dados editáveis de um contato existente. */
