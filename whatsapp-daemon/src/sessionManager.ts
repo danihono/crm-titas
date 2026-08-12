@@ -4,6 +4,7 @@ import makeWASocket, {
   getBinaryNodeChild,
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
+  S_WHATSAPP_NET,
   type ConnectionState,
   type WAMessage,
   type WAMessageKey,
@@ -85,11 +86,21 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
 }
 
 /**
- * Consulta de foto no formato LEGADO (iq com to=<jid>, sem target) — o endereçamento das
- * versões 6.x do Baileys, que parte dos servidores ainda responde quando o formato novo
- * (to=server + target + tctoken) fica mudo. Mesmos erros Boom (408 timeout / 404 sem foto).
+ * Consulta a foto SEM o `tctoken` de privacidade — o que o `sock.profilePictureUrl` não sabe
+ * fazer.
+ *
+ * O Baileys anexa o tctoken sempre que `serverProps.profilePicPrivacyToken` está ligado, e
+ * esse é o PADRÃO dele (Socket/chats.js). Os tokens, porém, só são guardados a partir dos
+ * fluxos de mensagem — um espelho passivo pode simplesmente não ter nenhum, e a consulta sai
+ * sem token. Esta variante manda o IQ no formato moderno (`to: @s.whatsapp.net` +
+ * `target: <jid>`) e nada mais, para separar "o servidor exige o token" de "o servidor não
+ * responde a esta conta de jeito nenhum".
+ *
+ * Substituiu uma tentativa em formato LEGADO (`to: <jid>`, sem `target`) que era inútil:
+ * servidores atuais ignoram esse envelope, então ela dava timeout em qualquer conta e só
+ * gastava 6 s de cada busca.
  */
-async function legacyProfilePictureUrl(
+async function directProfilePictureUrl(
   s: Session,
   jid: string,
   type: 'image' | 'preview',
@@ -101,7 +112,7 @@ async function legacyProfilePictureUrl(
   const result = await sock.query(
     {
       tag: 'iq',
-      attrs: { to: jid, type: 'get', xmlns: 'w:profile:picture' },
+      attrs: { target: jid, to: S_WHATSAPP_NET, type: 'get', xmlns: 'w:profile:picture' },
       content: [{ tag: 'picture', attrs: { type, query: 'url' } }],
     },
     timeoutMs,
@@ -130,8 +141,8 @@ async function lidForPn(s: Session, pnJid: string): Promise<string | null> {
  * modo ('image' vs 'preview') — as demais penduram até o timeout. Tenta todas em ordem e
  * retorna a primeira URL obtida.
  * - `undefined` = o WhatsApp respondeu "sem foto" (404/privacidade) em alguma tentativa.
- * - `Error('photo_timeout')` = NENHUMA combinação respondeu; derruba o socket para a
- *   reconexão automática reerguê-lo (recupera socket zumbi do Cloud Run).
+ * - `Error('photo_timeout')` = NENHUMA combinação respondeu. O socket NÃO é derrubado: ele
+ *   costuma estar saudável (espelhando mensagens) enquanto só esta consulta fica muda.
  */
 export async function fetchProfilePhotoSmart(
   uid: string,
@@ -160,22 +171,22 @@ export async function fetchProfilePhotoSmart(
   const jids = [...new Set(candidates)]
   if (jids.length === 0) return undefined
 
-  // Tentativas em ordem: para cada endereço, os modos modernos; por último, o formato
-  // LEGADO de IQ (to=<jid>, sem target) que servidores antigos/transitórios ainda aceitam.
-  type Attempt = { jid: string; type: 'image' | 'preview'; legacy?: boolean }
+  // Ordem: primeiro o caminho do Baileys (que anexa o tctoken quando tem um), depois a
+  // consulta direta SEM tctoken para cada endereço. O trace distingue as duas — se só a
+  // direta responder, o bloqueio é o token de privacidade.
+  type Attempt = { jid: string; type: 'image' | 'preview'; direct?: boolean }
   const attempts: Attempt[] = jids.flatMap((jid): Attempt[] => [
     { jid, type: 'image' },
     { jid, type: 'preview' },
   ])
-  const legacyJid = jids.find((j) => j.endsWith('@s.whatsapp.net'))
-  if (legacyJid) attempts.push({ jid: legacyJid, type: 'image', legacy: true })
+  for (const jid of jids) attempts.push({ jid, type: 'image', direct: true })
 
   let sawNotFound = false
-  for (const { jid, type, legacy } of attempts) {
-    const label = `${jid.endsWith('@lid') ? 'lid' : 'pn'}.${legacy ? 'legado' : type}`
+  for (const { jid, type, direct } of attempts) {
+    const label = `${jid.endsWith('@lid') ? 'lid' : 'pn'}.${direct ? 'direto' : type}`
     try {
-      const url = legacy
-        ? await legacyProfilePictureUrl(s, jid, type, config.photoQueryTimeoutMs)
+      const url = direct
+        ? await directProfilePictureUrl(s, jid, type, config.photoQueryTimeoutMs)
         : await s.sock.profilePictureUrl(jid, type, config.photoQueryTimeoutMs)
       if (url) return url
       sawNotFound = true // resposta sem URL = contato sem foto
@@ -184,7 +195,7 @@ export async function fetchProfilePhotoSmart(
       const code = (err as Boom)?.output?.statusCode
       if (code === DisconnectReason.timedOut) {
         trace.push(`${label}=timeout`)
-        logger.warn({ uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa sem resposta (timeout)')
+        logger.warn({ uid, jidHost: jid.split('@')[1], type, direto: !!direct }, 'foto de perfil: tentativa sem resposta (timeout)')
         continue
       }
       if (code === 404 || code === 401) {
@@ -193,7 +204,7 @@ export async function fetchProfilePhotoSmart(
         continue
       }
       trace.push(`${label}=erro${code ?? ''}`)
-      logger.warn({ err, uid, jidHost: jid.split('@')[1], type, legacy: !!legacy }, 'foto de perfil: tentativa falhou')
+      logger.warn({ err, uid, jidHost: jid.split('@')[1], type, direto: !!direct }, 'foto de perfil: tentativa falhou')
     }
   }
 
