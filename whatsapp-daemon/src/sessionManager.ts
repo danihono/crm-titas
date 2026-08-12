@@ -198,12 +198,14 @@ export async function fetchProfilePhotoSmart(
   }
 
   if (sawNotFound) return undefined
-  logger.warn({ uid, tried: jids.length, trace }, 'foto de perfil: nenhuma combinação respondeu — reconectando socket')
-  try {
-    s.sock.end(undefined)
-  } catch {
-    /* ignore */
-  }
+  // NÃO derruba o socket aqui. A heurística antiga ("nenhuma resposta = socket zumbi")
+  // nasceu no Cloud Run, e no self-hosted ela se mostrou falsa e cara: o log de 12/08 tem
+  // cinco timeouts de foto num socket que estava espelhando mensagem e mídia normalmente —
+  // ou seja, a conexão viva era derrubada por causa de uma FOTO. Pior, o front repetia o
+  // comando 6 s depois e a segunda rodada caía dentro da reconexão, garantindo o fracasso e
+  // uma segunda queda. Socket realmente morto se anuncia por outros caminhos (keep-alive do
+  // Baileys, connection.update), que já tratamos.
+  logger.warn({ uid, tried: jids.length, trace }, 'foto de perfil: nenhuma combinação respondeu')
   const timeoutErr = new Error('photo_timeout') as Error & { trace?: string }
   timeoutErr.trace = trace.join(' ')
   throw timeoutErr

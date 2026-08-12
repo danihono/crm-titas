@@ -282,18 +282,16 @@ export function fetchWhatsappHistory(contactId: string, maxDays?: number): Promi
  * Puxa (ou re-puxa) a foto de perfil do WhatsApp do contato para o CRM.
  *
  * Na era LID há contas em que só uma combinação de endereço/modo responde e as demais
- * penduram; quando nenhuma responde, o daemon derruba o socket para forçar a reconexão e
- * devolve `photo_timeout`. Uma segunda tentativa costuma resolver, então tentamos de novo.
- * Erros não-timeout (ex.: "Conecte o WhatsApp primeiro") propagam de imediato.
+ * penduram; quando nenhuma responde, o daemon devolve `photo_timeout` com o trace das
+ * tentativas.
+ *
+ * SEM repetição automática. Havia um retry após 6 s, e ele fazia mal: o daemon tentava 5
+ * combinações de 6 s cada, então a falha já custava 30 s de espera — o retry dobrava isso
+ * para mais de um minuto e, no log de 12/08, nunca mudou o resultado (a segunda rodada
+ * falhou idêntica à primeira, nas cinco combinações). Quem quiser insistir clica de novo.
  */
-export async function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
-  try {
-    return await runCommand('contact.photoRefresh', { contactId }, 90_000)
-  } catch (e) {
-    if (!(e as WaError).isTimeout) throw e
-    await new Promise((r) => setTimeout(r, 6000)) // dá tempo do socket reconectar
-    return runCommand('contact.photoRefresh', { contactId }, 90_000)
-  }
+export function refreshWhatsappPhoto(contactId: string): Promise<Record<string, unknown>> {
+  return runCommand('contact.photoRefresh', { contactId }, 90_000)
 }
 
 /**
