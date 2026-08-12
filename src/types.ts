@@ -60,6 +60,44 @@ export interface Deal {
   createdAt?: Date
 }
 
+/** Tipo de caixa do fluxograma — define a cor da faixa e o ícone. */
+export type FlowNodeKind = 'start' | 'step' | 'decision' | 'end'
+/** Como o fluxo nasceu: desenhado à mão ou gerado pelo Titã IA. */
+export type FlowSource = 'manual' | 'ia'
+
+/** Caixa do quadro de fluxos. x/y em coordenadas do canvas. */
+export interface FlowNode {
+  id: string
+  title: string
+  subtitle: string
+  kind: FlowNodeKind
+  x: number
+  y: number
+}
+
+/** Seta ligando duas caixas. `label` vazio = seta sem rótulo. */
+export interface FlowEdge {
+  id: string
+  from: string
+  to: string
+  label: string
+}
+
+/**
+ * Fluxograma livre — um doc por fluxo em users/{uid}/flows, com nós e setas
+ * embutidos (mesma escolha de Board.columns: são poucos e salvam juntos).
+ */
+export interface Flow {
+  id: string
+  name: string
+  description: string
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+  source: FlowSource
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 export interface Contact {
   id: string
   name: string

@@ -3,7 +3,7 @@ import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
   ScheduledMessage, ScheduledMessageStatus, ContactNameSource, HistoryImport, HistoryImportStatus, PhotoSource,
-  MediaRecovery,
+  MediaRecovery, Flow, FlowNode, FlowEdge, FlowNodeKind,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -70,6 +70,60 @@ export function dealFromDoc(id: string, d: DocumentData): Deal {
     columnId: d.columnId ?? '',
     order: d.order ?? 0,
     createdAt: toDate(d.createdAt),
+  }
+}
+
+function toFlowNodeKind(v: unknown): FlowNodeKind {
+  return v === 'start' || v === 'decision' || v === 'end' ? v : 'step'
+}
+
+/**
+ * Nós e setas chegam de um array embutido no doc — e podem ter sido escritos
+ * por uma versão anterior do app ou pela IA. Descartamos o que não tem id em
+ * vez de confiar, senão um item torto quebra a renderização do quadro inteiro.
+ */
+function toFlowNodes(v: unknown): FlowNode[] {
+  if (!Array.isArray(v)) return []
+  return v.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const d = raw as Record<string, unknown>
+    if (typeof d.id !== 'string' || !d.id) return []
+    return [{
+      id: d.id,
+      title: typeof d.title === 'string' ? d.title : '',
+      subtitle: typeof d.subtitle === 'string' ? d.subtitle : '',
+      kind: toFlowNodeKind(d.kind),
+      x: typeof d.x === 'number' ? d.x : 0,
+      y: typeof d.y === 'number' ? d.y : 0,
+    }]
+  })
+}
+
+function toFlowEdges(v: unknown, nodes: FlowNode[]): FlowEdge[] {
+  if (!Array.isArray(v)) return []
+  const ids = new Set(nodes.map((n) => n.id))
+  return v.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const d = raw as Record<string, unknown>
+    const { id, from, to } = d
+    // Seta órfã (aponta para um nó que já foi apagado) não tem como ser desenhada.
+    if (typeof id !== 'string' || typeof from !== 'string' || typeof to !== 'string') return []
+    if (!ids.has(from) || !ids.has(to)) return []
+    return [{ id, from, to, label: typeof d.label === 'string' ? d.label : '' }]
+  })
+}
+
+export function flowFromDoc(id: string, d: DocumentData): Flow {
+  const nodes = toFlowNodes(d.nodes)
+  return {
+    id,
+    name: d.name ?? '',
+    description: d.description ?? '',
+    nodes,
+    edges: toFlowEdges(d.edges, nodes),
+    source: d.source === 'ia' ? 'ia' : 'manual',
+    createdAt: toDate(d.createdAt),
+    updatedAt: toDate(d.updatedAt),
   }
 }
 

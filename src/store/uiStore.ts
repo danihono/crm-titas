@@ -3,12 +3,16 @@ import { dateKeyOf } from '../lib/format'
 
 export type ContactView = 'chat' | 'info' | 'files'
 export type ActFilter = 'todas' | 'pendente' | 'atrasada' | 'concluida'
+export type PipelineView = 'kanban' | 'fluxos'
 
 const now = new Date()
 
 interface UIState {
   sidebarCollapsed: boolean
   activeBoard: string
+  pipelineView: PipelineView
+  /** Fluxo aberto no editor; null = mostrando a lista de fluxos. */
+  activeFlow: string | null
   selectedContact: string | null
   contactView: ContactView
   selectedDayKey: string
@@ -25,6 +29,9 @@ interface UIState {
 
   toggleSidebar: () => void
   setActiveBoard: (id: string) => void
+  setPipelineView: (v: PipelineView) => void
+  openFlow: (id: string) => void
+  closeFlow: () => void
   selectContact: (id: string) => void
   setContactView: (v: ContactView) => void
   selectDay: (key: string) => void
@@ -49,6 +56,8 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
   activeBoard: 'b1',
+  pipelineView: 'kanban',
+  activeFlow: null,
   selectedContact: null,
   contactView: 'chat',
   selectedDayKey: dateKeyOf(now),
@@ -65,6 +74,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setActiveBoard: (id) => set({ activeBoard: id }),
+  setPipelineView: (v) => set({ pipelineView: v }),
+  openFlow: (id) => set({ activeFlow: id }),
+  closeFlow: () => set({ activeFlow: null }),
   selectContact: (id) => set({ selectedContact: id, contactView: 'chat' }),
   setContactView: (v) => set({ contactView: v }),
   selectDay: (key) => set({ selectedDayKey: key }),
