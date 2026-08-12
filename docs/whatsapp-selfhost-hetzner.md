@@ -139,6 +139,25 @@ gcloud projects add-iam-policy-binding titas-c8967 \
 > falhou silenciosamente neste projeto, e o sintoma só apareceu semanas depois, na forma de
 > mídia que não carregava.
 
+**Confira em vez de torcer.** O daemon traz um diagnóstico que responde isso em uma tela:
+
+```bash
+cd /root/crm-titas/whatsapp-daemon && node scripts/check-storage.mjs
+```
+
+Ele imprime **qual identidade está de fato agindo** (o `client_email` do JSON), o bucket, e
+testa gravação, URL de download e remoção **separadamente** — `save()` fala com a API do GCS e
+`getDownloadURL()` com a do Firebase Storage, em outro host, então uma pode passar e a outra
+não. Quando falha, mostra o erro cru com a etapa.
+
+> Confira se o `client_email` impresso é exatamente o principal que recebeu a permissão.
+> Conceder ao principal errado é a falha mais comum aqui, e o sintoma é idêntico ao de não ter
+> concedido nada.
+
+A partir da versão com esta seção o daemon roda essa mesma sonda **sozinho, no boot**, e
+publica o veredito no heartbeat: sem permissão, o CRM mostra a tarja "O serviço não consegue
+salvar arquivos" em vez de simplesmente perder mídia em silêncio.
+
 ---
 
 ## 6. Passar a sessão da máquina antiga
@@ -246,8 +265,13 @@ systemctl restart whatsapp-daemon
 | `Permission denied` no SSH | Senha errada; resete em **Rescue → Reset root password** |
 | Serviço reinicia em loop | `journalctl -u whatsapp-daemon -n 50`; quase sempre caminho errado em `GOOGLE_APPLICATION_CREDENTIALS` |
 | `lease detida por outra instância` | Outra cópia ainda rodando (PC antigo, ou tarefa do Windows habilitada) |
-| Texto chega, **mídia nunca** (`Não foi possível baixar a mídia`) | 403 do Storage: falta `roles/storage.objectAdmin` (§5). O log mostra `Permission denied. Please enable Firebase Storage` |
-| Foto de contato não aparece | Mesma causa acima — `photo.ts` grava no mesmo bucket |
+| Bolha diz **"o serviço não pôde salvá-la"** (`storage_denied`) | 403 do Storage: falta `roles/storage.objectAdmin`, ou ela foi para o principal errado (§5). Rode `node scripts/check-storage.mjs` |
+| Bolha diz **"falhou ao salvar o arquivo"** (`storage_failed`) | Storage acessível mas a gravação falhou (rede, 5xx, cota). O log traz `stage` e `err.code` |
+| Bolha diz **"não foi possível baixar do WhatsApp"** (`download_failed`) | Lado do WhatsApp/rede da VPS — nada a ver com permissão. Log: `falha ao BAIXAR mídia do WhatsApp` |
+| Bolha diz **"o WhatsApp não tem mais este arquivo"** (`wa_media_expired`) | Blob saiu da CDN e o aparelho de origem não reenviou. Irrecuperável se o celular não tem mais o arquivo |
+| Texto chega, **mídia nunca**, sem tarja nem código | Daemon anterior a esta versão. Atualize: o erro atual é genérico e não diz o passo |
+| Foto de contato não aparece | Mesma causa das duas primeiras — `photo.ts` grava no mesmo bucket |
+| Mídia antiga quebrada não volta com **Recuperar mídias** | Falhou antes de o daemon guardar o material de retentativa (sem `mediaKey`, não há como rebaixar). "Recuperar histórico" também não resolve: ele só pede mensagens ANTERIORES à mais antiga espelhada |
 | CRM diz "Serviço de WhatsApp offline" | `systemctl status`; se estiver ativo, confira o relógio do PC (a comparação do heartbeat usa a hora local do navegador) |
 | Contato como "Contato WhatsApp" | Conversa chegou por `@lid` e o mapeamento ainda não veio. `node scripts/lid-report.mjs` mede quantos faltam |
 | Erro do `sharp` ao subir | `node_modules` de outra arquitetura: `rm -rf node_modules && npm ci` na VM |

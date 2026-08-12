@@ -32,6 +32,7 @@ const CMD_TIMEOUT_MS: Record<WaCommandType, number> = {
   'history.fetch': 60_000,
   'contact.purge': 300_000,
   'contact.photoRefresh': 90_000, // busca multi-candidato LID
+  'contact.mediaRetry': 60_000, // só enumera e dispara; o download roda em segundo plano
 }
 
 /** Folga entre o timeout do comando e a expiração do lock (evita reclaim de algo vivo). */

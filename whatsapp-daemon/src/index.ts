@@ -9,6 +9,7 @@ import { startCommandWorker, stopCommandWorker } from './commands.js'
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js'
 import { startLeaseRenewer, stopLeaseRenewer, releaseAllLeases } from './lease.js'
 import { startHealthServer, stopHealthServer } from './health.js'
+import { probeStorageWrite } from './storage.js'
 
 logger.info(
   { instanceId: config.instanceId, region: config.region, healthPort: config.httpPort || null },
@@ -27,6 +28,11 @@ startCommandWorker()
 startHeartbeat()
 startScheduledMessageWorker()
 if (config.httpPort) startHealthServer(config.httpPort)
+
+// Sonda o Storage logo no boot. Sem isto a falha é MUDA: o daemon sobe, o texto continua
+// chegando (Firestore é outra permissão) e só a mídia some — o sintoma aparece dias depois
+// parecendo problema do WhatsApp. Não bloqueia a subida; o veredito vai para o heartbeat.
+probeStorageWrite().catch((err) => logger.error({ err }, 'preflight do Storage não pôde rodar'))
 
 // Reabre as sessões que estavam conectadas antes do restart — silencioso, sem QR.
 rehydrateAll().catch((err) => logger.error({ err }, 'rehydrateAll falhou'))

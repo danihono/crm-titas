@@ -3,6 +3,7 @@ import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
   ScheduledMessage, ScheduledMessageStatus, ContactNameSource, HistoryImport, HistoryImportStatus, PhotoSource,
+  MediaRecovery,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -27,6 +28,21 @@ function toHistoryImport(v: unknown): HistoryImport | undefined {
   return {
     status: status as HistoryImportStatus,
     imported: typeof d.imported === 'number' ? d.imported : 0,
+    error: typeof d.error === 'string' ? d.error : undefined,
+    at: toDate(d.at),
+  }
+}
+
+function toMediaRecovery(v: unknown): MediaRecovery | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const d = v as Record<string, unknown>
+  const status = d.status
+  if (status !== 'loading' && status !== 'done' && status !== 'error') return undefined
+  return {
+    status: status as HistoryImportStatus,
+    total: typeof d.total === 'number' ? d.total : 0,
+    recovered: typeof d.recovered === 'number' ? d.recovered : 0,
+    failed: typeof d.failed === 'number' ? d.failed : 0,
     error: typeof d.error === 'string' ? d.error : undefined,
     at: toDate(d.at),
   }
@@ -75,6 +91,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     photoPath: d.photoPath ?? '',
     photoSource: toPhotoSource(d.photoSource),
     historyImport: toHistoryImport(d.historyImport),
+    mediaRecovery: toMediaRecovery(d.mediaRecovery),
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     unreadCount: typeof d.unreadCount === 'number' ? d.unreadCount : 0,

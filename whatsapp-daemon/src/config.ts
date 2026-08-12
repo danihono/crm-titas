@@ -50,6 +50,21 @@ export const config = {
   /** Tempo máx. (ms) do download da imagem de perfil a partir da CDN do WhatsApp. */
   photoDownloadTimeoutMs: Number(process.env.WA_PHOTO_DOWNLOAD_TIMEOUT_MS ?? 10000),
 
+  /**
+   * Tempo máx. (ms) esperando o aparelho de origem reenviar uma mídia expirada.
+   * OBRIGATÓRIO: `sock.updateMediaMessage` chama `waitForMsgMediaUpdate` sem timeout, e o
+   * `promiseTimeout` do Baileys sem `ms` devolve uma promessa SEM timer — um celular que não
+   * responde penduraria a ingestão para sempre.
+   */
+  mediaReuploadTimeoutMs: Number(process.env.WA_MEDIA_REUPLOAD_TIMEOUT_MS ?? 30000),
+
+  /** Downloads simultâneos na recuperação de mídia. Baixo de propósito: rajada de recibo de
+   *  reenvio é a forma mais fácil de tomar rate-limit do WhatsApp. */
+  mediaRetryConcurrency: Number(process.env.WA_MEDIA_RETRY_CONCURRENCY ?? 2),
+
+  /** Teto de mensagens processadas por rodada de recuperação de mídia. */
+  mediaRetryMaxDocs: Number(process.env.WA_MEDIA_RETRY_MAX_DOCS ?? 25),
+
   /** Bucket do Firebase Storage usado para anexos de WhatsApp. */
   storageBucket:
     process.env.FIREBASE_STORAGE_BUCKET ??

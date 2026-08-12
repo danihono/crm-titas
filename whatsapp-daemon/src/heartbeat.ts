@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db } from './firebase.js'
 import { config } from './config.js'
 import { logger } from './logger.js'
+import { storageHealth } from './storage.js'
 
 /**
  * Sinal de vida do daemon, em `whatsappDaemon/heartbeat`.
@@ -23,10 +24,27 @@ const BEAT_MS = 30_000
 let timer: NodeJS.Timeout | null = null
 
 async function beat(): Promise<void> {
+  // Saúde do Storage: só o VEREDITO. Bucket, projeto, etapa e texto do erro ficam no log —
+  // este doc é lido por QUALQUER usuário autenticado (ver o aviso no topo do arquivo).
+  // `ok: null` = ainda não sondamos; nesse caso não publica nada, e o front trata como
+  // "não sei" em vez de acusar falha.
+  const storage = storageHealth()
+  const storagePatch =
+    storage.ok === null
+      ? {}
+      : {
+          storageOk: storage.ok,
+          storageCode: storage.code ?? FieldValue.delete(),
+          storageCheckedAt: FieldValue.serverTimestamp(),
+        }
+
   await db
     .collection('whatsappDaemon')
     .doc('heartbeat')
-    .set({ instanceId: config.instanceId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    .set(
+      { instanceId: config.instanceId, updatedAt: FieldValue.serverTimestamp(), ...storagePatch },
+      { merge: true },
+    )
 }
 
 export function startHeartbeat(): void {

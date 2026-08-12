@@ -4,7 +4,7 @@ import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
 import { useWhatsappStatus } from '../../hooks/useWhatsappStatus'
-import { useDaemonOnline } from '../../hooks/useDaemonOnline'
+import { useDaemonOnline, useDaemonStorageOk } from '../../hooks/useDaemonOnline'
 import { giveConsent, connectWhatsapp, disconnectWhatsapp, heartbeatKnown } from '../../lib/whatsapp'
 
 const RETENTION_OPTIONS = [
@@ -28,6 +28,7 @@ const LAST_ERROR_LABEL: Record<string, string> = {
 export default function WhatsappConnectModal({ onClose }: { onClose: () => void }) {
   const st = useWhatsappStatus()
   const daemonUp = useDaemonOnline()
+  const storage = useDaemonStorageOk()
   const [consented, setConsented] = useState(false)
   const [retention, setRetention] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -83,6 +84,20 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
         <div style={{ marginTop: 10, background: 'rgba(193,77,119,0.09)', border: '1px solid rgba(193,77,119,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
           <b style={{ color: C.rose }}>Serviço de WhatsApp offline.</b> Ele roda na máquina que hospeda
           o espelho — ligue-a para conectar ou trocar mensagens.
+        </div>
+      )}
+
+      {/* Falha de Storage é degradação silenciosa: o texto continua chegando e só a mídia
+          some. Sem esta tarja, o sintoma leva dias para ser notado — e já levou. */}
+      {storage.ok === false && (
+        <div style={{ marginTop: 10, background: 'rgba(216,169,96,0.12)', border: '1px solid rgba(216,169,96,0.36)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
+          <b style={{ color: '#7a5516' }}>O serviço não consegue salvar arquivos.</b>{' '}
+          {storage.code === 'not_found'
+            ? 'O armazenamento configurado não foi encontrado.'
+            : 'Falta permissão de armazenamento para a conta de serviço.'}{' '}
+          As mensagens de texto continuam chegando, mas fotos, áudios e vídeos novos não serão
+          guardados. Depois de corrigir, use <b>Recuperar mídias</b> na conversa para trazer o
+          que ficou para trás.
         </div>
       )}
 

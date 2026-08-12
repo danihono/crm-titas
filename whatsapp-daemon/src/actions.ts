@@ -8,9 +8,10 @@ import { purgeConnection, purgeContact } from './purge.js'
 import { saveOutgoingTextMessage } from './messages.js'
 import { startHistoryImport } from './history.js'
 import { fetchAndStoreContactPhoto } from './photo.js'
+import { startMediaRetry } from './mediaRetry.js'
 
 /**
- * As sete operações que o CRM pode pedir ao daemon, independentes de transporte.
+ * As oito operações que o CRM pode pedir ao daemon, independentes de transporte.
  *
  * Antes viviam dentro dos handlers Express; hoje são chamadas pelo dispatcher da fila
  * (commands.ts). Mantê-las aqui é o que permitiu deletar o servidor HTTP sem duplicar
@@ -36,6 +37,7 @@ export const WA_COMMAND_TYPES = [
   'history.fetch',
   'contact.purge',
   'contact.photoRefresh',
+  'contact.mediaRetry',
 ] as const
 
 export type WaCommandType = (typeof WA_COMMAND_TYPES)[number]
@@ -82,6 +84,16 @@ function retentionArg(args: Args): number {
   const n = Number(args.retentionDays)
   if (!Number.isInteger(n) || n < 0 || n > 3650) {
     throw new CommandError('invalid_args', 'Período de retenção inválido.')
+  }
+  return n
+}
+
+/** Teto de mensagens tocadas numa rodada de recuperação. Não amarrado à UI, mas sempre finito. */
+function maxDocsArg(args: Args): number | undefined {
+  if (args.max == null) return undefined
+  const n = Number(args.max)
+  if (!Number.isInteger(n) || n <= 0 || n > 200) {
+    throw new CommandError('invalid_args', 'Quantidade inválida.')
   }
   return n
 }
@@ -284,6 +296,32 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
       }
       logger.error({ err, uid, contactId }, 'refresh de foto do WhatsApp falhou')
       throw new CommandError('photo_refresh_failed', 'Falha ao puxar a foto do WhatsApp.')
+    }
+  },
+
+  /**
+   * Rebaixa as mídias que ficaram sem arquivo. Assíncrono, como o history.fetch: enumera,
+   * dispara e volta — a fila é serial por uid, e segurar aqui travaria o envio de mensagens
+   * do tenant. O andamento vai para contact.mediaRecovery, acompanhado por onSnapshot.
+   */
+  'contact.mediaRetry': async (uid, args) => {
+    const contactId = contactIdArg(args)
+    const max = maxDocsArg(args)
+    await requireContact(uid, contactId)
+
+    try {
+      const { eligible, legacy } = await startMediaRetry(uid, contactId, max)
+      return { eligible, legacy }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'media_retry_failed'
+      if (msg === 'whatsapp_not_connected') {
+        throw new CommandError('whatsapp_not_connected', 'Conecte o WhatsApp primeiro.')
+      }
+      if (msg === 'media_retry_running') {
+        throw new CommandError('media_retry_running', 'Já há uma recuperação de mídia em andamento aqui.')
+      }
+      logger.error({ err, uid, contactId }, 'recuperação de mídia falhou')
+      throw new CommandError('media_retry_failed', 'Falha ao recuperar as mídias.')
     }
   },
 }

@@ -8,8 +8,6 @@ import {
   type WAMessageKey,
   type proto,
 } from '@whiskeysockets/baileys'
-import { randomUUID } from 'node:crypto'
-import { getDownloadURL } from 'firebase-admin/storage'
 import {
   FieldValue,
   Timestamp,
@@ -17,8 +15,10 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore'
-import { bucket, db } from './firebase.js'
+import { db } from './firebase.js'
+import { config } from './config.js'
 import { logger, waLogger } from './logger.js'
+import { saveToStorage, StorageWriteError } from './storage.js'
 import { agendaNameFor, initialsOf, type LidResolver } from './agenda.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
@@ -47,6 +47,15 @@ const MEDIA_META: Record<MediaMessageKey, { mediaType: MediaType; label: string;
   audioMessage: { mediaType: 'audio', label: '[áudio]', fallbackExt: 'ogg' },
   documentMessage: { mediaType: 'document', label: '[documento]', fallbackExt: 'bin' },
   stickerMessage: { mediaType: 'sticker', label: '[figurinha]', fallbackExt: 'webp' },
+}
+
+/** Caminho inverso do MEDIA_META: do `mediaType` gravado no doc de volta à chave do nó. */
+const MEDIA_KEY_BY_TYPE: Record<MediaType, MediaMessageKey> = {
+  image: 'imageMessage',
+  video: 'videoMessage',
+  audio: 'audioMessage',
+  document: 'documentMessage',
+  sticker: 'stickerMessage',
 }
 
 const STUB_LABELS: Record<string, string> = {
@@ -346,6 +355,10 @@ interface Extracted {
   pending: boolean
   media?: {
     mediaType: MediaType
+    /** Chave e nó crus do Baileys — só em memória, NUNCA vão inteiros para o Firestore
+     *  (`jpegThumbnail` é bytes inline e engordaria o doc em dezenas de KB). */
+    nodeKey: MediaMessageKey
+    node: Record<string, unknown>
     label: string
     caption?: string
     mimeType?: string
@@ -407,6 +420,8 @@ function extractContent(message: WAMessage['message']): Extracted | null {
       pending: viewOnce,
       media: {
         mediaType: meta.mediaType,
+        nodeKey: media.key,
+        node: media.node,
         label: meta.label,
         caption,
         mimeType,
@@ -612,6 +627,106 @@ async function mergeLegacyLidContact(uid: string, peer: Peer, contactId: string)
   logger.info({ uid, fromContactId: legacyId, toContactId: contactId }, 'duplicata de LID fundida ao contato')
 }
 
+/** Tentativas do download antes de desistir, e a espera entre elas. */
+const MEDIA_DOWNLOAD_RETRY_DELAYS_MS = [500, 2000]
+
+/** Status HTTP da CDN que significam "o arquivo não está mais lá" → pedir reenvio ao celular. */
+const MEDIA_EXPIRED_STATUS = [404, 410]
+
+/** O Baileys embrulha a falha de download num Boom, que expõe o status em `output.statusCode`. */
+export function isExpiredMediaError(err: unknown): boolean {
+  const status = (err as { output?: { statusCode?: number } } | null | undefined)?.output?.statusCode
+  return typeof status === 'number' && MEDIA_EXPIRED_STATUS.includes(status)
+}
+
+/**
+ * Baixa a mídia, com retentativa e — quando o blob expirou — pedido explícito de reenvio.
+ *
+ * O reenvio precisa ser explícito porque o do Baileys 7.0.0-rc13 NUNCA dispara: ele testa
+ * `error.status` (Utils/messages.js), mas o download lança um Boom, que só tem
+ * `output.statusCode`. Ou seja, o `reuploadRequest` passado no ctx é decorativo — mídia com
+ * blob expirado sempre falhou direto.
+ */
+async function downloadMediaWithRetry(m: WAMessage, mediaCtx: MediaDownloadContext | undefined): Promise<Buffer> {
+  const ctx = mediaCtx ? { logger: waLogger, reuploadRequest: mediaCtx.reuploadRequest } : undefined
+  let msg = m
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await downloadMediaMessage(msg, 'buffer', {}, ctx)
+    } catch (err) {
+      // Arquivo fora da CDN: retentar o mesmo download é inútil — só o aparelho de origem
+      // pode reenviá-lo. Uma tentativa por mensagem; se o reenvio falhar, propaga o erro
+      // ORIGINAL, senão o timeout do reenvio mascararia a causa real ('mídia expirada').
+      if (isExpiredMediaError(err) && mediaCtx && msg === m) {
+        try {
+          msg = await mediaCtx.reuploadRequest(m)
+        } catch (reuploadErr) {
+          logger.info({ err: reuploadErr }, 'pedido de reenvio de mídia não foi atendido')
+          throw err
+        }
+        continue
+      }
+      const delay = MEDIA_DOWNLOAD_RETRY_DELAYS_MS[attempt]
+      if (delay === undefined) throw err
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+}
+
+/**
+ * Descritor mínimo para rebaixar a mídia DEPOIS, sem o WAMessage original.
+ *
+ * Sem isto, uma falha de mídia é perda definitiva: o proto cru é descartado e não sobra nada
+ * de onde tentar de novo. São exatamente os três campos que `downloadContentFromMessage`
+ * desestrutura (`{ mediaKey, directPath, url }`) — os hashes `fileEncSha256`/`fileSha256` não
+ * entram porque a descriptografia é AES-CBC pura, sem verificação de digest.
+ */
+function mediaRetryDescriptor(m: WAMessage, media: NonNullable<Extracted['media']>): Record<string, unknown> {
+  const raw = media.node.mediaKey
+  const mediaKey = raw instanceof Uint8Array ? Buffer.from(raw) : null // cópia: protobufjs entrega view sobre buffer compartilhado
+  const directPath = typeof media.node.directPath === 'string' ? media.node.directPath : ''
+  const url = typeof media.node.url === 'string' ? media.node.url : ''
+  if (!mediaKey || (!directPath && !url)) return {} // sem isso não há retentativa possível
+
+  return {
+    mediaRetry: {
+      node: media.nodeKey,
+      mediaKey,
+      directPath,
+      url,
+      ...(media.mimeType ? { mimetype: media.mimeType } : {}),
+      // O JID CRU da key, não o `waJid` do contato: o recibo de reenvio manda
+      // `jid: key.remoteJid`, e numa conversa que chegou por LID esses dois são diferentes —
+      // usar o do contato mandaria um recibo que o servidor não reconhece.
+      waRemoteJid: m.key.remoteJid ?? '',
+      ...(m.key.participant ? { waParticipant: m.key.participant } : {}),
+      attempts: 0,
+      savedAt: Timestamp.now(),
+    },
+  }
+}
+
+/**
+ * Grava o buffer no Storage sob o caminho canônico da mídia do contato.
+ * Compartilhado com a recuperação (mediaRetry.ts) para os dois caminhos gravarem igual.
+ */
+export async function storeMediaBuffer(
+  uid: string,
+  contactId: string,
+  messageId: string,
+  buffer: Buffer,
+  media: { mediaType: MediaType; mimeType?: string; fileName?: string },
+): Promise<{ mediaUrl: string; mediaPath: string; sizeBytes: number }> {
+  const ext = extensionFromMime(media.mimeType, MEDIA_META[MEDIA_KEY_BY_TYPE[media.mediaType]].fallbackExt)
+  const rawName = media.fileName || `${media.mediaType}.${ext}`
+  const safeName = sanitizeFileName(rawName.includes('.') ? rawName : `${rawName}.${ext}`)
+  const mediaPath = `users/${uid}/contacts/${contactId}/whatsapp/${sanitizeId(messageId)}_${safeName}`
+
+  const mediaUrl = await saveToStorage(mediaPath, buffer, media.mimeType || 'application/octet-stream')
+  return { mediaUrl, mediaPath, sizeBytes: buffer.byteLength }
+}
+
 async function downloadAndStoreMedia(
   uid: string,
   contactId: string,
@@ -624,52 +739,32 @@ async function downloadAndStoreMedia(
     return { pending: true, mediaError: 'view_once_unsupported' }
   }
 
+  // Etapa 1: WhatsApp. Falhar aqui é problema de rede/CDN/aparelho de origem.
+  let buffer: Buffer
   try {
-    const buffer = await downloadMediaMessage(
-      m,
-      'buffer',
-      {},
-      mediaCtx ? { logger: waLogger, reuploadRequest: mediaCtx.reuploadRequest } : undefined,
-    )
-    const meta = MEDIA_META[
-      media.mediaType === 'image'
-        ? 'imageMessage'
-        : media.mediaType === 'video'
-          ? 'videoMessage'
-          : media.mediaType === 'audio'
-            ? 'audioMessage'
-            : media.mediaType === 'sticker'
-              ? 'stickerMessage'
-              : 'documentMessage'
-    ]
-    const ext = extensionFromMime(media.mimeType, meta.fallbackExt)
-    const rawName = media.fileName || `${media.mediaType}.${ext}`
-    const safeName = sanitizeFileName(rawName.includes('.') ? rawName : `${rawName}.${ext}`)
-    const safeMsgId = sanitizeId(messageId)
-    const mediaPath = `users/${uid}/contacts/${contactId}/whatsapp/${safeMsgId}_${safeName}`
-    const file = bucket.file(mediaPath)
-    const token = randomUUID()
-
-    await file.save(buffer, {
-      resumable: false,
-      metadata: {
-        contentType: media.mimeType || 'application/octet-stream',
-        metadata: {
-          firebaseStorageDownloadTokens: token,
-        },
-      },
-    })
-
-    return {
-      pending: false,
-      mediaUrl: await getDownloadURL(file),
-      mediaPath,
-      sizeBytes: buffer.byteLength,
-      mediaError: FieldValue.delete(),
-    }
+    buffer = await downloadMediaWithRetry(m, mediaCtx)
   } catch (err) {
-    logger.warn({ err, uid, mediaType: media.mediaType }, 'falha ao baixar mídia WhatsApp')
-    return { pending: true, mediaError: 'download_failed' }
+    logger.warn({ err, uid, mediaType: media.mediaType }, 'falha ao BAIXAR mídia do WhatsApp')
+    return {
+      pending: true,
+      mediaError: isExpiredMediaError(err) ? 'wa_media_expired' : 'download_failed',
+      ...mediaRetryDescriptor(m, media),
+    }
+  }
+
+  // Etapa 2: Storage. Falhar aqui é problema de INFRAESTRUTURA (IAM da service account,
+  // bucket errado) — nada a ver com o WhatsApp. Confundir os dois já custou semanas.
+  try {
+    const stored = await storeMediaBuffer(uid, contactId, messageId, buffer, media)
+    return { pending: false, ...stored, mediaError: FieldValue.delete(), mediaRetry: FieldValue.delete() }
+  } catch (err) {
+    const code = err instanceof StorageWriteError ? err.code : 'storage_failed'
+    const stage = err instanceof StorageWriteError ? err.stage : 'save'
+    logger.error(
+      { err, uid, contactId, mediaType: media.mediaType, stage, code, bucket: config.storageBucket },
+      'falha ao SALVAR mídia no Storage',
+    )
+    return { pending: true, mediaError: code, ...mediaRetryDescriptor(m, media) }
   }
 }
 
@@ -723,7 +818,7 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   const existingMsg = content.media ? await msgRef.get() : null
   const mediaFields = content.media
     ? existingMsg?.get('mediaUrl')
-      ? { pending: false, mediaError: FieldValue.delete() }
+      ? { pending: false, mediaError: FieldValue.delete(), mediaRetry: FieldValue.delete() }
       : await downloadAndStoreMedia(uid, contactId, m.key.id, m, content.media, mediaCtx)
     : {}
 

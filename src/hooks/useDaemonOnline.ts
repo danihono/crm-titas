@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { subscribeDaemonHeartbeat, daemonOnline } from '../lib/whatsapp'
+import { subscribeDaemonHeartbeat, daemonOnline, daemonStorageOk, daemonStorageCode } from '../lib/whatsapp'
 
 /**
  * Há um daemon de WhatsApp vivo do outro lado da fila?
@@ -26,4 +26,28 @@ export function useDaemonOnline(): boolean {
   }, [])
 
   return online
+}
+
+/**
+ * O daemon consegue salvar arquivos? `null` enquanto não dá para afirmar (daemon offline,
+ * versão antiga sem a sonda, ou primeira leitura ainda não chegou).
+ *
+ * Assina o MESMO heartbeat (o listener é ref-counted), então não custa leitura extra.
+ */
+export function useDaemonStorageOk(): { ok: boolean | null; code: string | null } {
+  const [state, setState] = useState(() => ({ ok: daemonStorageOk(), code: daemonStorageCode() }))
+
+  useEffect(() => {
+    const update = () => setState({ ok: daemonStorageOk(), code: daemonStorageCode() })
+    const unsub = subscribeDaemonHeartbeat(update)
+    // Mesmo motivo do hook acima: o veredito precisa envelhecer junto com o heartbeat.
+    const timer = setInterval(update, 30_000)
+    update()
+    return () => {
+      clearInterval(timer)
+      unsub()
+    }
+  }, [])
+
+  return state
 }

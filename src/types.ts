@@ -19,6 +19,18 @@ export interface HistoryImport {
   at?: Date
 }
 
+/** Estado da recuperação das mídias que ficaram sem arquivo salvo. */
+export interface MediaRecovery {
+  status: HistoryImportStatus
+  /** mensagens que a rodada tentou. */
+  total?: number
+  recovered?: number
+  failed?: number
+  /** código dominante da falha — diz se adianta tentar de novo (ex.: storage_denied não). */
+  error?: string
+  at?: Date
+}
+
 export interface Column {
   id: string
   title: string
@@ -71,6 +83,7 @@ export interface Contact {
   photoSource?: PhotoSource
   /** Estado da recuperação de histórico antigo do WhatsApp (por contato). */
   historyImport?: HistoryImport
+  mediaRecovery?: MediaRecovery
   lastMessage?: string
   lastMessageAt?: Date
   /** Mensagens recebidas desde a última vez que a conversa foi aberta. */
@@ -90,6 +103,12 @@ export interface Message {
   fileName?: string
   sizeBytes?: number
   caption?: string
+  /**
+   * Por que a mídia não tem arquivo. Fica `string` de propósito, e não uma união: docs
+   * antigos carregam códigos anteriores a esta lista, e estreitar o tipo os quebraria.
+   * Hoje: 'view_once_unsupported' | 'download_failed' | 'wa_media_expired'
+   *     | 'storage_denied' | 'storage_failed'
+   */
   mediaError?: string
   importedFromHistory?: boolean
   /** true quando a mídia ainda não está disponível para renderização/download. */

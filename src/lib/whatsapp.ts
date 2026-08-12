@@ -58,6 +58,7 @@ type WaCommandType =
   | 'history.fetch'
   | 'contact.purge'
   | 'contact.photoRefresh'
+  | 'contact.mediaRetry'
 
 /** Erro de comando; `code` é estável para lógica, `isTimeout` marca o que vale reintentar. */
 interface WaError extends Error {
@@ -84,6 +85,9 @@ function waErr(code: string | undefined, message: string, isTimeout = false): Wa
 const HEARTBEAT_STALE_MS = 120_000
 
 let lastBeatMs = 0
+/** null = ainda não sabemos se o daemon consegue gravar arquivo. */
+let lastStorageOk: boolean | null = null
+let lastStorageCode: string | null = null
 let beatKnown = false
 let beatUnsub: (() => void) | null = null
 const beatListeners = new Set<() => void>()
@@ -95,8 +99,13 @@ export function subscribeDaemonHeartbeat(cb: () => void): () => void {
     beatUnsub = onSnapshot(
       doc(db, 'whatsappDaemon', 'heartbeat'),
       (snap) => {
-        const ts = snap.data()?.updatedAt
+        const d = snap.data()
+        const ts = d?.updatedAt
         lastBeatMs = ts instanceof Timestamp ? ts.toMillis() : 0
+        // Ausente = daemon anterior a esta versão, ou sonda ainda não concluída. Fica `null`
+        // ("não sei") de propósito: tratar como falha acenderia o aviso sem motivo.
+        lastStorageOk = typeof d?.storageOk === 'boolean' ? d.storageOk : null
+        lastStorageCode = typeof d?.storageCode === 'string' ? d.storageCode : null
         beatKnown = true
         for (const l of beatListeners) l()
       },
@@ -125,6 +134,24 @@ export function daemonOnline(): boolean {
 /** Já recebemos alguma leitura do heartbeat? Se não, não dá para afirmar que está offline. */
 export function heartbeatKnown(): boolean {
   return beatKnown
+}
+
+/**
+ * O daemon consegue gravar arquivo no Storage? `null` = não sabemos.
+ *
+ * Sem permissão de Storage o daemon segue de pé e a mensagem de TEXTO continua chegando —
+ * só a mídia some, sem aviso nenhum. Este sinal existe para o CRM dizer isso na cara, em vez
+ * de deixar o usuário achando que o WhatsApp quebrou. Com o daemon fora do ar o veredito
+ * está velho e não vale nada, então vira `null`.
+ */
+export function daemonStorageOk(): boolean | null {
+  if (!daemonOnline()) return null
+  return lastStorageOk
+}
+
+/** Detalhe do problema de Storage ('permission_denied' | 'not_found' | 'failed'). */
+export function daemonStorageCode(): string | null {
+  return lastStorageCode
 }
 
 // ---------------------------------------------------------------------------
@@ -275,4 +302,16 @@ export async function refreshWhatsappPhoto(contactId: string): Promise<Record<st
  */
 export function purgeWhatsappContact(contactId: string, keepContact = false): Promise<Record<string, unknown>> {
   return runCommand('contact.purge', { contactId, keepContact }, 150_000)
+}
+
+/**
+ * Manda o daemon rebaixar as mídias desta conversa que ficaram sem arquivo.
+ *
+ * Volta assim que o pedido é aceito (`{ eligible, legacy }`): os downloads rodam em segundo
+ * plano e o andamento chega pelo contato, em `mediaRecovery`. `legacy` conta as mensagens
+ * que quebraram antes de o daemon passar a guardar o material de retentativa — essas não
+ * têm como voltar.
+ */
+export function retryWhatsappMedia(contactId: string): Promise<Record<string, unknown>> {
+  return runCommand('contact.mediaRetry', { contactId }, 60_000)
 }

@@ -18,7 +18,7 @@ import { config } from './config.js'
 import { logger, waLogger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
-import { ingestMessages } from './messages.js'
+import { ingestMessages, type MediaDownloadContext } from './messages.js'
 import { onHistorySet, type GapFillState } from './history.js'
 import { onAgendaContacts } from './agenda.js'
 import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
@@ -28,6 +28,8 @@ interface Session {
   sock: WASocket
   saveCreds: () => Promise<void>
   clearAuth: () => Promise<void>
+  /** Contexto de mídia da sessão — guardado para a recuperação de mídia poder reusá-lo. */
+  mediaCtx: MediaDownloadContext
   /** true quando o encerramento é intencional (SIGTERM / stopSession 'end') — não reconecta. */
   closing: boolean
   /** true depois do primeiro 'open' — só então o watermark pode avançar no fechamento. */
@@ -55,6 +57,16 @@ export function hasSession(uid: string): boolean {
 
 export function activeSessionUids(): string[] {
   return [...sessions.keys()]
+}
+
+/**
+ * Contexto de mídia da sessão viva — usado pela recuperação de mídia, que precisa do mesmo
+ * socket para baixar e para pedir reenvio. Mantém o Map privado, como `sendTextToPhone`.
+ */
+export function mediaContextFor(uid: string): MediaDownloadContext {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+  return s.mediaCtx
 }
 
 export async function sendTextToPhone(uid: string, phoneDigits: string, text: string) {
@@ -264,10 +276,42 @@ async function openSession(uid: string): Promise<void> {
     // printQRInTerminal OMITIDO de propósito (deprecado no v7) — QR vai pro Firestore.
   })
 
+  // Traduz o endereçamento novo do WhatsApp (@lid) de volta para o telefone. É o socket que
+  // guarda esse mapeamento, então ele chega ao resto do código por closure, como os demais.
+  const resolveLidToPhone = (lidJid: string) => sock.signalRepository.lidMapping.getPNForLID(lidJid)
+
+  /**
+   * Pede ao aparelho de origem que reenvie uma mídia cujo blob saiu da CDN.
+   *
+   * O teto de tempo é OBRIGATÓRIO: `sock.updateMediaMessage` chama `waitForMsgMediaUpdate`
+   * sem `timeoutMs`, e o `promiseTimeout` do Baileys sem `ms` devolve uma promessa sem timer
+   * nenhum. Sem isto, um celular desligado pendura a ingestão — e, com ela, a fila inteira.
+   */
+  const reuploadRequest = async (msg: WAMessage): Promise<WAMessage> => {
+    let timer: NodeJS.Timeout | undefined
+    try {
+      return await Promise.race([
+        sock.updateMediaMessage(msg),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('media_reupload_timeout')), config.mediaReuploadTimeoutMs)
+        }),
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  const mediaCtx: MediaDownloadContext = {
+    reuploadRequest,
+    fetchProfilePhoto: (jid: string) => sock.profilePictureUrl(jid, 'image'),
+    resolveLidToPhone,
+  }
+
   const session: Session = {
     sock,
     saveCreds,
     clearAuth,
+    mediaCtx,
     closing: false,
     wasOpen: false,
     // Sem watermark = espelho nunca viu nada → o sync inicial do pareamento é ingerido
@@ -282,14 +326,6 @@ async function openSession(uid: string): Promise<void> {
       logger.error({ err, uid }, 'handler connection.update falhou'),
     )
   })
-  // Traduz o endereçamento novo do WhatsApp (@lid) de volta para o telefone. É o socket que
-  // guarda esse mapeamento, então ele chega ao resto do código por closure, como os demais.
-  const resolveLidToPhone = (lidJid: string) => sock.signalRepository.lidMapping.getPNForLID(lidJid)
-  const mediaCtx = {
-    reuploadRequest: async (msg: WAMessage) => sock.updateMediaMessage(msg),
-    fetchProfilePhoto: (jid: string) => sock.profilePictureUrl(jid, 'image'),
-    resolveLidToPhone,
-  }
   sock.ev.on('messages.upsert', (ev) => {
     ingestMessages(uid, ev, mediaCtx).catch((err) =>
       logger.error({ err, uid }, 'handler messages.upsert falhou'),

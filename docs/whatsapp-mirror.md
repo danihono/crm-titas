@@ -49,12 +49,12 @@ o `verifyIdToken` que existia no transporte HTTP.
 | Path | Quem escreve | Quem lê | Conteúdo |
 |---|---|---|---|
 | `users/{uid}/waCommands/{id}` | app (cria) + daemon (executa/ACK) | dono | `type`, `args`, `status` (`pending`→`running`→`done`/`error`), `attempts`, `claimedBy`, `lockUntil`, `result`, `error`, `expireAt` (TTL) |
-| `whatsappDaemon/heartbeat` | daemon (Admin) | qualquer autenticado | `instanceId`, `updatedAt` — sinal de vida (sem dado de tenant) |
+| `whatsappDaemon/heartbeat` | daemon (Admin) | qualquer autenticado | `instanceId`, `updatedAt` — sinal de vida; `storageOk`/`storageCode`/`storageCheckedAt` — veredito da sonda de Storage. **Sem dado de tenant**: só o enum, nunca bucket/projeto/erro (o doc é legível por qualquer usuário) |
 | `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock` (lease), `lastMirrorAt` (watermark do gap-fill) |
 | `whatsappSessions/{uid}/keys/{keyId}` | daemon (Admin) | **ninguém** | uma chave do Signal por doc (`{v}` BufferJSON) |
 | `whatsappStatus/{uid}` | daemon (Admin) | dono + super-owner (read-only nas rules) | `status`, `qr` (data URL), `phoneNumber`, `lastError` |
 | `users/{uid}/contacts/{c}` | daemon + app | dono | contato (auto-criado tem `source:'whatsapp'`) |
-| `users/{uid}/contacts/{c}/messages/{id}` | daemon + app | dono | `{fromMe, text, sentAt, channel:'whatsapp', mediaType?, mediaUrl?, mediaPath?, mimeType?, fileName?, sizeBytes?, caption?, pending?, mediaError?}` |
+| `users/{uid}/contacts/{c}/messages/{id}` | daemon + app | dono | `{fromMe, text, sentAt, channel:'whatsapp', mediaType?, mediaUrl?, mediaPath?, mimeType?, fileName?, sizeBytes?, caption?, pending?, mediaError?, mediaRetry?}` — `mediaRetry` só existe enquanto a mídia está quebrada (ver §Mídia) |
 
 Chaves do Signal ficam em **um doc por chave** (mudam a quase cada mensagem): escritas em
 lote, lidas em um único `getAll`, e envolvidas por `makeCacheableSignalKeyStore`.
@@ -119,6 +119,11 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   cadastro e a foto). Grava um marcador em `users/{uid}/waPurges/{digitsKey}`: replays de
   mensagens anteriores ao expurgo são ignorados na ingestão (a conversa apagada não
   ressuscita), mas mensagem nova recria o contato normalmente (comportamento de espelho).
+- **`mediaRetry.mediaKey`** é material de descriptografia guardado em repouso, sob
+  `users/{uid}/**`. O raio de exposição é o mesmo do `mediaUrl`, que já entrega o arquivo em
+  claro a quem tem o link — e a chave sozinha não abre nada sem o blob cifrado, que expira na
+  CDN do WhatsApp. É apagada assim que a mídia é salva, e some junto no expurgo (está dentro
+  do doc da mensagem).
 
 ## Mídia
 
@@ -129,7 +134,41 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   `sizeBytes` e `caption` quando disponíveis.
 - Imagem renderiza inline no chat; demais mídias aparecem como link/download.
 - `view once` não é baixado: fica como placeholder com `mediaError:'view_once_unsupported'`.
-- Se o download falhar, a mensagem textual é preservada com `mediaError:'download_failed'`.
+
+### Quando falha
+
+Gravar uma mídia passa por **três** operações em duas APIs diferentes: o download do Baileys,
+o `save()` (API do GCS) e o `getDownloadURL()` (API do Firebase Storage, outro host). Elas
+falham por motivos opostos e por isso têm códigos distintos em `mediaError` — juntá-las num
+código só já mandou a investigação para o lado errado durante semanas:
+
+| `mediaError` | Significado | O que fazer |
+|---|---|---|
+| `download_failed` | O WhatsApp/CDN não entregou ou não descriptografou | Tentar de novo; olhar rede da VPS |
+| `wa_media_expired` | Blob fora da CDN e o aparelho de origem não reenviou | Provavelmente irrecuperável |
+| `storage_denied` | 403/401 do Storage — a service account não pode gravar | Corrigir o IAM; ver `docs/whatsapp-selfhost-hetzner.md` §5 |
+| `storage_failed` | Outra falha do Storage (rede, 5xx, cota) | Tentar de novo |
+| `view_once_unsupported` | Não é falha: `view once` não é espelhado | Nada |
+
+O daemon sonda o Storage **no boot** (`storage.ts`) e publica o veredito no heartbeat, porque
+essa falha é muda: o texto continua chegando e só a mídia some. `scripts/check-storage.mjs`
+faz a mesma prova sob demanda, imprimindo a identidade que está agindo.
+
+### Recuperação
+
+Toda falha grava um mapa `mediaRetry` no doc da mensagem com o mínimo que o Baileys precisa
+para rebaixar depois — `mediaKey`, `directPath` e `url`, que é exatamente o que
+`downloadContentFromMessage` consome. O comando `contact.mediaRetry` (botão **Recuperar
+mídias** na conversa) remonta a mensagem a partir disso e tenta de novo, pedindo reenvio ao
+aparelho de origem quando o blob expirou.
+
+Duas limitações que vale conhecer:
+
+- **Mensagens que falharam antes deste recurso não têm descritor** e são irrecuperáveis: o
+  `WAMessage` cru é descartado após a ingestão e o `mediaKey` não ficou em lugar nenhum.
+- **"Recuperar histórico" não substitui isso.** Ele ancora na mensagem mais ANTIGA já
+  espelhada e pede o que vem antes dela; mídia quebrada está sempre numa janela recente, que
+  ele nunca pede de volta.
 
 ## Envio pelo CRM
 

@@ -7,7 +7,7 @@ import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, whatsappEnabled } from '../lib/whatsapp'
+import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled } from '../lib/whatsapp'
 import { useDaemonOnline } from '../hooks/useDaemonOnline'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
@@ -18,7 +18,7 @@ import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
 import HistoryRangeModal from '../components/modals/HistoryRangeModal'
-import type { Contact, Message, ScheduledMessage, HistoryImportStatus } from '../types'
+import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery } from '../types'
 
 const WA_DOT: Record<string, string> = {
   connected: '#34c759',
@@ -65,6 +65,7 @@ export default function Contacts() {
   const activeSchedule = active ? scheduleByContact.get(active.id) : undefined
   const [waInput, setWaInput] = useState('')
   const [histBusy, setHistBusy] = useState(false)
+  const [mediaBusy, setMediaBusy] = useState(false)
   const [showHistModal, setShowHistModal] = useState(false)
   const [convBusy, setConvBusy] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -105,6 +106,33 @@ export default function Contacts() {
       alert(e instanceof Error ? e.message : 'Falha ao recuperar histórico.')
     } finally {
       setHistBusy(false)
+    }
+  }
+
+  // Mídias desta conversa que chegaram mas ficaram sem arquivo. Derivado das mensagens já
+  // assinadas — não custa leitura nenhuma. 'view_once_unsupported' fica de fora: não é falha,
+  // é mídia que o WhatsApp não deixa espelhar.
+  const brokenMedia = messages.filter(
+    (m) => !!m.mediaType && !m.mediaUrl && !!m.mediaError && m.mediaError !== 'view_once_unsupported',
+  ).length
+
+  async function handleRetryMedia() {
+    if (!active || mediaBusy) return
+    setMediaBusy(true)
+    try {
+      const res = await retryWhatsappMedia(active.id)
+      const legacy = typeof res.legacy === 'number' ? res.legacy : 0
+      const eligible = typeof res.eligible === 'number' ? res.eligible : 0
+      if (!eligible && legacy) {
+        alert(
+          `Estas ${legacy} mídias falharam antes do serviço passar a guardar o material de ` +
+            'retentativa, então não há como baixá-las de novo.',
+        )
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Falha ao recuperar as mídias.')
+    } finally {
+      setMediaBusy(false)
     }
   }
 
@@ -369,6 +397,14 @@ export default function Contacts() {
                       onFetch={handleFetchHistory}
                     />
                   )}
+                  {waEnabled && wa.status === 'connected' && (brokenMedia > 0 || active.mediaRecovery?.status === 'loading') && (
+                    <MediaBar
+                      broken={brokenMedia}
+                      recovery={active.mediaRecovery}
+                      busy={mediaBusy}
+                      onRetry={handleRetryMedia}
+                    />
+                  )}
                   {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
                   {messages.map((m) => (
                     <div key={m.id} style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
@@ -588,6 +624,44 @@ function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: H
   )
 }
 
+/**
+ * Mídias desta conversa que ficaram sem arquivo, com o botão de rebaixá-las.
+ *
+ * Só aparece quando há o que recuperar. `legacy` (mensagens que quebraram antes de o daemon
+ * passar a guardar o material de retentativa) fica de fora da contagem porque não há como
+ * trazê-las de volta — prometer isso seria mentira.
+ */
+function MediaBar({ broken, recovery, busy, onRetry }: { broken: number; recovery?: MediaRecovery; busy: boolean; onRetry: () => void }) {
+  // Mesma proteção da HistoryBar: 'loading' parado há > 2 min é considerado travado.
+  const stale = recovery?.status === 'loading' && !busy && !!recovery.at && Date.now() - recovery.at.getTime() > 120_000
+  const loading = (busy || recovery?.status === 'loading') && !stale
+  const denied = recovery?.error === 'storage_denied'
+  const expired = recovery?.error === 'wa_media_expired'
+
+  const subtitle = loading
+    ? `${recovery?.recovered ?? 0} de ${recovery?.total ?? broken} recuperadas…`
+    : denied
+      ? 'O serviço ainda está sem permissão para salvar arquivos — tentar de novo não vai adiantar.'
+      : expired
+        ? 'O WhatsApp não tem mais alguns destes arquivos.'
+        : `${broken} ${broken === 1 ? 'arquivo desta conversa não foi salvo' : 'arquivos desta conversa não foram salvos'}.`
+
+  return (
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
+      <MaterialIcon name={loading ? 'sync' : denied ? 'error_outline' : 'image_not_supported'} size={19} color={denied ? '#c14d77' : '#7a52a0'} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1d1726' }}>{loading ? 'Recuperando mídias…' : 'Mídias não baixadas'}</div>
+        <div style={{ fontSize: 11.5, color: denied ? '#b73d6d' : '#7a6f86', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
+      </div>
+      {!loading && (
+        <button onClick={onRetry} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+          <MaterialIcon name="download" size={16} /> Recuperar mídias
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ScheduledBanner({ schedule, readOnly, onEdit, onDelete }: { schedule: ScheduledMessage; readOnly: boolean; onEdit: () => void; onDelete: () => void }) {
   return (
     <div style={{ alignSelf: 'stretch', display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 12, padding: '10px 13px', color: '#6b4a12', marginBottom: 2 }}>
@@ -650,7 +724,7 @@ function MessageBody({ message: m }: { message: Message }) {
       {m.mediaError && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: muted, fontStyle: 'italic' }}>
           <MaterialIcon name="error_outline" size={15} color={muted} />
-          <span>{m.mediaError === 'view_once_unsupported' ? 'Mídia de visualização única não importada' : 'Não foi possível baixar a mídia'}</span>
+          <span>{mediaErrorLabel(m.mediaError)}</span>
         </div>
       )}
       {legacyMediaPlaceholder && (
@@ -667,6 +741,24 @@ function MessageBody({ message: m }: { message: Message }) {
       )}
     </div>
   )
+}
+
+/**
+ * Motivo da mídia não ter arquivo. Distinguir importa: "o WhatsApp não entregou" e "o serviço
+ * não pôde salvar" pedem providências opostas — a segunda é problema de infraestrutura, e
+ * ficar tentando de novo não resolve.
+ */
+const MEDIA_ERROR_LABELS: Record<string, string> = {
+  view_once_unsupported: 'Mídia de visualização única não importada',
+  download_failed: 'Não foi possível baixar a mídia do WhatsApp',
+  wa_media_expired: 'O WhatsApp não tem mais este arquivo',
+  storage_denied: 'A mídia chegou, mas o serviço não pôde salvá-la',
+  storage_failed: 'A mídia chegou, mas falhou ao salvar o arquivo',
+}
+
+/** O fallback preserva os docs gravados antes desta lista existir. */
+function mediaErrorLabel(code: string): string {
+  return MEDIA_ERROR_LABELS[code] || 'Não foi possível baixar a mídia'
 }
 
 function isMediaPlaceholder(text: string): boolean {

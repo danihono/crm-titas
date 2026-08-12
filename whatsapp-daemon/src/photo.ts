@@ -1,8 +1,7 @@
-import { randomUUID } from 'node:crypto'
-import { getDownloadURL } from 'firebase-admin/storage'
 import { bucket, db } from './firebase.js'
 import { config } from './config.js'
 import { logger } from './logger.js'
+import { saveToStorage, StorageWriteError } from './storage.js'
 
 /** Busca a URL da foto de perfil de um JID no WhatsApp. undefined = sem foto/privacidade. */
 export type ProfilePhotoFetcher = (jid: string) => Promise<string | undefined>
@@ -58,24 +57,9 @@ export async function fetchAndStoreContactPhoto(
 
     const oldPath = typeof snap.get('photoPath') === 'string' ? (snap.get('photoPath') as string) : ''
     const path = `users/${uid}/contacts/${contactId}/profile/photo_${Date.now()}.jpg`
-    const file = bucket.file(path)
-    const token = randomUUID()
-    await file.save(buffer, {
-      resumable: false,
-      metadata: {
-        contentType,
-        metadata: { firebaseStorageDownloadTokens: token },
-      },
-    })
+    const photoUrl = await saveToStorage(path, buffer, contentType)
 
-    await contactRef.set(
-      {
-        photoUrl: await getDownloadURL(file),
-        photoPath: path,
-        photoSource: 'whatsapp',
-      },
-      { merge: true },
-    )
+    await contactRef.set({ photoUrl, photoPath: path, photoSource: 'whatsapp' }, { merge: true })
 
     // Remove o arquivo antigo (evita órfãos no Storage).
     if (oldPath && oldPath !== path) {
@@ -86,6 +70,16 @@ export async function fetchAndStoreContactPhoto(
     // Download que estourou o teto vira 'photo_timeout' (o endpoint traduz em 504);
     // return false aqui significaria "contato sem foto", que não é o caso.
     if (err instanceof DOMException && err.name === 'TimeoutError') throw new Error('photo_timeout')
+    // Falha do Storage é problema de INFRAESTRUTURA e cai no mesmo 403 que derruba a mídia
+    // das mensagens — merece nível 'error' e nome próprio, senão vira "contato sem foto" e
+    // a causa real (IAM da service account) passa despercebida.
+    if (err instanceof StorageWriteError) {
+      logger.error(
+        { err, uid, contactId, stage: err.stage, code: err.code, bucket: config.storageBucket },
+        'falha ao SALVAR foto de perfil no Storage',
+      )
+      return false
+    }
     logger.warn({ err, uid, contactId }, 'falha ao migrar foto de perfil do WhatsApp')
     return false
   }
