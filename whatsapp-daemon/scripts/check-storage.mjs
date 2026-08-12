@@ -53,9 +53,19 @@ function describe(err) {
 function hint(err) {
   const code = Number(err?.code)
   if (code === 403 || code === 401) {
-    return 'Falta permissão. Conceda roles/storage.objectAdmin À IDENTIDADE ACIMA (veja §5 do\n' +
-      '  docs/whatsapp-selfhost-hetzner.md). Confira se o principal do add-iam-policy-binding\n' +
-      '  é exatamente o client_email impresso aqui — conceder ao errado é a falha mais comum.'
+    return (
+      'Falta permissão de OBJETO. Conceda roles/storage.objectAdmin à identidade acima:\n\n' +
+      `  gcloud projects add-iam-policy-binding ${projectId} \\\n` +
+      `    --member=serviceAccount:${process.env.WA_SA_EMAIL || 'whatsapp-daemon@' + projectId + '.iam.gserviceaccount.com'} \\\n` +
+      '    --role=roles/storage.objectAdmin\n\n' +
+      '  Confira o que ela tem hoje:\n\n' +
+      `  gcloud projects get-iam-policy ${projectId} \\\n` +
+      '    --flatten="bindings[].members" \\\n' +
+      `    --filter="bindings.members:whatsapp-daemon@${projectId}.iam.gserviceaccount.com" \\\n` +
+      '    --format="table(bindings.role)"\n\n' +
+      '  Use add-iam-policy-binding, NÃO `gsutil iam ch`: a segunda já falhou em silêncio\n' +
+      '  neste projeto. E confira se o principal é exatamente o client_email impresso acima.'
+    )
   }
   if (code === 404) {
     return 'Bucket não encontrado. Ou FIREBASE_STORAGE_BUCKET está errado, ou o Firebase Storage\n' +
@@ -72,17 +82,21 @@ console.log('')
 initializeApp({ credential: applicationDefault(), projectId, storageBucket })
 const bucket = getStorage().bucket()
 
+// Existência do bucket é INFORMATIVA e NUNCA aborta: `bucket.exists()` pede
+// `storage.buckets.get`, que roles/storage.objectAdmin NÃO concede (ele dá só
+// storage.objects.*). Um 403 aqui, sozinho, não diz nada sobre gravar mídia — o daemon nunca
+// lê metadado de bucket. Quem responde a pergunta é a prova de escrita, abaixo.
 try {
   const [exists] = await bucket.exists()
-  console.log(exists ? '[ok]    bucket existe' : '[FALHA] bucket NÃO existe')
-  if (!exists) {
-    console.log('\n' + hint({ code: 404 }))
-    process.exit(1)
-  }
+  console.log(exists ? '[ok]    bucket existe' : '[aviso] bucket não encontrado')
 } catch (err) {
-  console.log('[FALHA] não deu para consultar o bucket:', describe(err))
-  console.log('\n' + hint(err))
-  process.exit(1)
+  const code = Number(err?.code)
+  console.log(
+    code === 403 || code === 401
+      ? '[aviso] sem permissão para ler o metadado do bucket (storage.buckets.get).\n' +
+          '        NORMAL com roles/storage.objectAdmin — não é o que importa. Seguindo.'
+      : `[aviso] não deu para consultar o bucket: ${describe(err)}`,
+  )
 }
 
 const path = `whatsappDaemon/preflight/${randomUUID()}.probe`

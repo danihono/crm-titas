@@ -154,6 +154,22 @@ não. Quando falha, mostra o erro cru com a etapa.
 > Conceder ao principal errado é a falha mais comum aqui, e o sintoma é idêntico ao de não ter
 > concedido nada.
 
+**Um 403 em `storage.buckets.get` não quer dizer nada.** `roles/storage.objectAdmin` concede
+`storage.objects.*` e **não** inclui leitura de metadado do bucket — então consultar se o
+bucket existe falha com 403 mesmo com a permissão perfeitamente concedida. O daemon nunca lê
+metadado de bucket; o que importa é gravar objeto. Por isso o script trata essa consulta como
+aviso e segue para a prova de escrita. A permissão que faltar de verdade aparece como 403 em
+`storage.objects.create`.
+
+Para ver o que a conta tem hoje:
+
+```bash
+gcloud projects get-iam-policy titas-c8967 \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:whatsapp-daemon@titas-c8967.iam.gserviceaccount.com" \
+  --format="table(bindings.role)"
+```
+
 A partir da versão com esta seção o daemon roda essa mesma sonda **sozinho, no boot**, e
 publica o veredito no heartbeat: sem permissão, o CRM mostra a tarja "O serviço não consegue
 salvar arquivos" em vez de simplesmente perder mídia em silêncio.
