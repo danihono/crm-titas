@@ -1,7 +1,11 @@
+import { lazy, Suspense } from 'react'
 import { useUIStore, type PipelineView } from '../store/uiStore'
 import TabBar, { type TabDef } from '../components/common/TabBar'
 import KanbanBoard from '../components/pipeline/KanbanBoard'
-import FlowsView from '../components/flows/FlowsView'
+
+// Carregado sob demanda: o React Flow é pesado e só a aba Fluxos usa. Quem
+// entra no Pipeline para mexer no funil não paga por ele.
+const FlowsView = lazy(() => import('../components/flows/FlowsView'))
 
 const TABS: TabDef<PipelineView>[] = [
   { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
@@ -22,7 +26,13 @@ export default function Pipeline() {
         <TabBar tabs={TABS} active={view} onChange={setView} />
       </div>
       <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-        {view === 'kanban' ? <KanbanBoard /> : <FlowsView />}
+        {view === 'kanban' ? (
+          <KanbanBoard />
+        ) : (
+          <Suspense fallback={<div style={{ padding: '24px 30px', fontSize: 13, color: '#9c95a8' }}>Carregando o quadro...</div>}>
+            <FlowsView />
+          </Suspense>
+        )}
       </div>
     </div>
   )
