@@ -5,9 +5,9 @@
 // normalmente, mensagem de TEXTO continua chegando (Firestore é outra permissão) e só a mídia
 // some. O sintoma aparece dias depois, parecendo problema do WhatsApp.
 //
-// As três etapas são testadas SEPARADAMENTE de propósito: `save()` fala com a API do GCS e
-// `getDownloadURL()` fala com a do Firebase Storage — outro host, outra autorização. Uma sonda
-// que só testasse a gravação daria verde com a ingestão real quebrada.
+// As etapas são testadas SEPARADAMENTE de propósito: `save()` fala com a API do GCS, e o
+// download acontece em `firebasestorage.googleapis.com` — outro host, outra autorização. Uma
+// sonda que só testasse a gravação daria verde com a mídia real quebrada, e vice-versa.
 //
 // Uso: node scripts/check-storage.mjs
 // Não depende do lib/ compilado — roda antes de qualquer `npm run build`. NÃO escreve nada
@@ -16,7 +16,7 @@ import 'dotenv/config'
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { initializeApp, applicationDefault } from 'firebase-admin/app'
-import { getStorage, getDownloadURL } from 'firebase-admin/storage'
+import { getStorage } from 'firebase-admin/storage'
 
 const projectId =
   process.env.GOOGLE_CLOUD_PROJECT ||
@@ -101,14 +101,15 @@ try {
 
 const path = `whatsappDaemon/preflight/${randomUUID()}.probe`
 const file = bucket.file(path)
+const token = randomUUID()
 
-// Etapa 1 — gravação (API do GCS).
+// Etapa 1 — gravação (API do GCS). É a que precisa de roles/storage.objectAdmin.
 try {
   await file.save(Buffer.from('probe'), {
     resumable: false,
     metadata: {
       contentType: 'text/plain',
-      metadata: { firebaseStorageDownloadTokens: randomUUID() },
+      metadata: { firebaseStorageDownloadTokens: token },
     },
   })
   console.log('[ok]    save() — gravou', path)
@@ -118,15 +119,21 @@ try {
   process.exit(1)
 }
 
-// Etapa 2 — URL de download (API do Firebase Storage: OUTRO host, pode falhar sozinha).
+// Etapa 2 — buscar o arquivo como o NAVEGADOR busca: GET sem autenticação, só com o token.
+// É exatamente o que o <img src> do CRM faz, então é a prova que interessa.
+const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`
 try {
-  await getDownloadURL(file)
-  console.log('[ok]    getDownloadURL()')
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { code: res.status })
+  console.log('[ok]    download pela URL pública (HTTP 200)')
 } catch (err) {
-  console.log('[FALHA] getDownloadURL() —', describe(err))
-  // Não deixa a sonda virar lixo no bucket.
+  console.log('[FALHA] download pela URL pública —', describe(err))
+  console.log('  URL testada:', url)
   await file.delete({ ignoreNotFound: true }).catch(() => {})
-  console.log('\n' + hint(err))
+  console.log(
+    '\n  A gravação passou e o arquivo não volta pela URL. Confira se o Firebase Storage está\n' +
+      '  habilitado para este bucket (Console do Firebase > Storage).',
+  )
   process.exit(1)
 }
 

@@ -137,10 +137,10 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
 
 ### Quando falha
 
-Gravar uma mídia passa por **três** operações em duas APIs diferentes: o download do Baileys,
-o `save()` (API do GCS) e o `getDownloadURL()` (API do Firebase Storage, outro host). Elas
-falham por motivos opostos e por isso têm códigos distintos em `mediaError` — juntá-las num
-código só já mandou a investigação para o lado errado durante semanas:
+Gravar uma mídia passa por duas operações que falham por motivos opostos — o download do
+Baileys (rede/CDN do WhatsApp) e o `save()` no Storage (IAM da service account) — e por isso
+têm códigos distintos em `mediaError`. Juntá-las num código só já mandou a investigação para o
+lado errado durante semanas:
 
 | `mediaError` | Significado | O que fazer |
 |---|---|---|
@@ -151,8 +151,21 @@ código só já mandou a investigação para o lado errado durante semanas:
 | `view_once_unsupported` | Não é falha: `view once` não é espelhado | Nada |
 
 O daemon sonda o Storage **no boot** (`storage.ts`) e publica o veredito no heartbeat, porque
-essa falha é muda: o texto continua chegando e só a mídia some. `scripts/check-storage.mjs`
-faz a mesma prova sob demanda, imprimindo a identidade que está agindo.
+essa falha é muda: o texto continua chegando e só a mídia some. A sonda grava um objeto e o
+busca **pela URL pública, sem autenticação** — do jeito que o `<img src>` do CRM busca, que é
+a única prova que interessa. `scripts/check-storage.mjs` faz o mesmo sob demanda, imprimindo
+a identidade que está agindo.
+
+### Por que a URL é montada à mão, e não com `getDownloadURL()`
+
+`getDownloadURL()` do firebase-admin faz um GET autenticado em
+`firebasestorage.googleapis.com` só para ler de volta o `firebaseStorageDownloadTokens` que o
+daemon acabou de gravar, e então monta
+`{endpoint}/b/{bucket}/o/{path}?alt=media&token={token}`. Como o token nasce aqui
+(`randomUUID()`), a ida à rede é perda pura — e cara: aquela é **outra API, com autorização
+própria**, que `roles/storage.objectAdmin` não cobre. Na prática ela derrubava 100% da mídia
+com 403 enquanto a gravação funcionava perfeitamente. `downloadUrlFor()` em `storage.ts`
+monta a mesma string localmente, então as URLs novas são idênticas às já gravadas.
 
 ### Recuperação
 

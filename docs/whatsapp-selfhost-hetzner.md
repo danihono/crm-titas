@@ -146,9 +146,10 @@ cd /root/crm-titas/whatsapp-daemon && node scripts/check-storage.mjs
 ```
 
 Ele imprime **qual identidade está de fato agindo** (o `client_email` do JSON), o bucket, e
-testa gravação, URL de download e remoção **separadamente** — `save()` fala com a API do GCS e
-`getDownloadURL()` com a do Firebase Storage, em outro host, então uma pode passar e a outra
-não. Quando falha, mostra o erro cru com a etapa.
+testa gravação, download e remoção **separadamente** — `save()` fala com a API do GCS e o
+download acontece em `firebasestorage.googleapis.com`, outro host, então uma etapa pode passar
+e a outra não. O download é feito como o navegador faz: GET sem autenticação, só com o token.
+Quando falha, mostra o erro cru com a etapa.
 
 > Confira se o `client_email` impresso é exatamente o principal que recebeu a permissão.
 > Conceder ao principal errado é a falha mais comum aqui, e o sintoma é idêntico ao de não ter

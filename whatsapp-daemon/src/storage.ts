@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { getDownloadURL } from 'firebase-admin/storage'
 import { bucket } from './firebase.js'
 import { config } from './config.js'
 import { logger } from './logger.js'
@@ -63,6 +62,24 @@ function classifyHealth(err: unknown): StorageHealthCode {
   return classifyStorageError(err) === 'storage_denied' ? 'permission_denied' : 'failed'
 }
 
+const FIREBASE_STORAGE_ENDPOINT = (process.env.STORAGE_EMULATOR_HOST || 'https://firebasestorage.googleapis.com') + '/v0'
+
+/**
+ * Monta a URL pública de download a partir do token que NÓS geramos.
+ *
+ * Deliberadamente NÃO usa `getDownloadURL()` do firebase-admin. Aquilo faz um GET autenticado
+ * em `firebasestorage.googleapis.com` só para ler de volta o `firebaseStorageDownloadTokens`
+ * que acabamos de gravar, e então monta exatamente esta string. Como o token sai daqui, a ida
+ * à rede é pura perda — e cara: é outra API, com autorização própria (o `objectAdmin` não a
+ * cobre), então ela derrubava toda a mídia com 403 mesmo com a gravação funcionando.
+ *
+ * O formato é o mesmo que o firebase-admin produz, então as URLs novas ficam idênticas às
+ * que já estão gravadas nas mensagens antigas.
+ */
+function downloadUrlFor(path: string, token: string): string {
+  return `${FIREBASE_STORAGE_ENDPOINT}/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`
+}
+
 /**
  * Grava um arquivo e devolve a URL pública com token de download.
  *
@@ -71,14 +88,14 @@ function classifyHealth(err: unknown): StorageHealthCode {
  * propósito, é o mesmo desenho de sempre.
  */
 export async function saveToStorage(path: string, buffer: Buffer, contentType: string): Promise<string> {
-  const file = bucket.file(path)
+  const token = randomUUID()
 
   try {
-    await file.save(buffer, {
+    await bucket.file(path).save(buffer, {
       resumable: false,
       metadata: {
         contentType,
-        metadata: { firebaseStorageDownloadTokens: randomUUID() },
+        metadata: { firebaseStorageDownloadTokens: token },
       },
     })
   } catch (err) {
@@ -87,18 +104,8 @@ export async function saveToStorage(path: string, buffer: Buffer, contentType: s
     throw new StorageWriteError(code, 'save', err)
   }
 
-  try {
-    const url = await getDownloadURL(file)
-    noteStorageOutcome(true)
-    return url
-  } catch (err) {
-    // O upload passou e a URL não: sem apagar aqui, o objeto fica órfão no bucket (só o
-    // expurgo por prefixo o recolheria, e a mensagem nem aponta para ele).
-    await file.delete({ ignoreNotFound: true }).catch(() => {})
-    const code = classifyStorageError(err)
-    noteStorageOutcome(false, code)
-    throw new StorageWriteError(code, 'downloadUrl', err)
-  }
+  noteStorageOutcome(true)
+  return downloadUrlFor(path, token)
 }
 
 // ---------------------------------------------------------------------------
@@ -154,17 +161,24 @@ export async function probeStorageWrite(): Promise<void> {
   probing = (async () => {
     const path = `whatsappDaemon/preflight/${config.instanceId}-${randomUUID()}.probe`
     const file = bucket.file(path)
+    const token = randomUUID()
     let stage: StorageStage = 'save'
     try {
       await file.save(Buffer.from('probe'), {
         resumable: false,
         metadata: {
           contentType: 'text/plain',
-          metadata: { firebaseStorageDownloadTokens: randomUUID() },
+          metadata: { firebaseStorageDownloadTokens: token },
         },
       })
+
+      // Busca a URL como o NAVEGADOR busca: GET sem autenticação, só com o token. É o que o
+      // `<img src>` do CRM faz, então é a única prova que interessa — mais honesta do que
+      // consultar metadado pela API autenticada, que exige permissão que a mídia não usa.
       stage = 'downloadUrl'
-      await getDownloadURL(file)
+      const res = await fetch(downloadUrlFor(path, token), { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) throw Object.assign(new Error(`download devolveu HTTP ${res.status}`), { code: res.status })
+
       stage = 'delete'
       await file.delete({ ignoreNotFound: true })
 
