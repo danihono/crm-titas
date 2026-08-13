@@ -128,6 +128,20 @@ export function extToType(name: string): 'pdf' | 'doc' | 'img' | 'xls' {
   return 'doc'
 }
 
+/**
+ * Rótulo curto de uma mídia — vira o `text` da mensagem quando não há legenda, e é o que
+ * aparece no preview da lista de contatos. Espelha os rótulos que o daemon já grava na
+ * ingestão (whatsapp-daemon/src/messages.ts, MEDIA_META).
+ */
+export function mediaLabel(type?: 'image' | 'video' | 'audio' | 'document' | 'sticker'): string {
+  if (type === 'image') return '[imagem]'
+  if (type === 'video') return '[vídeo]'
+  if (type === 'audio') return '[áudio]'
+  if (type === 'document') return '[documento]'
+  if (type === 'sticker') return '[figurinha]'
+  return ''
+}
+
 /** Tamanho legível: 180000 -> '180 KB', 2400000 -> '2,4 MB'. */
 export function fmtSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB'

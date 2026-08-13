@@ -5,6 +5,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
   S_WHATSAPP_NET,
+  type AnyMessageContent,
   type ConnectionState,
   type WAMessage,
   type WAMessageKey,
@@ -70,17 +71,71 @@ export function mediaContextFor(uid: string): MediaDownloadContext {
   return s.mediaCtx
 }
 
-export async function sendTextToPhone(uid: string, phoneDigits: string, text: string) {
-  const s = sessions.get(uid)
-  if (!s) throw new Error('whatsapp_not_connected')
-
+/**
+ * JID de destino a partir do telefone. `onWhatsApp` é o que devolve o endereço que o
+ * servidor reconhece hoje (pode ser @lid); só quando ele responde "não existe" é que o
+ * envio é recusado — sem resposta, seguimos com o JID de telefone.
+ */
+async function resolveSendJid(s: Session, phoneDigits: string): Promise<string> {
   const fallbackJid = `${phoneDigits}@s.whatsapp.net`
   const matches = await s.sock.onWhatsApp(fallbackJid).catch(() => [])
   const match = matches?.[0]
   if (match && !match.exists) throw new Error('whatsapp_recipient_not_found')
+  return match?.jid || fallbackJid
+}
 
-  const jid = match?.jid || fallbackJid
+export async function sendTextToPhone(uid: string, phoneDigits: string, text: string) {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+
+  const jid = await resolveSendJid(s, phoneDigits)
   const sent = await s.sock.sendMessage(jid, { text })
+  if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
+  return sent
+}
+
+/** Anexo pronto para sair: o buffer já veio do Storage (o navegador subiu o arquivo). */
+export type OutgoingMediaPayload = {
+  mediaType: 'image' | 'video' | 'audio' | 'document'
+  buffer: Buffer
+  mimeType?: string
+  fileName?: string
+  caption?: string
+}
+
+/**
+ * Monta o conteúdo no formato que o Baileys espera para cada tipo.
+ *
+ * Áudio vai com `ptt: false` de propósito: mensagem de VOZ exige ogg/opus, e aqui o arquivo
+ * é o que o usuário escolheu no disco (mp3, m4a...). Sem ffmpeg na máquina, vídeo e áudio
+ * saem sem miniatura/forma de onda — o envio em si não depende disso.
+ */
+function mediaContent(media: OutgoingMediaPayload): AnyMessageContent {
+  const caption = media.caption ? { caption: media.caption } : {}
+  switch (media.mediaType) {
+    case 'image':
+      return { image: media.buffer, ...(media.mimeType ? { mimetype: media.mimeType } : {}), ...caption }
+    case 'video':
+      return { video: media.buffer, ...(media.mimeType ? { mimetype: media.mimeType } : {}), ...caption }
+    case 'audio':
+      return { audio: media.buffer, mimetype: media.mimeType || 'audio/mp4', ptt: false }
+    default:
+      return {
+        document: media.buffer,
+        mimetype: media.mimeType || 'application/octet-stream',
+        fileName: media.fileName || 'arquivo',
+        ...caption,
+      }
+  }
+}
+
+/** Envia um anexo (foto, vídeo, áudio ou documento) pelo WhatsApp conectado. */
+export async function sendMediaToPhone(uid: string, phoneDigits: string, media: OutgoingMediaPayload) {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+
+  const jid = await resolveSendJid(s, phoneDigits)
+  const sent = await s.sock.sendMessage(jid, mediaContent(media))
   if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
   return sent
 }

@@ -132,8 +132,12 @@ dão leitura de todo o subtree ao dono, o que vazaria as chaves.
   `users/{uid}/contacts/{contactId}/whatsapp/{messageId}_{filename}`.
 - A mensagem salva recebe `mediaType`, `mediaUrl`, `mediaPath`, `mimeType`, `fileName`,
   `sizeBytes` e `caption` quando disponíveis.
-- Imagem renderiza inline no chat; demais mídias aparecem como link/download.
+- Imagem, vídeo, áudio e figurinha renderizam inline no chat; documento aparece como
+  link/download.
 - `view once` não é baixado: fica como placeholder com `mediaError:'view_once_unsupported'`.
+- O que SAI do CRM fica no caminho irmão `users/{uid}/contacts/{contactId}/outgoing/...`,
+  enviado pelo navegador (ver §Envio pelo CRM). Separar as duas origens deixa claro o que o
+  daemon baixou e o que o usuário subiu.
 
 ### Quando falha
 
@@ -185,10 +189,28 @@ Duas limitações que vale conhecer:
 
 ## Envio pelo CRM
 
-- O campo de mensagem chama `POST /message/send` quando a sessão está `connected`.
-- O daemon resolve o contato pelo `contactId`, normaliza `whatsapp`/`phone`, envia com
-  `sock.sendMessage` e grava a mensagem enviada no contato selecionado.
-- Quando a sessão não está conectada, o app mantém o comportamento local anterior.
+Dois comandos na fila (`users/{uid}/waCommands`), ambos só quando a sessão está `connected`:
+
+- **`message.send` (texto).** O daemon resolve o contato pelo `contactId`, normaliza
+  `whatsapp`/`phone`, envia com `sock.sendMessage` e grava a mensagem no contato selecionado.
+- **`message.sendMedia` (foto, vídeo, áudio, documento).** O NAVEGADOR sobe o arquivo para
+  `users/{uid}/contacts/{contactId}/outgoing/{ts}_{nome}` e enfileira só o caminho, a URL de
+  download, o MIME, o nome e a legenda — o arquivo nunca trafega pela fila (doc do Firestore
+  tem 1 MiB de teto). O daemon valida que o caminho está sob o próprio contato, baixa do
+  bucket (trava de 16 MB), manda pelo Baileys e grava a mensagem com o **mesmo** `mediaUrl`
+  do upload. Gravar a URL é o que faz o eco do próprio envio (`messages.upsert`, `fromMe`)
+  cair no atalho de `ingestOne` e não rebaixar/regravar o arquivo.
+  - Áudio sai com `ptt: false` (é arquivo escolhido no disco, não mensagem de voz). Sem
+    ffmpeg na máquina, vídeo e áudio vão sem miniatura/forma de onda.
+  - Figurinha ainda não é enviável pelo CRM — o WhatsApp só aceita WebP.
+
+**Limite de 10 MB**, imposto por `storage.rules` (`request.resource.size < 10 * 1024 * 1024`)
+e conferido antes do upload, com aviso legível: acima disso o Storage recusaria com
+"permission denied", que não diz nada a quem só quis mandar um vídeo.
+
+Quando a sessão não está conectada — ou o daemon está fora do ar (`daemon_offline`) — o app
+mantém o comportamento local: texto por `sendMessage` e anexo por `sendLocalMediaMessage`,
+que grava a mensagem apontando para o arquivo já enviado ao Storage.
 
 ## Gap-fill (mensagens do período desconectado)
 

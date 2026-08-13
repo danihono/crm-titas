@@ -29,7 +29,7 @@ export type MessagesUpsert = {
   type: 'notify' | 'append'
 }
 
-type MediaType = 'image' | 'video' | 'audio' | 'document' | 'sticker'
+export type MediaType = 'image' | 'video' | 'audio' | 'document' | 'sticker'
 
 export type MediaDownloadContext = {
   reuploadRequest: (msg: WAMessage) => Promise<WAMessage>
@@ -889,6 +889,69 @@ export async function saveOutgoingTextMessage(
       sentAt,
       channel: 'whatsapp',
       pending: false,
+      waMessageId: messageId,
+      waRemoteJid: remoteJid,
+      sentByCrm: true,
+    },
+    { merge: true },
+  )
+  batch.set(contactRef, { lastMessage: text, lastMessageAt: sentAt, waJid: remoteJid }, { merge: true })
+  await batch.commit()
+}
+
+/** Mídia enviada pelo CRM: o arquivo já está no Storage (subiu pelo navegador). */
+export type OutgoingMedia = {
+  mediaType: MediaType
+  /** Caminho no Storage (users/{uid}/contacts/{contactId}/outgoing/...). */
+  mediaPath: string
+  /** URL pública com token, gerada no upload — vai direto para a mensagem. */
+  mediaUrl: string
+  mimeType?: string
+  fileName?: string
+  sizeBytes?: number
+  caption?: string
+}
+
+/**
+ * Grava no espelho a mídia que o CRM acabou de enviar.
+ *
+ * `mediaUrl` e `mediaPath` são os do arquivo que o navegador subiu — o daemon NÃO regrava
+ * nada no Storage. Isso também é o que evita trabalho dobrado quando o WhatsApp devolve o
+ * eco do próprio envio por `messages.upsert`: `ingestOne` vê que o doc já tem `mediaUrl` e
+ * pula o download (ver o trecho de `existingMsg` lá em cima).
+ */
+export async function saveOutgoingMediaMessage(
+  uid: string,
+  contactId: string,
+  messageId: string,
+  media: OutgoingMedia,
+  remoteJid: string,
+  timestampSeconds?: number,
+): Promise<void> {
+  const sentAt =
+    timestampSeconds && timestampSeconds > 0
+      ? Timestamp.fromMillis(timestampSeconds * 1000)
+      : Timestamp.now()
+  const text = media.caption || MEDIA_META[MEDIA_KEY_BY_TYPE[media.mediaType]].label
+  const contactRef = db.collection('users').doc(uid).collection('contacts').doc(contactId)
+  const msgRef = contactRef.collection('messages').doc(sanitizeId(messageId))
+  const batch = db.batch()
+  batch.set(
+    msgRef,
+    {
+      fromMe: true,
+      text,
+      sentAt,
+      channel: 'whatsapp',
+      pending: false,
+      mediaType: media.mediaType,
+      mediaUrl: media.mediaUrl,
+      mediaPath: media.mediaPath,
+      ...(media.mimeType ? { mimeType: media.mimeType } : {}),
+      ...(media.fileName ? { fileName: media.fileName } : {}),
+      ...(media.sizeBytes ? { sizeBytes: media.sizeBytes } : {}),
+      ...(media.caption ? { caption: media.caption } : {}),
+      mediaError: FieldValue.delete(),
       waMessageId: messageId,
       waRemoteJid: remoteJid,
       sentByCrm: true,

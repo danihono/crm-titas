@@ -55,6 +55,7 @@ type WaCommandType =
   | 'session.connect'
   | 'session.disconnect'
   | 'message.send'
+  | 'message.sendMedia'
   | 'history.fetch'
   | 'contact.purge'
   | 'contact.photoRefresh'
@@ -71,6 +72,17 @@ function waErr(code: string | undefined, message: string, isTimeout = false): Wa
   err.code = code
   err.isTimeout = isTimeout
   return err
+}
+
+/**
+ * Código estável de um erro devolvido por um comando ('daemon_offline', 'timeout',
+ * 'whatsapp_not_connected'...). Existe para o chamador decidir o que fazer sem depender
+ * do texto da mensagem, que é escrito para o usuário e muda.
+ */
+export function waErrorCode(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object') return undefined
+  const code = (err as WaError).code
+  return typeof code === 'string' && code ? code : undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +279,29 @@ export function disconnectWhatsapp(purge = false): Promise<Record<string, unknow
 /** Envia uma mensagem real pelo WhatsApp conectado ao daemon. */
 export function sendWhatsappMessage(contactId: string, text: string): Promise<Record<string, unknown>> {
   return runCommand('message.send', { contactId, text }, 45_000)
+}
+
+/** Mídia já no Storage, pronta para o daemon baixar e mandar pelo WhatsApp. */
+export interface OutgoingMedia {
+  mediaType: 'image' | 'video' | 'audio' | 'document'
+  /** Caminho no Storage (users/{uid}/contacts/{contactId}/outgoing/...). */
+  mediaPath: string
+  /** URL pública com token — o daemon grava na mensagem, então o CRM não rebaixa nada. */
+  mediaUrl: string
+  mimeType: string
+  fileName: string
+  caption?: string
+  sizeBytes?: number
+}
+
+/**
+ * Envia um anexo pelo WhatsApp: o arquivo já subiu ao Storage e o daemon o baixa de lá.
+ *
+ * Timeout maior que o do texto porque o daemon faz duas transferências (Storage → daemon →
+ * WhatsApp) antes de responder.
+ */
+export function sendWhatsappMedia(contactId: string, media: OutgoingMedia): Promise<Record<string, unknown>> {
+  return runCommand('message.sendMedia', { contactId, ...media }, 120_000)
 }
 
 /**

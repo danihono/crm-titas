@@ -29,6 +29,7 @@ const CMD_TIMEOUT_MS: Record<WaCommandType, number> = {
   'session.connect': 45_000,
   'session.disconnect': 300_000, // pode incluir expurgo completo
   'message.send': 45_000,
+  'message.sendMedia': 120_000, // baixa do Storage + sobe ao WhatsApp
   'history.fetch': 60_000,
   'contact.purge': 300_000,
   'contact.photoRefresh': 90_000, // busca multi-candidato LID

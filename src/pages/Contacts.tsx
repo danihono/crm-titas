@@ -2,22 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
 import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto, markContactRead } from '../hooks/useContacts'
-import { useMessages, sendMessage } from '../hooks/useMessages'
+import { useMessages, sendMessage, uploadOutgoingMedia, sendLocalMediaMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
-import { sendWhatsappMessage, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled } from '../lib/whatsapp'
+import { sendWhatsappMessage, sendWhatsappMedia, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled, waErrorCode } from '../lib/whatsapp'
 import { useDaemonOnline } from '../hooks/useDaemonOnline'
 import { avPalette, fileTypeMap } from '../lib/theme'
-import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize } from '../lib/format'
+import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import AudioMessage from '../components/common/AudioMessage'
+import EmojiPicker from '../components/common/EmojiPicker'
 import ContactModal from '../components/modals/ContactModal'
 import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
 import HistoryRangeModal from '../components/modals/HistoryRangeModal'
+import MediaSendModal from '../components/modals/MediaSendModal'
 import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery } from '../types'
 
 const WA_DOT: Record<string, string> = {
@@ -26,6 +28,30 @@ const WA_DOT: Record<string, string> = {
   qr: '#d8a960',
   loggedOut: '#c14d77',
   disconnected: '#a39bb0',
+}
+
+/** Folga (px) para considerar a conversa "no fim" — evita alternar por 1px de arredondamento. */
+const BOTTOM_SLACK = 120
+
+/**
+ * Id da primeira mensagem NÃO LIDA da conversa, contando de trás para frente.
+ *
+ * Só mensagem recebida conta: é assim que o daemon incrementa `unreadCount` (ver ingestOne).
+ * Se a janela carregada tiver menos recebidas que o contador (histórico grande, teto de 500),
+ * ancora na recebida mais antiga que existe — melhor do que não ancorar em nada.
+ */
+function firstUnreadId(messages: Message[], count: number): string | null {
+  if (count <= 0) return null
+  let seen = 0
+  let oldestIncoming: string | null = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.fromMe) continue
+    oldestIncoming = m.id
+    seen++
+    if (seen === count) return m.id
+  }
+  return oldestIncoming
 }
 
 export default function Contacts() {
@@ -48,14 +74,27 @@ export default function Contacts() {
     ? contacts.filter((c) => [c.name, c.company, c.email, c.phone, c.whatsapp].some((v) => v?.toLowerCase().includes(q)))
     : contacts
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
-  // Conversa aberta é conversa lida. Depende de unreadCount (e não só do id) para zerar de
-  // novo quando chega mensagem com a conversa já na tela.
   const activeId = active?.id
   const activeUnread = active?.unreadCount ?? 0
+
+  // Quantas não lidas a conversa tinha AO ABRIR — congelado aqui porque o efeito logo abaixo
+  // zera o contador em seguida. A dependência é só `activeId` de propósito: assim o valor lido
+  // é o de antes do zeramento (efeitos rodam na ordem de declaração, no mesmo commit) e não
+  // muda quando chega mensagem com a conversa já aberta, o que faria a faixa pular de lugar.
+  const [openUnread, setOpenUnread] = useState(0)
+  const [unreadSeen, setUnreadSeen] = useState(false)
+  useEffect(() => {
+    setOpenUnread(activeUnread)
+    setUnreadSeen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId])
+
+  // Conversa aberta é conversa lida. Depende de unreadCount (e não só do id) para zerar de
+  // novo quando chega mensagem com a conversa já na tela.
   useEffect(() => {
     if (!readOnly && activeId && activeUnread > 0) void markContactRead(activeId)
   }, [readOnly, activeId, activeUnread])
-  const { docs: messages } = useMessages(active?.id ?? null)
+  const { docs: messages, loading: messagesLoading } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
   const { docs: pendingSchedules } = useScheduledMessages()
   const scheduleByContact = new Map<string, ScheduledMessage>()
@@ -71,8 +110,115 @@ export default function Contacts() {
   const [photoBusy, setPhotoBusy] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduledMessage | null>(null)
+  const [showEmoji, setShowEmoji] = useState(false)
+  const [showAttach, setShowAttach] = useState(false)
+  const [pendingMedia, setPendingMedia] = useState<File | null>(null)
+  const [mediaSending, setMediaSending] = useState(false)
+  const [mediaSendError, setMediaSendError] = useState('')
+  const [atBottom, setAtBottom] = useState(true)
   const fileInput = useRef<HTMLInputElement>(null)
   const photoInput = useRef<HTMLInputElement>(null)
+  const waInputRef = useRef<HTMLInputElement>(null)
+  const emojiBtnRef = useRef<HTMLButtonElement>(null)
+  const attachBtnRef = useRef<HTMLButtonElement>(null)
+  const photoVideoInput = useRef<HTMLInputElement>(null)
+  const docInput = useRef<HTMLInputElement>(null)
+  const audioInput = useRef<HTMLInputElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const unreadMarkRef = useRef<HTMLDivElement>(null)
+  /** Conversa que já foi posicionada — impede reposicionar a cada mensagem que chega. */
+  const positionedFor = useRef('')
+  /** Última contagem vista por conversa, para saber o que é mensagem NOVA. */
+  const lastSeen = useRef<{ id: string; count: number }>({ id: '', count: 0 })
+
+  const unreadAnchorId = firstUnreadId(messages, openUnread)
+  const chatOpen = ui.contactView === 'chat'
+
+  function markPosition(el: HTMLDivElement) {
+    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_SLACK
+    setAtBottom(bottom)
+    // Chegou ao fim = viu tudo o que estava por ler; o contador do botão pode sumir.
+    if (bottom) setUnreadSeen(true)
+  }
+
+  function scrollToEnd(behavior: ScrollBehavior = 'smooth') {
+    const el = chatScrollRef.current
+    if (!el) return
+    if (behavior === 'auto') el.scrollTop = el.scrollHeight
+    else chatEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    setUnreadSeen(true)
+    setAtBottom(true)
+  }
+
+  // Posicionamento de ABERTURA: cai na primeira não lida (ou no fim, quando não há nenhuma).
+  // Roda uma vez por conversa aberta, e só depois que as mensagens dela chegaram — enquanto
+  // `messagesLoading`, `messages` ainda é o snapshot da conversa anterior.
+  useEffect(() => {
+    // Sair da aba desmonta o container (a rolagem volta ao topo), então ao voltar tudo é
+    // posicionado de novo.
+    if (!chatOpen) {
+      positionedFor.current = ''
+      return
+    }
+    if (!activeId || messagesLoading) return
+    const key = `${activeId}:${messages.length > 0}`
+    if (positionedFor.current === key) return
+    const el = chatScrollRef.current
+    if (!el) return
+    positionedFor.current = key
+
+    const place = () => {
+      // Outra conversa assumiu entre o agendamento e o quadro: este posicionamento morreu.
+      if (positionedFor.current !== key) return
+      const mark = unreadMarkRef.current
+      if (mark) {
+        // getBoundingClientRect em vez de offsetTop: não depende de quem é o offsetParent.
+        el.scrollTop += mark.getBoundingClientRect().top - el.getBoundingClientRect().top - 14
+      } else {
+        el.scrollTop = el.scrollHeight
+      }
+      markPosition(el)
+    }
+    place()
+    // Registra a contagem já posicionada: sem isto o efeito de auto-scroll abaixo veria as
+    // mensagens desta conversa como "recém-chegadas" e puxaria tudo para o fim, desfazendo
+    // a âncora que acabamos de aplicar.
+    lastSeen.current = { id: activeId, count: messages.length }
+    // Imagens e vídeos só ganham altura depois do primeiro layout — repete no quadro seguinte.
+    // Sem cleanup de propósito: em StrictMode (dev) o efeito é remontado na hora, e cancelar
+    // aqui mataria justamente o quadro de ajuste. Quem descarta o obsoleto é a guarda acima.
+    requestAnimationFrame(place)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, chatOpen, messagesLoading, messages.length])
+
+  // Mensagem NOVA só arrasta a tela para quem já estava no fim — quem está lendo o meio da
+  // conversa não é puxado para baixo.
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (!el || !chatOpen || !activeId) return
+    const prev = lastSeen.current
+    lastSeen.current = { id: activeId, count: messages.length }
+    if (prev.id !== activeId) return // troca de conversa: quem posiciona é o efeito acima
+    if (messages.length > prev.count && atBottom) el.scrollTop = el.scrollHeight
+  }, [activeId, chatOpen, messages.length, atBottom])
+
+  /** Insere o emoji na posição do cursor do campo de mensagem. */
+  function insertEmoji(emoji: string) {
+    const el = waInputRef.current
+    if (!el) {
+      setWaInput((t) => t + emoji)
+      return
+    }
+    const start = el.selectionStart ?? waInput.length
+    const end = el.selectionEnd ?? waInput.length
+    setWaInput(waInput.slice(0, start) + emoji + waInput.slice(end))
+    requestAnimationFrame(() => {
+      el.focus()
+      const pos = start + emoji.length
+      el.setSelectionRange(pos, pos)
+    })
+  }
 
   async function handleSend() {
     const text = waInput.trim()
@@ -86,8 +232,50 @@ export default function Contacts() {
         await sendMessage(active.id, text)
       }
       setWaInput('')
+      setShowEmoji(false)
+      scrollToEnd('auto')
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Falha ao enviar mensagem.')
+    }
+  }
+
+  function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setShowAttach(false)
+    setMediaSendError('')
+    setPendingMedia(f)
+  }
+
+  /**
+   * Sobe o anexo e o despacha. O upload vem primeiro nos dois caminhos: com o arquivo já no
+   * Storage, o daemon só precisa baixá-lo, e o fallback local reaproveita a mesma URL.
+   */
+  async function handleSendMedia(caption: string) {
+    if (!active || !pendingMedia || mediaSending) return
+    setMediaSending(true)
+    setMediaSendError('')
+    try {
+      const media = await uploadOutgoingMedia(active.id, pendingMedia, caption)
+      if (waEnabled && wa.status === 'connected') {
+        try {
+          await sendWhatsappMedia(active.id, media)
+        } catch (err) {
+          // Daemon fora do ar: o arquivo já subiu, então a mensagem fica no CRM em vez de
+          // se perder. Qualquer outra falha é real e precisa aparecer.
+          if (waErrorCode(err) !== 'daemon_offline') throw err
+          await sendLocalMediaMessage(active.id, media)
+        }
+      } else {
+        await sendLocalMediaMessage(active.id, media)
+      }
+      setPendingMedia(null)
+      scrollToEnd('auto')
+    } catch (err) {
+      setMediaSendError(err instanceof Error ? err.message : 'Falha ao enviar o anexo.')
+    } finally {
+      setMediaSending(false)
     }
   }
 
@@ -384,44 +572,82 @@ export default function Contacts() {
 
             {/* CHAT */}
             {ui.contactView === 'chat' && (
-              <>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ alignSelf: 'center', fontSize: 10.5, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
-                  {waEnabled && wa.status === 'connected' && active.whatsapp && (
-                    <HistoryBar
-                      status={active.historyImport?.status}
-                      imported={active.historyImport?.imported}
-                      error={active.historyImport?.error}
-                      at={active.historyImport?.at}
-                      busy={histBusy}
-                      onFetch={handleFetchHistory}
-                    />
-                  )}
-                  {waEnabled && wa.status === 'connected' && (brokenMedia > 0 || active.mediaRecovery?.status === 'loading') && (
-                    <MediaBar
-                      broken={brokenMedia}
-                      recovery={active.mediaRecovery}
-                      busy={mediaBusy}
-                      onRetry={handleRetryMedia}
-                    />
-                  )}
-                  {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
-                  {messages.map((m) => (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
-                      <div style={m.fromMe
-                        ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
-                        : { maxWidth: '72%', background: '#ffffff', border: '1px solid #ece8f2', borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
-                        <MessageBody message={m} />
-                        <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : '#a39bb0', textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
-                          {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                {/* Área de mensagens + botão flutuante: o wrapper posicionado para aqui, para
+                    o botão não flutuar por cima do campo de mensagem. */}
+                <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    ref={chatScrollRef}
+                    onScroll={(e) => markPosition(e.currentTarget)}
+                    style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}
+                  >
+                    <div style={{ alignSelf: 'center', fontSize: 10.5, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
+                    {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                      <HistoryBar
+                        status={active.historyImport?.status}
+                        imported={active.historyImport?.imported}
+                        error={active.historyImport?.error}
+                        at={active.historyImport?.at}
+                        busy={histBusy}
+                        onFetch={handleFetchHistory}
+                      />
+                    )}
+                    {waEnabled && wa.status === 'connected' && (brokenMedia > 0 || active.mediaRecovery?.status === 'loading') && (
+                      <MediaBar
+                        broken={brokenMedia}
+                        recovery={active.mediaRecovery}
+                        busy={mediaBusy}
+                        onRetry={handleRetryMedia}
+                      />
+                    )}
+                    {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
+                    {messages.map((m) => (
+                      <div key={m.id} style={{ display: 'contents' }}>
+                        {m.id === unreadAnchorId && (
+                          <div ref={unreadMarkRef} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 2px' }}>
+                            <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
+                            <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: '#1f8a4c', background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
+                              {openUnread === 1 ? '1 mensagem não lida' : `${openUnread} mensagens não lidas`}
+                            </span>
+                            <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
+                          <div style={m.fromMe
+                            ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
+                            : { maxWidth: '72%', background: '#ffffff', border: '1px solid #ece8f2', borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
+                            <MessageBody message={m} />
+                            <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : '#a39bb0', textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
+                              {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                    <div ref={chatEndRef} style={{ height: 1, flexShrink: 0 }} />
+                  </div>
+
+                  {/* Ir para o fim da conversa — some quando já se está lá. */}
+                  {!atBottom && (
+                    <button
+                      onClick={() => scrollToEnd()}
+                      title="Ir para o final da conversa"
+                      style={{ position: 'absolute', right: 22, bottom: 16, display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: unreadSeen || openUnread === 0 ? 0 : '0 14px 0 12px', width: unreadSeen || openUnread === 0 ? 40 : undefined, justifyContent: 'center', borderRadius: 999, border: '1px solid #e2def0', background: '#ffffff', color: '#1f8a4c', cursor: 'pointer', boxShadow: '0 6px 18px rgba(28,20,50,0.16)', zIndex: 3 }}
+                    >
+                      <MaterialIcon name="keyboard_double_arrow_down" size={21} color="#1f8a4c" />
+                      {!unreadSeen && openUnread > 0 && (
+                        <span style={{ fontSize: 12, fontWeight: 800 }}>{openUnread > 99 ? '99+' : openUnread}</span>
+                      )}
+                    </button>
+                  )}
                 </div>
+
                 {!readOnly && (
-                  <div style={{ flexShrink: 0, padding: '14px 22px 18px', borderTop: '1px solid #e2def0', background: '#ffffff', display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <div style={{ position: 'relative', flexShrink: 0, padding: '14px 22px 18px', borderTop: '1px solid #e2def0', background: '#ffffff', display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <ComposerAction btnRef={emojiBtnRef} icon="mood" title="Emojis" on={showEmoji} onClick={() => { setShowAttach(false); setShowEmoji((v) => !v) }} />
+                    <ComposerAction btnRef={attachBtnRef} icon="attach_file" title="Anexar arquivo" on={showAttach} onClick={() => { setShowEmoji(false); setShowAttach((v) => !v) }} />
                     <input
+                      ref={waInputRef}
                       value={waInput}
                       onChange={(e) => setWaInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSend() }}
@@ -431,9 +657,27 @@ export default function Contacts() {
                     <button onClick={handleSend} style={{ width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(40,170,80,0.3)' }}>
                       <MaterialIcon name="send" size={21} color="#fff" />
                     </button>
+
+                    {showEmoji && (
+                      <div style={{ position: 'absolute', left: 18, bottom: 74, zIndex: 6 }}>
+                        <EmojiPicker onPick={insertEmoji} onClose={() => setShowEmoji(false)} anchorRef={emojiBtnRef} />
+                      </div>
+                    )}
+                    {showAttach && (
+                      <AttachMenu
+                        anchorRef={attachBtnRef}
+                        onClose={() => setShowAttach(false)}
+                        onPhoto={() => photoVideoInput.current?.click()}
+                        onDoc={() => docInput.current?.click()}
+                        onAudio={() => audioInput.current?.click()}
+                      />
+                    )}
+                    <input ref={photoVideoInput} type="file" accept="image/*,video/*" hidden onChange={onPickMedia} />
+                    <input ref={docInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar" hidden onChange={onPickMedia} />
+                    <input ref={audioInput} type="file" accept="audio/*" hidden onChange={onPickMedia} />
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* INFO */}
@@ -559,6 +803,16 @@ export default function Contacts() {
       {showHistModal && active && (
         <HistoryRangeModal contactName={active.name} onConfirm={startFetchHistory} onClose={() => setShowHistModal(false)} />
       )}
+      {pendingMedia && active && (
+        <MediaSendModal
+          file={pendingMedia}
+          contactName={active.name}
+          sending={mediaSending}
+          error={mediaSendError || undefined}
+          onSend={handleSendMedia}
+          onClose={() => { setPendingMedia(null); setMediaSendError('') }}
+        />
+      )}
     </div>
   )
 }
@@ -569,6 +823,74 @@ function Avatar({ photoUrl, initials, size, bg, fontSize }: { photoUrl?: string;
   }
   return (
     <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
+  )
+}
+
+/** Botão redondo do campo de mensagem (emoji / anexo), aceso enquanto o painel está aberto. */
+function ComposerAction({ icon, title, on, onClick, btnRef }: { icon: string; title: string; on: boolean; onClick: () => void; btnRef?: React.Ref<HTMLButtonElement> }) {
+  return (
+    <button
+      ref={btnRef}
+      type="button"
+      title={title}
+      onClick={onClick}
+      style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 12, background: on ? 'rgba(150,110,200,0.16)' : '#f3f1f7', cursor: 'pointer' }}
+    >
+      <MaterialIcon name={icon} size={21} color="#7a52a0" />
+    </button>
+  )
+}
+
+/** Menu do clipe: escolhe o tipo de anexo e dispara o seletor de arquivo correspondente. */
+function AttachMenu({ anchorRef, onClose, onPhoto, onDoc, onAudio }: { anchorRef?: { current: HTMLElement | null }; onClose: () => void; onPhoto: () => void; onDoc: () => void; onAudio: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Clique no próprio clipe não conta como "fora": senão o menu fecharia no mousedown e
+    // o clique reabriria em seguida.
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node
+      if (ref.current?.contains(t) || anchorRef?.current?.contains(t)) return
+      onClose()
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose, anchorRef])
+
+  const options: { icon: string; label: string; hint: string; color: string; bg: string; onClick: () => void }[] = [
+    { icon: 'photo_library', label: 'Foto ou vídeo', hint: 'Da galeria do computador', color: '#7a52a0', bg: 'rgba(150,110,200,0.12)', onClick: onPhoto },
+    { icon: 'description', label: 'Documento', hint: 'PDF, planilha, contrato', color: '#4f7fc0', bg: 'rgba(111,155,207,0.16)', onClick: onDoc },
+    { icon: 'graphic_eq', label: 'Áudio', hint: 'Arquivo de áudio', color: '#1f8a4c', bg: 'rgba(52,199,89,0.14)', onClick: onAudio },
+  ]
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: 'absolute', left: 62, bottom: 74, zIndex: 6, width: 250, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 14, padding: 6, boxShadow: '0 10px 34px rgba(28,20,50,0.18)' }}
+    >
+      {options.map((o) => (
+        <button
+          key={o.label}
+          type="button"
+          onClick={o.onClick}
+          style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer' }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#f7f5fa')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+        >
+          <MaterialIcon name={o.icon} size={19} color={o.color} style={{ background: o.bg, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1d1726' }}>{o.label}</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: '#9c95a8' }}>{o.hint}</span>
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -763,15 +1085,6 @@ function mediaErrorLabel(code: string): string {
 
 function isMediaPlaceholder(text: string): boolean {
   return ['[imagem]', '[vídeo]', '[áudio]', '[documento]', '[figurinha]'].includes(text)
-}
-
-function mediaLabel(type?: Message['mediaType']): string {
-  if (type === 'image') return '[imagem]'
-  if (type === 'video') return '[vídeo]'
-  if (type === 'audio') return '[áudio]'
-  if (type === 'document') return '[documento]'
-  if (type === 'sticker') return '[figurinha]'
-  return ''
 }
 
 function RowAction({ icon, color, bg, onClick }: { icon: string; color: string; bg: string; onClick: (e: React.MouseEvent) => void }) {
