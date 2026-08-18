@@ -1,9 +1,10 @@
 import {
-  addDoc, updateDoc, collection, query, where, orderBy, serverTimestamp,
+  addDoc, updateDoc, deleteDoc, collection, query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { col, ref } from '../lib/paths'
 import { boardFromDoc, dealFromDoc } from '../lib/converters'
+import { initialsOf } from '../lib/format'
 import { useCollection } from './useCollection'
 import type { Board, Deal } from '../types'
 
@@ -55,24 +56,52 @@ export async function addColumn(board: Board, title: string): Promise<void> {
   await updateDoc(ref(`boards/${board.id}`), { columns: [...board.columns, newCol] })
 }
 
+/** Campos editáveis de um negócio — o que o DealModal preenche. */
+export interface DealForm {
+  company: string
+  contact: string
+  value: number
+  tag: string
+}
+
+/**
+ * Normaliza o formulário para o formato gravado. Criar e editar passam pelo mesmo
+ * lugar para não divergirem (as iniciais são derivadas, nunca digitadas).
+ */
+function dealFields(form: DealForm) {
+  const company = form.company.trim()
+  const contact = form.contact.trim()
+  return {
+    company: company || 'Novo negócio',
+    contact: contact || 'Definir contato',
+    value: Number.isFinite(form.value) && form.value > 0 ? Math.round(form.value) : 0,
+    initials: initialsOf(contact || company) || '?',
+    tag: form.tag || 'Novo',
+  }
+}
+
 export async function addDeal(
   boardId: string,
   columnId: string,
   deals: Deal[],
-  overrides: Partial<Deal> = {},
+  form: DealForm,
 ): Promise<void> {
   await addDoc(col('deals'), {
-    company: 'Novo negócio',
-    contact: 'Definir contato',
-    value: 0,
-    initials: '?',
-    tag: 'Novo',
+    ...dealFields(form),
     boardId,
     columnId,
     order: nextOrder(deals, columnId),
     createdAt: serverTimestamp(),
-    ...overrides,
   })
+}
+
+/** Edita os dados do negócio. Coluna/ordem ficam por conta do arraste (moveDeal). */
+export async function updateDeal(dealId: string, form: DealForm): Promise<void> {
+  await updateDoc(ref(`deals/${dealId}`), dealFields(form))
+}
+
+export async function deleteDeal(dealId: string): Promise<void> {
+  await deleteDoc(ref(`deals/${dealId}`))
 }
 
 export async function moveDeal(dealId: string, toColumnId: string, deals: Deal[]): Promise<void> {

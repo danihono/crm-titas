@@ -11,9 +11,10 @@ interface Props {
   onDragStart: (id: string) => void
   onDrop: (columnId: string) => void
   onAddCard: (columnId: string) => void
+  onOpenCard: (deal: Deal) => void
 }
 
-export default function Column({ column, cards, readOnly, onDragStart, onDrop, onAddCard }: Props) {
+export default function Column({ column, cards, readOnly, onDragStart, onDrop, onAddCard, onOpenCard }: Props) {
   const sum = cards.reduce((s, c) => s + (c.value || 0), 0)
   const valColor = deepMap[column.color] || column.color
 
@@ -51,6 +52,7 @@ export default function Column({ column, cards, readOnly, onDragStart, onDrop, o
             valColor={valColor}
             readOnly={readOnly}
             onDragStart={onDragStart}
+            onOpen={onOpenCard}
           />
         ))}
       </div>

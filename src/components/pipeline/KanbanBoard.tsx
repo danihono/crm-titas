@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { useUIStore } from '../../store/uiStore'
 import { useTenantStore } from '../../store/tenantStore'
-import { useBoards, useAllDeals, addBoard, addColumn, addDeal, moveDeal } from '../../hooks/useDeals'
+import {
+  useBoards, useAllDeals, addBoard, addColumn, addDeal, moveDeal, updateDeal, deleteDeal,
+  type DealForm,
+} from '../../hooks/useDeals'
 import Column from '../kanban/Column'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
+import DealModal from '../modals/DealModal'
 import { fmtK } from '../../lib/format'
 import { sx } from '../../styles/sx'
+import type { Deal } from '../../types'
 
 export default function KanbanBoard() {
   const { docs: boards } = useBoards()
@@ -21,6 +26,10 @@ export default function KanbanBoard() {
   const [showFilters, setShowFilters] = useState(false)
   const [filterText, setFilterText] = useState('')
   const [filterTag, setFilterTag] = useState('')
+  // Negócio aberto no modal: `editing` para editar um existente, `creatingIn`
+  // (id da coluna) para criar um novo. Nunca os dois ao mesmo tempo.
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
+  const [creatingIn, setCreatingIn] = useState<string | null>(null)
 
   const current = boards.find((b) => b.id === activeBoard) ?? boards[0]
   const boardId = current?.id ?? ''
@@ -61,10 +70,36 @@ export default function KanbanBoard() {
     }
   }
 
+  /** Abre o modal em modo criação já apontando para a coluna escolhida. */
   function handleAddDeal(colId: string) {
-    addDeal(boardId, colId, deals).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao criar o negócio.')
-    })
+    setEditingDeal(null)
+    setCreatingIn(colId)
+  }
+
+  /** Botão "Novo negócio" do topo: cai na primeira etapa do quadro atual. */
+  function handleNewDeal() {
+    // Sem quadro (ou sem etapa) o botão antes não fazia nada, em silêncio.
+    if (!current) { alert('Crie um quadro primeiro — use o campo "Nome do quadro..." acima.'); return }
+    if (!columns[0]) { alert('Este quadro ainda não tem etapas. Crie uma etapa antes de adicionar negócios.'); return }
+    handleAddDeal(columns[0].id)
+  }
+
+  function closeDealModal() {
+    setEditingDeal(null)
+    setCreatingIn(null)
+  }
+
+  // Os erros sobem para o DealModal, que os mostra na própria caixa.
+  async function saveDeal(form: DealForm) {
+    if (editingDeal) await updateDeal(editingDeal.id, form)
+    else if (creatingIn) await addDeal(boardId, creatingIn, deals, form)
+    closeDealModal()
+  }
+
+  async function removeDeal() {
+    if (!editingDeal) return
+    await deleteDeal(editingDeal.id)
+    closeDealModal()
   }
 
   function onDrop(columnId: string) {
@@ -163,7 +198,7 @@ export default function KanbanBoard() {
         {!readOnly && (
           <RingButton
             radius={11}
-            onClick={() => { if (columns[0]) handleAddDeal(columns[0].id) }}
+            onClick={handleNewDeal}
             style={{ ...sx.btnPrimary }}
           >
             <MaterialIcon name="add" size={18} /> Novo negócio
@@ -182,6 +217,7 @@ export default function KanbanBoard() {
             onDragStart={setDragId}
             onDrop={onDrop}
             onAddCard={handleAddDeal}
+            onOpenCard={setEditingDeal}
           />
         ))}
 
@@ -206,6 +242,15 @@ export default function KanbanBoard() {
           </div>
         )}
       </div>
+
+      {(editingDeal || creatingIn) && (
+        <DealModal
+          deal={editingDeal}
+          onClose={closeDealModal}
+          onSave={saveDeal}
+          onDelete={editingDeal ? removeDeal : undefined}
+        />
+      )}
     </div>
   )
 }

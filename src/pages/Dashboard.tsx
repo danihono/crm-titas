@@ -8,15 +8,11 @@ import { useLeads } from '../hooks/useLeads'
 import { useEvents } from '../hooks/useEvents'
 import { revenueChart } from '../hooks/useRevenueChart'
 import { fmtK, fmtMoney, dateKeyOf, dueInfo, relativeLabel } from '../lib/format'
+import { srcMap } from '../lib/theme'
 import MaterialIcon from '../components/common/MaterialIcon'
 
-const SOURCES = [
-  { name: 'Google Ads', pct: '38%', color: '#6f9bcf' },
-  { name: 'Indicação', pct: '27%', color: '#5fc9a6' },
-  { name: 'LinkedIn', pct: '20%', color: '#b692d6' },
-  { name: 'Orgânico', pct: '15%', color: '#e0b56a' },
-]
-const REV_MONTHS = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun']
+/** Cores para origens de lead que não estão no srcMap (o usuário digita o que quiser). */
+const SOURCE_FALLBACK = ['#6f9bcf', '#5fc9a6', '#b692d6', '#e0b56a', '#d98aab', '#5fa9c9']
 
 // Feixes do <BorderBeam>: roxo é o padrão do dashboard; cards com accent
 // próprio (verde, âmbar, azul, rosa) ganham feixe na mesma cor do accent.
@@ -43,8 +39,33 @@ export default function Dashboard() {
   const { docs: invoices } = useInvoices()
   const { docs: leads } = useLeads()
   const { docs: events } = useEvents(now.getFullYear(), now.getMonth())
-  const rev = revenueChart()
+  const rev = revenueChart(invoices, now)
   const typeMap = Object.fromEntries(types.map((t) => [t.id, t]))
+
+  // Origem dos leads — contagem real por `source`, do mais comum para o menos.
+  const sourceCounts = new Map<string, number>()
+  leads.forEach((l) => {
+    const key = l.source?.trim() || 'Sem origem'
+    sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1)
+  })
+  let acc = 0
+  const sourceList = [...sourceCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count], i) => {
+      const share = (count / leads.length) * 100
+      const stop: [number, number] = [acc, (acc += share)]
+      return {
+        name,
+        count,
+        // Arredonda só o rótulo; a rosca usa a fração exata para fechar em 100%.
+        pct: Math.round(share),
+        color: srcMap[name]?.[0] ?? SOURCE_FALLBACK[i % SOURCE_FALLBACK.length],
+        stop,
+      }
+    })
+  const donutGradient = sourceList.length
+    ? `conic-gradient(${sourceList.map((s) => `${s.color} ${s.stop[0]}% ${s.stop[1]}%`).join(',')})`
+    : 'conic-gradient(#ece9f2 0 100%)'
 
   // KPIs reais
   const pipelineTotal = deals.reduce((s, d) => s + (d.value || 0), 0)
@@ -130,14 +151,25 @@ export default function Dashboard() {
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Receita recorrente</div>
-              <div style={{ fontSize: 12, color: '#9c95a8', marginTop: 2 }}>Últimos 12 meses</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Receita recebida</div>
+              <div style={{ fontSize: 12, color: '#9c95a8', marginTop: 2 }}>Notas pagas · últimos 12 meses</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726', letterSpacing: '-.02em' }}>R$ 284,5k</div>
-              <div style={{ fontSize: 11.5, color: '#2f9e6f', fontWeight: 700 }}>▲ 12,4% vs mês anterior</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726', letterSpacing: '-.02em' }}>R$ {fmtK(rev.total)}</div>
+              {rev.changePct !== null && (
+                <div style={{ fontSize: 11.5, color: rev.changePct >= 0 ? '#2f9e6f' : '#c14d77', fontWeight: 700 }}>
+                  {rev.changePct >= 0 ? '▲' : '▼'} {Math.abs(rev.changePct).toFixed(1).replace('.', ',')}% vs mês anterior
+                </div>
+              )}
             </div>
           </div>
+          {!rev.hasData && (
+            <div style={{ padding: '46px 0 40px', textAlign: 'center', color: '#a39bb0', fontSize: 13, lineHeight: 1.5 }}>
+              Nenhuma nota paga nos últimos 12 meses.<br />
+              <span style={{ fontSize: 12 }}>A curva aparece assim que a primeira nota for marcada como paga.</span>
+            </div>
+          )}
+          {rev.hasData && <>
           <svg viewBox="0 0 560 170" style={{ width: '100%', height: 'auto', display: 'block', marginTop: 8 }}>
             <defs>
               <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
@@ -157,30 +189,36 @@ export default function Dashboard() {
             <circle cx={rev.lastX} cy={rev.lastY} r="5" fill="#7a52a0" stroke="#ffffff" strokeWidth="2.5" />
           </svg>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: '#a39bb0' }}>
-            {REV_MONTHS.map((m) => <span key={m}>{m}</span>)}
+            {rev.months.map((m, i) => <span key={`${m}-${i}`}>{m}</span>)}
           </div>
+          </>}
           <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} />
         </div>
 
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Origem dos leads</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 14 }}>Este trimestre</div>
+          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 14 }}>Todos os leads cadastrados</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px 0 16px' }}>
-            <div style={{ width: 138, height: 138, borderRadius: '50%', background: 'conic-gradient(#6f9bcf 0 38%,#5fc9a6 38% 65%,#b692d6 65% 85%,#e0b56a 85% 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 138, height: 138, borderRadius: '50%', background: donutGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 92, height: 92, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726' }}>312</div>
-                <div style={{ fontSize: 10.5, color: '#9c95a8' }}>leads</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726' }}>{leads.length}</div>
+                <div style={{ fontSize: 10.5, color: '#9c95a8' }}>{leads.length === 1 ? 'lead' : 'leads'}</div>
               </div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {SOURCES.map((s) => (
+            {sourceList.map((s) => (
               <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color }} />
                 <span style={{ flex: 1, color: '#4a4458' }}>{s.name}</span>
-                <span style={{ fontWeight: 700, color: '#1d1726' }}>{s.pct}</span>
+                <span style={{ fontWeight: 700, color: '#1d1726' }}>{s.pct}%</span>
               </div>
             ))}
+            {sourceList.length === 0 && (
+              <div style={{ textAlign: 'center', color: '#a39bb0', fontSize: 12.5, lineHeight: 1.5 }}>
+                Nenhum lead cadastrado ainda.
+              </div>
+            )}
           </div>
           <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} delay={3.5} />
         </div>

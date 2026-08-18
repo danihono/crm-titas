@@ -1,5 +1,6 @@
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore } from '../store/tenantStore'
+import { useContacts } from '../hooks/useContacts'
 import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
 import { invoiceStatusMap } from '../lib/theme'
 import { fmtMoney, dueDateShort } from '../lib/format'
@@ -10,6 +11,7 @@ import { sx } from '../styles/sx'
 
 export default function Invoices() {
   const { docs: invoices } = useInvoices()
+  const { docs: contacts } = useContacts()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
 
@@ -19,7 +21,18 @@ export default function Invoices() {
   const aReceber = sumBy('Pendente')
   const vencido = sumBy('Vencida')
 
-  const clientOptions = Array.from(new Set(invoices.map((iv) => iv.client)))
+  // Sugestões de cliente: os contatos cadastrados + quem já apareceu em notas antigas.
+  // Tirar os contatos daqui deixava a lista VAZIA numa conta nova — e sem opção não havia
+  // como emitir a primeira nota. O campo do modal aceita texto livre, então isto é só atalho.
+  // `company` vem como '—' quando o contato foi salvo sem empresa (ver saveContact).
+  const clientOptions = Array.from(
+    new Set(
+      [
+        ...contacts.map((c) => (c.company && c.company !== '—' ? c.company : c.name)),
+        ...invoices.map((iv) => iv.client),
+      ].filter((v) => !!v.trim()),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
   return (
     <div style={{ padding: '28px 30px 40px' }}>

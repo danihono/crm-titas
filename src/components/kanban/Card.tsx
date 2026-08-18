@@ -9,14 +9,19 @@ interface Props {
   valColor: string
   readOnly?: boolean
   onDragStart: (id: string) => void
+  onOpen: (deal: Deal) => void
 }
 
-export default function Card({ deal, avBg, valColor, readOnly, onDragStart }: Props) {
+export default function Card({ deal, avBg, valColor, readOnly, onDragStart, onOpen }: Props) {
   const [tagColor, tagBg] = tagMap[deal.tag] || tagMap.Novo
 
   return (
     <div
       draggable={!readOnly}
+      // O clique abre a edição. Arrastar não dispara click no HTML5 drag&drop,
+      // então conviver com o arraste não exige nenhum controle extra.
+      onClick={() => { if (!readOnly) onOpen(deal) }}
+      title={readOnly ? undefined : 'Clique para editar'}
       onDragStart={(e) => {
         if (readOnly) return
         onDragStart(deal.id)

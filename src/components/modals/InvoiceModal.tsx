@@ -18,12 +18,21 @@ export default function InvoiceModal({ invoices, clientOptions, onClose, onSaved
   const [due, setDue] = useState(dateKeyOf(new Date()))
   const [desc, setDesc] = useState('Assinatura plano Enterprise')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSave() {
-    if (!client || busy) return
+    if (busy) return
+    // Validação explícita: antes o botão simplesmente não fazia nada quando faltava
+    // cliente, o que numa conta nova (lista de sugestões vazia) travava a tela toda.
+    const c = client.trim()
+    if (!c) { setError('Informe o cliente desta nota.'); return }
+    const v = parseValueBR(value)
+    if (v <= 0) { setError('Informe um valor maior que zero.'); return }
+    if (!due) { setError('Escolha a data de vencimento.'); return }
+    setError('')
     setBusy(true)
     try {
-      await saveInvoice({ client, value: parseValueBR(value), due }, invoices)
+      await saveInvoice({ client: c, value: v, due }, invoices)
       onSaved()
     } finally {
       setBusy(false)
@@ -38,10 +47,18 @@ export default function InvoiceModal({ invoices, clientOptions, onClose, onSaved
       </div>
 
       <label style={sx.label}>Cliente</label>
-      <select value={client} onChange={(e) => setClient(e.target.value)} style={{ ...sx.input, margin: '6px 0 14px' }}>
-        {clientOptions.length === 0 && <option value="">—</option>}
-        {clientOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-      </select>
+      {/* Texto livre + sugestões (datalist): um <select> só com os clientes de notas
+          antigas impedia a primeira nota de qualquer conta nova. */}
+      <input
+        value={client}
+        onChange={(e) => setClient(e.target.value)}
+        list="invoice-client-options"
+        placeholder="Escolha um contato ou digite um cliente novo"
+        style={{ ...sx.input, margin: '6px 0 14px' }}
+      />
+      <datalist id="invoice-client-options">
+        {clientOptions.map((c) => <option key={c} value={c} />)}
+      </datalist>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
@@ -56,6 +73,12 @@ export default function InvoiceModal({ invoices, clientOptions, onClose, onSaved
 
       <label style={sx.label}>Descrição do serviço</label>
       <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} style={{ ...sx.input, margin: '6px 0 18px', resize: 'none' }} />
+
+      {error && (
+        <div style={{ fontSize: 12.5, color: '#b73d6d', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
