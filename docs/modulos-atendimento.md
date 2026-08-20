@@ -37,7 +37,7 @@ progressivo e opt-out automático. Envio lento é característica, não defeito.
 |---|---|
 | 0 — Multi-seat | **Feita.** members, papéis, convite por e-mail, regras por vínculo. |
 | 1 — Atendimento em Contatos | **Feita.** abas, responsável, setor, etiquetas, histórico de ciclos. |
-| 2 — Configurações | **Feita**, menos Boards de contatos (ver abaixo). |
+| 2 — Configurações | **Feita.** Perfil, Preferências, Atendentes, Setores, Horários, Etiquetas, Campos personalizados, Biblioteca de mídias, Respostas rápidas, Variáveis, Bases de conhecimento, Agendamentos, Dados e canais. Menos Boards de contatos (ver abaixo). |
 | 3 — Relatórios | **Feita.** Geral, Agora, por atendente/setor/etiqueta. Sem CSAT. |
 | 4 — Campanhas | **Feita**, com throttle, aquecimento, cota e opt-out. |
 | 5 — Chatbots e bases de conhecimento | **Não feita.** |
@@ -45,11 +45,18 @@ progressivo e opt-out automático. Envio lento é característica, não defeito.
 Também ficou de fora, dentro de fases entregues:
 
 - **Boards de contatos** (Kanban de contatos reaproveitando `KanbanBoard`).
+- **Tokens de acesso** (API pública) — precisa de Cloud Functions e de um consumidor
+  real do outro lado; sem integração pedindo, seria uma tela que emite chave para nada.
+- **Grupos** — o que o Umbler resolve com grupos, aqui já é feito por Etiquetas (público
+  de campanha, recorte de relatório) e por Setores (fila de atendimento). Uma terceira
+  forma de agrupar as mesmas pessoas só criaria dúvida sobre qual usar.
 - **Avaliação (CSAT)** — o campo `rating` já existe em `ConversationRecord`, mas nada
   o preenche: falta mandar a pergunta ao finalizar e ler a nota da resposta.
 - **Mensagem de ausência** fora do horário: o texto é configurável e
   `isWithinBusinessHours` já decide a janela, mas só as campanhas respeitam o horário —
   responder automaticamente depende do motor de chatbot da Fase 5.
+- **Biblioteca de mídias** guarda e organiza os arquivos, mas ainda não dá para anexar
+  um deles direto na conversa — o anexo do chat continua saindo do disco.
 - **Saudação do setor** ao transferir: idem, o texto é gravado e ainda não é enviado.
 
 ## Fases
