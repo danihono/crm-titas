@@ -41,20 +41,6 @@ export function useConversations(from: Date, to: Date) {
   )
 }
 
-/** Conversas em aberto — alimenta a aba "Agora" dos Relatórios. */
-export function useOpenConversations() {
-  return useCollection<ConversationRecord>(
-    (uid) =>
-      query(
-        collection(db, `users/${uid}/conversations`),
-        where('closedAt', '==', null),
-        orderBy('openedAt', 'desc'),
-      ),
-    conversationFromDoc,
-    [],
-  )
-}
-
 /**
  * Abre um ciclo de atendimento para o contato, se ainda não houver um.
  *
