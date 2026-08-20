@@ -23,6 +23,7 @@ import { agendaNameFor, initialsOf, type LidResolver } from './agenda.js'
 import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
 import { touchMirrorWatermark } from './watermark.js'
+import { markFirstResponseOnOutgoing, reopenConversationOnIncoming } from './conversation.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -862,6 +863,13 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     },
     { merge: true },
   )
+
+  // Mensagem NOVA do cliente reabre o atendimento (e tira da aba "Esperando"). Histórico
+  // não conta: é conversa velha sendo importada, não alguém batendo à porta agora.
+  if (!m.key.fromMe && !opts?.importedFromHistory) {
+    await reopenConversationOnIncoming(uid, contactRef, m.pushName ?? '', sentAt, batch)
+  }
+
   await batch.commit()
   return contactId
 }
@@ -897,6 +905,8 @@ export async function saveOutgoingTextMessage(
   )
   batch.set(contactRef, { lastMessage: text, lastMessageAt: sentAt, waJid: remoteJid }, { merge: true })
   await batch.commit()
+  // Depois do commit, e sem travar o envio: é métrica de relatório, não parte da entrega.
+  await markFirstResponseOnOutgoing(uid, contactRef, sentAt)
 }
 
 /** Mídia enviada pelo CRM: o arquivo já está no Storage (subiu pelo navegador). */
@@ -960,6 +970,8 @@ export async function saveOutgoingMediaMessage(
   )
   batch.set(contactRef, { lastMessage: text, lastMessageAt: sentAt, waJid: remoteJid }, { merge: true })
   await batch.commit()
+  // Depois do commit, e sem travar o envio: é métrica de relatório, não parte da entrega.
+  await markFirstResponseOnOutgoing(uid, contactRef, sentAt)
 }
 
 /**

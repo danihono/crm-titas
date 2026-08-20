@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { addDoc, updateDoc, collection, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore'
+import { addDoc, updateDoc, collection, query, orderBy, where, serverTimestamp, getDocs, writeBatch, deleteField } from 'firebase/firestore'
 import { deleteObject, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
@@ -114,9 +114,12 @@ export async function removeContactPhoto(contactId: string, oldPath?: string): P
 
 /** Apaga docs de mensagens/arquivos do contato + mídias do Storage referenciadas por eles. */
 async function purgeConversationDocs(id: string, extraStoragePath?: string): Promise<void> {
-  const [messages, files] = await Promise.all([
+  const [messages, files, records] = await Promise.all([
     getDocs(col(`contacts/${id}/messages`)),
     getDocs(col(`contacts/${id}/files`)),
+    // O histórico de atendimento fica numa coleção plana do tenant — some junto com a
+    // conversa, senão o expurgo deixaria para trás quem atendeu, quando e com que etiquetas.
+    getDocs(query(col('conversations'), where('contactId', '==', id))),
   ])
 
   const storagePaths = new Set<string>()
@@ -132,7 +135,11 @@ async function purgeConversationDocs(id: string, extraStoragePath?: string): Pro
 
   await Promise.all([...storagePaths].map(deleteStoragePath))
 
-  const refs = [...messages.docs.map((d) => d.ref), ...files.docs.map((d) => d.ref)]
+  const refs = [
+    ...messages.docs.map((d) => d.ref),
+    ...files.docs.map((d) => d.ref),
+    ...records.docs.map((d) => d.ref),
+  ]
   for (let i = 0; i < refs.length; i += 450) {
     const batch = writeBatch(db)
     refs.slice(i, i + 450).forEach((r) => batch.delete(r))
@@ -146,7 +153,12 @@ async function purgeConversationDocs(id: string, extraStoragePath?: string): Pro
  */
 export async function clearConversationLocal(id: string): Promise<void> {
   await purgeConversationDocs(id)
-  await updateDoc(ref(`contacts/${id}`), { lastMessage: '', lastMessageAt: serverTimestamp() })
+  await updateDoc(ref(`contacts/${id}`), {
+    lastMessage: '',
+    lastMessageAt: serverTimestamp(),
+    // O atendimento acompanha a conversa: sem mensagens, não há o que estar em curso.
+    conv: deleteField(),
+  })
 }
 
 /** Apaga o contato e limpa subcoleções locais conhecidas (mensagens/arquivos) + foto. */

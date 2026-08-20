@@ -9,6 +9,12 @@ import { useScheduledMessages } from '../hooks/useScheduledMessages'
 import { deleteScheduledMessage } from '../hooks/useEvents'
 import { sendWhatsappMessage, sendWhatsappMedia, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled, waErrorCode } from '../lib/whatsapp'
 import { useDaemonOnline } from '../hooks/useDaemonOnline'
+import { useMembers } from '../hooks/useTeam'
+import { useSectors, useTags } from '../hooks/useSettings'
+import { convOf, ensureConversation, markFirstResponse } from '../hooks/useConversations'
+import InboxTabs, { filterByInbox } from '../components/conversation/InboxTabs'
+import AtendimentoBar from '../components/conversation/AtendimentoBar'
+import { useAuth } from '../contexts/AuthContext'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
@@ -20,7 +26,7 @@ import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
 import HistoryRangeModal from '../components/modals/HistoryRangeModal'
 import MediaSendModal from '../components/modals/MediaSendModal'
-import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery } from '../types'
+import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery, ConvStatus, Tag } from '../types'
 
 const WA_DOT: Record<string, string> = {
   connected: '#34c759',
@@ -68,11 +74,21 @@ export default function Contacts() {
   // (completo) e o caminho local.
   const waOnline = useDaemonOnline()
   const [search, setSearch] = useState('')
-  const active: Contact | undefined = contacts.find((c) => c.id === ui.selectedContact) ?? contacts[0]
+  const [inbox, setInbox] = useState<ConvStatus>('entrada')
+  const { docs: members } = useMembers()
+  const { docs: sectors } = useSectors()
+  const { docs: tags } = useTags()
+  const { user } = useAuth()
   const q = search.trim().toLowerCase()
+  // Buscar atravessa as abas de propósito: procurar um contato e não achá-lo porque a
+  // conversa dele foi finalizada seria só confusão. Sem busca, vale a aba escolhida.
   const shownContacts = q
     ? contacts.filter((c) => [c.name, c.company, c.email, c.phone, c.whatsapp].some((v) => v?.toLowerCase().includes(q)))
-    : contacts
+    : filterByInbox(contacts, inbox)
+  // O contato selecionado continua aberto mesmo depois de mudar de aba (ao finalizar,
+  // por exemplo) — só o fallback respeita a lista visível.
+  const active: Contact | undefined =
+    contacts.find((c) => c.id === ui.selectedContact) ?? shownContacts[0]
   const activeIdx = active ? contacts.findIndex((c) => c.id === active.id) : 0
   const activeId = active?.id
   const activeUnread = active?.unreadCount ?? 0
@@ -94,6 +110,19 @@ export default function Contacts() {
   useEffect(() => {
     if (!readOnly && activeId && activeUnread > 0) void markContactRead(activeId)
   }, [readOnly, activeId, activeUnread])
+
+  // Abre o ciclo de atendimento de quem já trocou mensagem — é o que faz a conversa
+  // existir nos relatórios. Exige `lastMessageAt` para só folhear a agenda não encher o
+  // histórico, e nunca toca em conversa finalizada: abrir um contato para reler o que
+  // foi dito não pode reabrir o atendimento (isso é o botão Reabrir, ou o daemon quando
+  // chega mensagem nova).
+  const needsConv =
+    !!active && !readOnly && !!active.lastMessageAt &&
+    !convOf(active).recordId && convOf(active).status !== 'finalizado'
+  useEffect(() => {
+    if (needsConv && active) void ensureConversation(active)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsConv, activeId])
   const { docs: messages, loading: messagesLoading } = useMessages(active?.id ?? null)
   const { docs: files } = useFiles(active?.id ?? null)
   const { docs: pendingSchedules } = useScheduledMessages()
@@ -234,6 +263,9 @@ export default function Contacts() {
       setWaInput('')
       setShowEmoji(false)
       scrollToEnd('auto')
+      // Métrica de primeira resposta — depois do envio, e sem await: a mensagem já saiu,
+      // e o relatório não pode segurar a UI nem falhar junto com ela.
+      if (!readOnly) void markFirstResponse(active)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Falha ao enviar mensagem.')
     }
@@ -465,6 +497,13 @@ export default function Contacts() {
               </button>
             )}
           </div>
+          {q ? (
+            <div style={{ fontSize: 11.5, color: '#9c95a8', marginTop: 10 }}>
+              Buscando em todas as abas do atendimento.
+            </div>
+          ) : (
+            <InboxTabs contacts={contacts} active={inbox} onChange={setInbox} />
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -515,6 +554,7 @@ export default function Contacts() {
                         <span style={{ fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agendada {scheduleShort(scheduled)}</span>
                       </div>
                     )}
+                    <ConvMeta contact={c} tags={tags} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 7, marginTop: 9, paddingLeft: 56 }}>
@@ -526,8 +566,16 @@ export default function Contacts() {
               </div>
             )
           })}
-          {q && shownContacts.length === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: '#a39bb0' }}>Nenhum contato encontrado para "{search}".</div>
+          {shownContacts.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: '#a39bb0', lineHeight: 1.6 }}>
+              {q
+                ? `Nenhum contato encontrado para "${search}".`
+                : inbox === 'entrada'
+                  ? 'Nenhuma conversa na entrada.'
+                  : inbox === 'esperando'
+                    ? 'Nenhuma conversa aguardando retorno do cliente.'
+                    : 'Nenhum atendimento finalizado ainda.'}
+            </div>
           )}
         </div>
       </div>
@@ -562,6 +610,17 @@ export default function Contacts() {
                 <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{active.role} · {active.company}</div>
               </div>
             </div>
+
+            {/* Atendimento: responsável, setor, etiquetas e transições de estado */}
+            <AtendimentoBar
+              contact={active}
+              members={members}
+              sectors={sectors}
+              tags={tags}
+              canWrite={!readOnly}
+              meUid={user?.uid ?? ''}
+              meName={user?.displayName || user?.email || 'Atendente'}
+            />
 
             {/* Tabs */}
             <div style={{ display: 'flex', flexShrink: 0, background: '#ffffff', borderBottom: '1px solid #e2def0' }}>
@@ -813,6 +872,32 @@ export default function Contacts() {
           onClose={() => { setPendingMedia(null); setMediaSendError('') }}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Rodapé de atendimento da linha da lista: responsável e etiquetas.
+ * Só aparece quando há o que mostrar — contato sem atendimento nenhum continua com a
+ * linha enxuta que a tela sempre teve.
+ */
+function ConvMeta({ contact, tags }: { contact: Contact; tags: Tag[] }) {
+  const conv = convOf(contact)
+  const applied = tags.filter((t) => conv.tagIds.includes(t.id))
+  if (!conv.assignedName && applied.length === 0) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+      {conv.assignedName && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: '#6e6780' }}>
+          <MaterialIcon name="support_agent" size={12} color="#9c95a8" />
+          {conv.assignedName}
+        </span>
+      )}
+      {applied.map((t) => (
+        <span key={t.id} style={{ fontSize: 10, fontWeight: 800, color: t.color, background: t.color + '1f', borderRadius: 999, padding: '2px 7px' }}>
+          {t.label}
+        </span>
+      ))}
     </div>
   )
 }

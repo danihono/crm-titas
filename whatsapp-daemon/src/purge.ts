@@ -3,6 +3,7 @@ import { bucket, db } from './firebase.js'
 import { logger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { evictContactCache } from './messages.js'
+import { purgeConversationData } from './conversation.js'
 import { setPurgeMarker } from './purgeMarkers.js'
 
 /**
@@ -32,6 +33,9 @@ export async function purgeConnection(uid: string): Promise<void> {
         .deleteFiles({ prefix: `users/${uid}/contacts/${c.id}/`, force: true })
         .catch((err) => logger.warn({ err, uid, contactId: c.id }, 'falha ao apagar arquivos do contato WhatsApp'))
       await db.recursiveDelete(c.ref) // remove o contato + subcoleções (messages/files)
+      // O histórico de atendimento vive numa coleção PLANA do tenant, então o
+      // recursiveDelete acima não o alcança — tem de ser apagado por contato.
+      await purgeConversationData(uid, c.id, false)
       deletedContacts++
       continue
     }
@@ -99,6 +103,9 @@ export async function purgeContact(uid: string, contactId: string, keepContact: 
   const digitsKey = digits || (waJid.endsWith('@lid') ? `lid:${waJid.split('@')[0]}` : '')
   if (digitsKey) await setPurgeMarker(uid, digitsKey, contactId)
   evictContactCache(uid, contactId)
+  // O atendimento (estado + historico de ciclos) some junto: quem atendeu, quando e com
+  // que etiquetas tambem e dado sobre a pessoa que pediu o expurgo.
+  await purgeConversationData(uid, contactId, keepContact)
 
   const prefix = `users/${uid}/contacts/${contactId}/`
   if (keepContact) {
