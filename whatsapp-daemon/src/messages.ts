@@ -24,6 +24,7 @@ import { fetchAndStoreContactPhoto, type ProfilePhotoFetcher } from './photo.js'
 import { isPurgedAt } from './purgeMarkers.js'
 import { touchMirrorWatermark } from './watermark.js'
 import { markFirstResponseOnOutgoing, reopenConversationOnIncoming } from './conversation.js'
+import { isOptOutText } from './optOut.js'
 
 export type MessagesUpsert = {
   messages: WAMessage[]
@@ -868,6 +869,9 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   // não conta: é conversa velha sendo importada, não alguém batendo à porta agora.
   if (!m.key.fromMe && !opts?.importedFromHistory) {
     await reopenConversationOnIncoming(uid, contactRef, m.pushName ?? '', sentAt, batch)
+    // "SAIR"/"PARE" tem de valer na hora: o descadastro é promessa feita ao cliente na
+    // própria campanha, e adiar até alguém abrir o CRM mandaria mais uma mensagem.
+    if (isOptOutText(content.text)) batch.set(contactRef, { optOut: true }, { merge: true })
   }
 
   await batch.commit()

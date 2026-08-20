@@ -12,6 +12,7 @@ import Invoices from './pages/Invoices'
 import Agenda from './pages/Agenda'
 import Agent from './pages/Agent'
 import Reports from './pages/Reports'
+import Campaigns from './pages/Campaigns'
 import Settings from './pages/Settings'
 import SuperHome from './pages/super/SuperHome'
 import GeneralDashboard from './pages/super/GeneralDashboard'
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
               { path: 'faturamento', element: <Invoices /> },
               { path: 'agenda', element: <Agenda /> },
               { path: 'agente', element: <Agent /> },
+              { path: 'campanhas', element: <Campaigns /> },
               { path: 'relatorios', element: <Reports /> },
               { path: 'configuracoes', element: <Settings /> },
             ],

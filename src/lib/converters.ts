@@ -6,6 +6,7 @@ import type {
   MediaRecovery, Flow, FlowNode, FlowEdge, FlowNodeKind,
   Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
   BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
+  Campaign, CampaignStatus, CampaignTarget, CampaignTargetStatus,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -282,6 +283,48 @@ export function conversationFromDoc(id: string, d: DocumentData): ConversationRe
   }
 }
 
+function toCampaignStatus(v: unknown): CampaignStatus {
+  return v === 'enviando' || v === 'pausada' || v === 'concluida' ? v : 'rascunho'
+}
+
+export function campaignFromDoc(id: string, d: DocumentData): Campaign {
+  return {
+    id,
+    name: d.name ?? '',
+    text: d.text ?? '',
+    tagIds: toStringArray(d.tagIds),
+    status: toCampaignStatus(d.status),
+    ratePerHour: typeof d.ratePerHour === 'number' ? d.ratePerHour : 15,
+    respectBusinessHours: d.respectBusinessHours !== false,
+    total: d.total ?? 0,
+    sent: d.sent ?? 0,
+    failed: d.failed ?? 0,
+    skipped: d.skipped ?? 0,
+    createdBy: d.createdBy ?? '',
+    startedAt: toDate(d.startedAt),
+    finishedAt: toDate(d.finishedAt),
+    nextSendAt: toDate(d.nextSendAt),
+    lastError: d.lastError ?? '',
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+function toTargetStatus(v: unknown): CampaignTargetStatus {
+  return v === 'enviando' || v === 'enviado' || v === 'falhou' || v === 'optout' ? v : 'pendente'
+}
+
+export function campaignTargetFromDoc(id: string, d: DocumentData): CampaignTarget {
+  return {
+    id,
+    contactId: d.contactId ?? id,
+    name: d.name ?? '',
+    phone: d.phone ?? '',
+    status: toTargetStatus(d.status),
+    sentAt: toDate(d.sentAt),
+    error: d.error ?? '',
+  }
+}
+
 export function contactFromDoc(id: string, d: DocumentData): Contact {
   return {
     id,
@@ -304,6 +347,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     unreadCount: typeof d.unreadCount === 'number' ? d.unreadCount : 0,
+    optOut: !!d.optOut,
     conv: toConvState(d.conv),
     custom: toCustomValues(d.custom),
     createdAt: toDate(d.createdAt),

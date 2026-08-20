@@ -5,6 +5,7 @@ import { rehydrateAll } from './boot.js'
 import { endAllSessions, stopSession } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { startScheduledMessageWorker, stopScheduledMessageWorker } from './scheduler.js'
+import { startCampaignWorker, stopCampaignWorker } from './campaigns.js'
 import { startCommandWorker, stopCommandWorker } from './commands.js'
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js'
 import { startLeaseRenewer, stopLeaseRenewer, releaseAllLeases } from './lease.js'
@@ -27,6 +28,7 @@ startLeaseRenewer((uid) => {
 startCommandWorker()
 startHeartbeat()
 startScheduledMessageWorker()
+startCampaignWorker()
 if (config.httpPort) startHealthServer(config.httpPort)
 
 // Sonda o Storage logo no boot. Sem isto a falha é MUDA: o daemon sobe, o texto continua
@@ -47,6 +49,7 @@ async function shutdown(signal: string): Promise<void> {
   stopCommandWorker()
   stopHeartbeat()
   stopScheduledMessageWorker()
+  stopCampaignWorker()
   stopLeaseRenewer()
   stopHealthServer()
 

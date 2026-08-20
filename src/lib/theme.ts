@@ -97,6 +97,7 @@ export const navDefs = [
   { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento' },
   { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda' },
   { id: 'agente', label: 'Agente de IA', icon: 'auto_awesome', path: '/agente' },
+  { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas' },
   { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios' },
   { id: 'configuracoes', label: 'Configurações', icon: 'settings', path: '/configuracoes' },
 ] as const

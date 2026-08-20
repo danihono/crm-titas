@@ -271,6 +271,8 @@ export interface Contact {
   conv?: ConvState
   /** Valores dos campos personalizados, por id do CustomField. */
   custom?: Record<string, string>
+  /** Pediu para não receber campanhas ("SAIR", "PARE"). Nenhum disparo alcança quem tem isto. */
+  optOut?: boolean
   createdAt?: Date
 }
 
@@ -381,6 +383,51 @@ export interface Lead {
   source: string
   value: number
   createdAt?: Date
+}
+
+export type CampaignStatus = 'rascunho' | 'enviando' | 'pausada' | 'concluida'
+/** `enviando` é a reserva feita pelo daemon entre escolher o destinatário e o envio sair. */
+export type CampaignTargetStatus = 'pendente' | 'enviando' | 'enviado' | 'falhou' | 'optout'
+
+/**
+ * Disparo de campanha por WhatsApp.
+ *
+ * O envio é deliberadamente lento: a conexão é Baileys (WhatsApp Web, não-oficial), e
+ * disparo em massa rápido é a via curta para o número ser banido. `ratePerHour` é um
+ * teto por campanha, e o daemon ainda aplica cota diária, aquecimento e horário.
+ */
+export interface Campaign {
+  id: string
+  name: string
+  text: string
+  /** Público: contatos com QUALQUER uma destas etiquetas. Vazio = todos os contatos. */
+  tagIds: string[]
+  status: CampaignStatus
+  ratePerHour: number
+  /** Só dispara dentro do horário de atendimento configurado. */
+  respectBusinessHours: boolean
+  total: number
+  sent: number
+  failed: number
+  skipped: number
+  createdBy: string
+  startedAt?: Date
+  finishedAt?: Date
+  /** Quando o daemon pode mandar a próxima — é o intervalo com jitter já sorteado. */
+  nextSendAt?: Date
+  lastError?: string
+  createdAt?: Date
+}
+
+/** Um destinatário da campanha — users/{uid}/campaigns/{id}/targets/{contactId}. */
+export interface CampaignTarget {
+  id: string
+  contactId: string
+  name: string
+  phone: string
+  status: CampaignTargetStatus
+  sentAt?: Date
+  error?: string
 }
 
 export interface AgentSources {
