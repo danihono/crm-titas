@@ -31,6 +31,27 @@ vem antes de qualquer tela bonita: sem ela, "Atendentes" é uma lista decorativa
 decisão explícita: teto por hora, intervalo aleatório entre envios, aquecimento
 progressivo e opt-out automático. Envio lento é característica, não defeito.
 
+## Estado
+
+| Fase | Situação |
+|---|---|
+| 0 — Multi-seat | **Feita.** members, papéis, convite por e-mail, regras por vínculo. |
+| 1 — Atendimento em Contatos | **Feita.** abas, responsável, setor, etiquetas, histórico de ciclos. |
+| 2 — Configurações | **Feita**, menos Boards de contatos (ver abaixo). |
+| 3 — Relatórios | **Feita.** Geral, Agora, por atendente/setor/etiqueta. Sem CSAT. |
+| 4 — Campanhas | **Feita**, com throttle, aquecimento, cota e opt-out. |
+| 5 — Chatbots e bases de conhecimento | **Não feita.** |
+
+Também ficou de fora, dentro de fases entregues:
+
+- **Boards de contatos** (Kanban de contatos reaproveitando `KanbanBoard`).
+- **Avaliação (CSAT)** — o campo `rating` já existe em `ConversationRecord`, mas nada
+  o preenche: falta mandar a pergunta ao finalizar e ler a nota da resposta.
+- **Mensagem de ausência** fora do horário: o texto é configurável e
+  `isWithinBusinessHours` já decide a janela, mas só as campanhas respeitam o horário —
+  responder automaticamente depende do motor de chatbot da Fase 5.
+- **Saudação do setor** ao transferir: idem, o texto é gravado e ainda não é enviado.
+
 ## Fases
 
 ### Fase 0 — Multi-seat (fundação)

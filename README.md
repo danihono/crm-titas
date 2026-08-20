@@ -9,7 +9,16 @@ CRM de vendas em **React + Vite + TypeScript** sobre **Firebase** (Firestore, Au
 - Visual portado 1:1 do protótipo (estilos inline, fontes Google + Material Symbols).
 
 ## Módulos
-Dashboard · Pipeline (Kanban com drag&drop) · Contatos + WhatsApp + Arquivos · Atividades · Faturamento · Agenda · Agente de IA.
+Dashboard · Pipeline (Kanban com drag&drop) · Contatos + WhatsApp + Atendimento + Arquivos ·
+Atividades · Faturamento · Agenda · Agente de IA · Campanhas · Relatórios · Configurações.
+
+**Atendimento (multi-seat).** O tenant é `users/{uid}` e pode ter vários atendentes
+(`users/{uid}/members/{memberUid}`, papéis dono/gestor/atendente, convite por e-mail).
+Contatos e conversas ficam na MESMA tela: a lista da esquerda tem as abas
+Entrada · Esperando · Finalizados, e o cabeçalho da conversa traz responsável, setor,
+etiquetas e as transições de estado. Cada ciclo vira um registro em
+`users/{uid}/conversations`, que é o que alimenta os Relatórios.
+Ver `docs/modulos-atendimento.md` para o modelo de dados e o que ainda não foi feito.
 
 ## Pré-requisitos
 - **Node 18+** e **npm** (testado em Node 24).
