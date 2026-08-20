@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Contact } from '../types'
+import type { Contact, UserPrefs } from '../types'
 
 /**
  * Aviso de mensagem nova enquanto o CRM está aberto.
@@ -70,8 +70,14 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.requestPermission().catch(() => 'denied' as NotificationPermission)
 }
 
-export function useMessageNotifications(contacts: Contact[]): void {
+/**
+ * @param prefs preferências da conta logada (Configurações › Preferências pessoais).
+ *   Ausente = avisa dos dois jeitos, que é o comportamento de quem nunca mexeu nisso.
+ */
+export function useMessageNotifications(contacts: Contact[], prefs?: UserPrefs): void {
   const previous = useRef<Map<string, number> | null>(null)
+  const desktop = prefs?.notifyDesktop !== false
+  const sound = prefs?.notifySound !== false
 
   useEffect(() => {
     const current = new Map(contacts.map((c) => [c.id, c.unreadCount ?? 0]))
@@ -89,10 +95,12 @@ export function useMessageNotifications(contacts: Contact[]): void {
     for (const c of contacts) {
       // Contato ausente do snapshot anterior é conversa nova: vale como 0 → notifica.
       if ((c.unreadCount ?? 0) > (before.get(c.id) ?? 0)) {
-        notify(c)
+        // O snapshot anterior é atualizado mesmo com os avisos desligados: religar a
+        // preferência não pode disparar um lote de avisos do que chegou enquanto isso.
+        if (desktop) notify(c)
         arrived = true
       }
     }
-    if (arrived) playChime()
-  }, [contacts])
+    if (arrived && sound) playChime()
+  }, [contacts, desktop, sound])
 }

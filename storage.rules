@@ -1,15 +1,27 @@
 rules_version = '2';
 
-// Arquivos por contato em users/{uid}/contacts/{contactId}/...
-// Só o dono lê/escreve; upload limitado a 10 MB.
+// Arquivos do tenant em users/{uid}/... — mídias de conversa, fotos de contato e a
+// biblioteca de mídias. Acessa quem é o dono da conta OU tem vínculo de atendente
+// (users/{uid}/members/{authUid} no Firestore, o mesmo teste do firestore.rules).
+// Upload pelo navegador limitado a 10 MB; o daemon escreve pelo Admin SDK e não passa
+// por aqui, então mídia recebida do WhatsApp não esbarra neste teto.
 service firebase.storage {
   match /b/{bucket}/o {
     match /users/{uid}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null
-                            && request.auth.uid == uid
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+      // Regra de Storage consultando o Firestore: é o que sustenta o multi-seat aqui.
+      // Sem isto, um atendente convidado não abriria uma única imagem da conversa.
+      function isMember() {
+        return request.auth != null
+               && firestore.exists(/databases/(default)/documents/users/$(uid)/members/$(request.auth.uid));
+      }
+
+      allow read: if isOwner() || isMember();
+      allow create, update: if (isOwner() || isMember())
                             && request.resource.size < 10 * 1024 * 1024;
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow delete: if isOwner() || isMember();
     }
   }
 }

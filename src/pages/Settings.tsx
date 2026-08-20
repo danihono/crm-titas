@@ -10,8 +10,19 @@ import QuickRepliesSection from '../components/settings/QuickRepliesSection'
 import CustomFieldsSection from '../components/settings/CustomFieldsSection'
 import HoursSection from '../components/settings/HoursSection'
 import OrgSection from '../components/settings/OrgSection'
+import ProfileSection from '../components/settings/ProfileSection'
+import PrefsSection from '../components/settings/PrefsSection'
+import VariablesSection from '../components/settings/VariablesSection'
+import LibrarySection from '../components/settings/LibrarySection'
+import KnowledgeSection from '../components/settings/KnowledgeSection'
+import SchedulesSection from '../components/settings/SchedulesSection'
 
-type SectionId = 'equipe' | 'setores' | 'etiquetas' | 'respostas' | 'campos' | 'horarios' | 'org'
+type SectionId =
+  | 'perfil' | 'preferencias'
+  | 'equipe' | 'setores' | 'horarios'
+  | 'etiquetas' | 'campos' | 'biblioteca'
+  | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos'
+  | 'org'
 
 interface SectionDef {
   id: SectionId
@@ -21,17 +32,23 @@ interface SectionDef {
 }
 
 const SECTIONS: SectionDef[] = [
+  { id: 'perfil', label: 'Perfil', icon: 'person', group: 'CONTA' },
+  { id: 'preferencias', label: 'Preferências pessoais', icon: 'tune', group: 'CONTA' },
   { id: 'equipe', label: 'Atendentes', icon: 'badge', group: 'ATENDIMENTO' },
   { id: 'setores', label: 'Setores', icon: 'account_tree', group: 'ATENDIMENTO' },
   { id: 'horarios', label: 'Horários', icon: 'schedule', group: 'ATENDIMENTO' },
   { id: 'etiquetas', label: 'Etiquetas', icon: 'label', group: 'ORGANIZAÇÃO' },
   { id: 'campos', label: 'Campos personalizados', icon: 'list_alt', group: 'ORGANIZAÇÃO' },
-  { id: 'respostas', label: 'Respostas rápidas', icon: 'quickreply', group: 'AUTOMAÇÃO' },
+  { id: 'biblioteca', label: 'Biblioteca de mídias', icon: 'perm_media', group: 'ORGANIZAÇÃO' },
   { id: 'org', label: 'Dados e canais', icon: 'apartment', group: 'ORGANIZAÇÃO' },
+  { id: 'respostas', label: 'Respostas rápidas', icon: 'quickreply', group: 'AUTOMAÇÃO' },
+  { id: 'variaveis', label: 'Variáveis', icon: 'data_object', group: 'AUTOMAÇÃO' },
+  { id: 'conhecimento', label: 'Bases de conhecimento', icon: 'menu_book', group: 'AUTOMAÇÃO' },
+  { id: 'agendamentos', label: 'Agendamentos', icon: 'schedule_send', group: 'AUTOMAÇÃO' },
 ]
 
 export default function Settings() {
-  const [active, setActive] = useState<SectionId>('equipe')
+  const [active, setActive] = useState<SectionId>('perfil')
   const readOnly = useTenantStore((s) => s.readOnly)
   const role = useTenantStore((s) => s.role)
   const canEdit = canManage(role, readOnly)
@@ -74,7 +91,9 @@ export default function Settings() {
       </nav>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        {!canEdit && (
+        {/* Perfil e preferências são da CONTA, não do tenant — seguem editáveis mesmo
+            para quem só visualiza a operação de outra pessoa. */}
+        {!canEdit && active !== 'perfil' && active !== 'preferencias' && (
           <ReadOnlyNote>
             {readOnly
               ? 'Você está visualizando o CRM de um cliente — as configurações são somente leitura.'
@@ -82,12 +101,18 @@ export default function Settings() {
           </ReadOnlyNote>
         )}
 
+        {active === 'perfil' && <ProfileSection />}
+        {active === 'preferencias' && <PrefsSection />}
         {active === 'equipe' && <TeamSection canEdit={canEdit} />}
         {active === 'setores' && <SectorsSection canEdit={canEdit} />}
         {active === 'horarios' && <HoursSection canEdit={canEdit} />}
         {active === 'etiquetas' && <TagsSection canEdit={canEdit} />}
         {active === 'campos' && <CustomFieldsSection canEdit={canEdit} />}
         {active === 'respostas' && <QuickRepliesSection canEdit={canEdit} />}
+        {active === 'biblioteca' && <LibrarySection canEdit={canEdit} />}
+        {active === 'variaveis' && <VariablesSection canEdit={canEdit} />}
+        {active === 'conhecimento' && <KnowledgeSection canEdit={canEdit} />}
+        {active === 'agendamentos' && <SchedulesSection canEdit={canEdit} />}
         {active === 'org' && <OrgSection canEdit={canEdit} />}
       </div>
     </div>

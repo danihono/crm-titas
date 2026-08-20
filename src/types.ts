@@ -385,6 +385,50 @@ export interface Lead {
   createdAt?: Date
 }
 
+/**
+ * Variável de texto reutilizável — users/{uid}/variables/{id}.
+ * Vale em respostas rápidas e campanhas: `{{chave}}` sai trocado pelo valor.
+ */
+export interface Variable {
+  id: string
+  key: string
+  value: string
+  description: string
+  createdAt?: Date
+}
+
+/** Arquivo guardado na biblioteca de mídias — users/{uid}/mediaLibrary/{id}. */
+export interface MediaAsset {
+  id: string
+  name: string
+  type: FileType
+  mimeType: string
+  sizeBytes: number
+  storagePath: string
+  downloadURL: string
+  uploadedAt: Date
+}
+
+/**
+ * Documento da base de conhecimento — users/{uid}/knowledge/{id}.
+ * É o material que o Titã IA passa a ter à mão ao responder.
+ */
+export interface KnowledgeDoc {
+  id: string
+  title: string
+  content: string
+  /** Fora, o documento fica guardado mas não entra no contexto do agente. */
+  enabled: boolean
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+/** Preferências da CONTA logada (não do tenant) — avisos de mensagem nova. */
+export interface UserPrefs {
+  notifyDesktop: boolean
+  notifySound: boolean
+}
+
 export type CampaignStatus = 'rascunho' | 'enviando' | 'pausada' | 'concluida'
 /** `enviando` é a reserva feita pelo daemon entre escolher o destinatário e o envio sair. */
 export type CampaignTargetStatus = 'pendente' | 'enviando' | 'enviado' | 'falhou' | 'optout'
@@ -465,4 +509,11 @@ export interface UserProfile {
   /** Nome da empresa/organização — cabeçalho de Configurações e dos convites. */
   orgName?: string
   businessHours?: BusinessHours
+  /** Assinatura anexada às mensagens enviadas por esta conta. Vazio = nenhuma. */
+  signature?: string
+  phone?: string
+  /** Texto enviado ao finalizar um atendimento. Só sai com `closingEnabled`. */
+  closingMessage?: string
+  closingEnabled?: boolean
+  prefs?: UserPrefs
 }

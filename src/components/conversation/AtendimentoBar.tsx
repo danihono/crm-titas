@@ -34,7 +34,9 @@ function actionStyle(color: string, bg: string): React.CSSProperties {
  * transições de estado. Fica na MESMA tela de contatos — o Umbler separa em módulos,
  * aqui a conversa é uma aba do contato.
  */
-export default function AtendimentoBar({ contact, members, sectors, tags, canWrite, meUid, meName }: {
+export default function AtendimentoBar({
+  contact, members, sectors, tags, canWrite, meUid, meName, closingMessage, onSend,
+}: {
   contact: Contact
   members: Member[]
   sectors: Sector[]
@@ -42,6 +44,9 @@ export default function AtendimentoBar({ contact, members, sectors, tags, canWri
   canWrite: boolean
   meUid: string
   meName: string
+  /** Texto de despedida configurado no perfil. Vazio = finaliza calado. */
+  closingMessage: string
+  onSend: (text: string) => Promise<void>
 }) {
   const conv = convOf(contact)
   const [tagsOpen, setTagsOpen] = useState(false)
@@ -50,6 +55,21 @@ export default function AtendimentoBar({ contact, members, sectors, tags, canWri
   const activeMembers = members.filter((m) => m.active)
   const applied = tags.filter((t) => conv.tagIds.includes(t.id))
   const finished = conv.status === 'finalizado'
+
+  /**
+   * Finaliza: manda a despedida (se houver) e só então fecha o ciclo.
+   *
+   * Nessa ordem porque fechar antes faria a própria despedida reabrir o atendimento —
+   * é uma mensagem na conversa como outra qualquer. Se o envio falhar, o atendimento
+   * fecha assim mesmo: o clique foi em "Finalizar", não em "Enviar".
+   */
+  async function finish(): Promise<void> {
+    const text = closingMessage.trim()
+    if (text) {
+      await onSend(text).catch((err) => console.error('[AtendimentoBar] despedida', err))
+    }
+    await closeConversation(contact, meUid, meName)
+  }
 
   /** Serializa as ações: dois cliques seguidos abririam dois ciclos de atendimento. */
   async function run(fn: () => Promise<void>) {
@@ -184,7 +204,7 @@ export default function AtendimentoBar({ contact, members, sectors, tags, canWri
             </button>
           )}
           <button
-            onClick={() => run(() => closeConversation(contact, meUid, meName))}
+            onClick={() => run(() => finish())}
             style={actionStyle('#1f8a4c', 'rgba(52,199,89,0.14)')}
           >
             <MaterialIcon name="task_alt" size={15} /> Finalizar

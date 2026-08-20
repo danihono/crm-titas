@@ -3,6 +3,7 @@ import {
   useAgentConfig, useAgentChat, updateAgentField, toggleAgentSource, pushAgentMessage, callTitaIA, fallbackReply,
 } from '../hooks/useAgent'
 import { useTenantStore } from '../store/tenantStore'
+import { knowledgeContext, useKnowledge } from '../hooks/useLibrary'
 import { useAllDeals, useBoards } from '../hooks/useDeals'
 import { useActivities, statusOf } from '../hooks/useActivities'
 import { useInvoices } from '../hooks/useInvoices'
@@ -63,6 +64,7 @@ export default function Agent() {
   const { docs: invoices } = useInvoices()
   const { docs: contacts } = useContacts()
   const readOnly = useTenantStore((s) => s.readOnly)
+  const { docs: knowledge } = useKnowledge()
 
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
@@ -115,7 +117,9 @@ export default function Agent() {
       await pushAgentMessage('user', q)
       let reply = ''
       try {
-        const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. Responda em português do Brasil, de forma objetiva (máx ~120 palavras).\n${buildContext()}`
+        // A base de conhecimento vem ANTES dos dados do CRM: é material curado pela
+        // empresa, e é dela que a resposta deve sair quando houver conflito.
+        const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. Responda em português do Brasil, de forma objetiva (máx ~120 palavras).\n${knowledgeContext(knowledge)}${buildContext()}`
         const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
         reply = await callTitaIA({ system, history, question: q })
         if (!reply) reply = fallbackReply(q)

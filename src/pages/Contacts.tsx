@@ -10,10 +10,13 @@ import { deleteScheduledMessage } from '../hooks/useEvents'
 import { sendWhatsappMessage, sendWhatsappMedia, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled, waErrorCode } from '../lib/whatsapp'
 import { useDaemonOnline } from '../hooks/useDaemonOnline'
 import { useMembers } from '../hooks/useTeam'
-import { useSectors, useTags } from '../hooks/useSettings'
+import { useSectors, useTags, useQuickReplies, applyVariables } from '../hooks/useSettings'
+import { useVariables, variableMap } from '../hooks/useLibrary'
+import { useSelfProfile, withSignature } from '../hooks/useProfile'
 import { convOf, ensureConversation, markFirstResponse } from '../hooks/useConversations'
 import InboxTabs, { filterByInbox } from '../components/conversation/InboxTabs'
 import AtendimentoBar from '../components/conversation/AtendimentoBar'
+import QuickReplyPicker, { matchQuickReplies, quickReplyQuery } from '../components/conversation/QuickReplyPicker'
 import { useAuth } from '../contexts/AuthContext'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
@@ -78,6 +81,9 @@ export default function Contacts() {
   const { docs: members } = useMembers()
   const { docs: sectors } = useSectors()
   const { docs: tags } = useTags()
+  const { docs: quickReplies } = useQuickReplies()
+  const { docs: variables } = useVariables()
+  const profile = useSelfProfile()
   const { user } = useAuth()
   const q = search.trim().toLowerCase()
   // Buscar atravessa as abas de propósito: procurar um contato e não achá-lo porque a
@@ -132,6 +138,9 @@ export default function Contacts() {
   }
   const activeSchedule = active ? scheduleByContact.get(active.id) : undefined
   const [waInput, setWaInput] = useState('')
+  // Fecha a lista de respostas rápidas sem apagar o que foi digitado (Esc / após escolher).
+  // Volta a abrir sozinha quando o texto muda, que é quando o `/` recomeça a valer.
+  const [quickReplyOff, setQuickReplyOff] = useState(false)
   const [histBusy, setHistBusy] = useState(false)
   const [mediaBusy, setMediaBusy] = useState(false)
   const [showHistModal, setShowHistModal] = useState(false)
@@ -249,17 +258,55 @@ export default function Contacts() {
     })
   }
 
+  /**
+   * Variáveis disponíveis ao redigir: as do tenant, mais as que só existem no contexto
+   * desta conversa. As do contato vêm por último para vencerem uma variável cadastrada
+   * com o mesmo nome — `{{nome}}` tem de ser o nome de quem está do outro lado.
+   */
+  function composeVars(contact: Contact): Record<string, string> {
+    return {
+      ...variableMap(variables),
+      nome: contact.name,
+      empresa: contact.company === '—' ? '' : contact.company,
+      atendente: profile.displayName || user?.displayName || '',
+    }
+  }
+
+  /** Aplica a resposta rápida escolhida no campo, já com as variáveis resolvidas. */
+  function pickQuickReply(reply: { text: string }) {
+    if (!active) return
+    setWaInput(applyVariables(reply.text, composeVars(active)))
+    setQuickReplyOff(true)
+    requestAnimationFrame(() => waInputRef.current?.focus())
+  }
+
+  // Lista aberta = há um `/` no começo do campo e resposta que case. null fecha o
+  // seletor E devolve o Enter ao envio, que é o comportamento normal do campo.
+  const quickReplyQ = quickReplyOff ? null : quickReplyQuery(waInput)
+  const quickReplyMatches = quickReplyQ === null ? [] : matchQuickReplies(quickReplies, quickReplyQ)
+  const quickReplyOptions = quickReplyMatches.length > 0 ? quickReplyMatches : null
+
+  /**
+   * Entrega um texto na conversa aberta. Só roteia pelo WhatsApp quando de fato
+   * conectado; caso contrário, envio normal (local). Assim quem ainda não conectou o
+   * WhatsApp não é bloqueado. Lança em falha — quem chama decide o que fazer.
+   */
+  async function deliver(contactId: string, text: string): Promise<void> {
+    if (waEnabled && wa.status === 'connected') {
+      await sendWhatsappMessage(contactId, text)
+    } else {
+      await sendMessage(contactId, text)
+    }
+  }
+
   async function handleSend() {
-    const text = waInput.trim()
-    if (!active || !text) return
+    const raw = waInput.trim()
+    if (!active || !raw) return
+    // Variável escrita à mão também vale, não só a que veio de resposta rápida; e a
+    // assinatura entra aqui, no envio, para não ficar no caminho de quem está digitando.
+    const text = withSignature(applyVariables(raw, composeVars(active)), profile.signature)
     try {
-      // Só roteia pelo WhatsApp quando de fato conectado; caso contrário, envio
-      // normal (local). Assim quem ainda não conectou o WhatsApp não é bloqueado.
-      if (waEnabled && wa.status === 'connected') {
-        await sendWhatsappMessage(active.id, text)
-      } else {
-        await sendMessage(active.id, text)
-      }
+      await deliver(active.id, text)
       setWaInput('')
       setShowEmoji(false)
       scrollToEnd('auto')
@@ -619,7 +666,13 @@ export default function Contacts() {
               tags={tags}
               canWrite={!readOnly}
               meUid={user?.uid ?? ''}
-              meName={user?.displayName || user?.email || 'Atendente'}
+              meName={profile.displayName || user?.displayName || user?.email || 'Atendente'}
+              closingMessage={
+                profile.closingEnabled
+                  ? applyVariables(profile.closingMessage, composeVars(active))
+                  : ''
+              }
+              onSend={(text) => deliver(active.id, text)}
             />
 
             {/* Tabs */}
@@ -708,9 +761,9 @@ export default function Contacts() {
                     <input
                       ref={waInputRef}
                       value={waInput}
-                      onChange={(e) => setWaInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleSend() }}
-                      placeholder="Digite uma mensagem..."
+                      onChange={(e) => { setWaInput(e.target.value); setQuickReplyOff(false) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !quickReplyOptions) handleSend() }}
+                      placeholder={quickReplies.length ? 'Digite uma mensagem... (/ para respostas rápidas)' : 'Digite uma mensagem...'}
                       style={{ flex: 1, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 13, padding: '12px 16px', color: '#1d1726', fontSize: 13.5, outline: 'none' }}
                     />
                     <button onClick={handleSend} style={{ width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(40,170,80,0.3)' }}>
@@ -721,6 +774,13 @@ export default function Contacts() {
                       <div style={{ position: 'absolute', left: 18, bottom: 74, zIndex: 6 }}>
                         <EmojiPicker onPick={insertEmoji} onClose={() => setShowEmoji(false)} anchorRef={emojiBtnRef} />
                       </div>
+                    )}
+                    {quickReplyOptions && (
+                      <QuickReplyPicker
+                        replies={quickReplyOptions}
+                        onPick={pickQuickReply}
+                        onClose={() => setQuickReplyOff(true)}
+                      />
                     )}
                     {showAttach && (
                       <AttachMenu

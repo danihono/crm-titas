@@ -7,6 +7,7 @@ import type {
   Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
   BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
   Campaign, CampaignStatus, CampaignTarget, CampaignTargetStatus,
+  Variable, MediaAsset, KnowledgeDoc, UserPrefs,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -283,6 +284,48 @@ export function conversationFromDoc(id: string, d: DocumentData): ConversationRe
   }
 }
 
+export function variableFromDoc(id: string, d: DocumentData): Variable {
+  return {
+    id,
+    key: d.key ?? '',
+    value: d.value ?? '',
+    description: d.description ?? '',
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+export function mediaAssetFromDoc(id: string, d: DocumentData): MediaAsset {
+  return {
+    id,
+    name: d.name ?? '',
+    type: (d.type ?? 'doc') as FileType,
+    mimeType: d.mimeType ?? '',
+    sizeBytes: d.sizeBytes ?? 0,
+    storagePath: d.storagePath ?? '',
+    downloadURL: d.downloadURL ?? '',
+    uploadedAt: toDate(d.uploadedAt) ?? new Date(0),
+  }
+}
+
+export function knowledgeFromDoc(id: string, d: DocumentData): KnowledgeDoc {
+  return {
+    id,
+    title: d.title ?? '',
+    content: d.content ?? '',
+    // Sem o campo, o doc é anterior ao interruptor — vale como ligado.
+    enabled: d.enabled !== false,
+    createdAt: toDate(d.createdAt),
+    updatedAt: toDate(d.updatedAt),
+  }
+}
+
+export function prefsFromDoc(v: unknown): UserPrefs {
+  const d = (v ?? {}) as Record<string, unknown>
+  // Avisar por padrão: quem não quer desliga, e o contrário (silêncio calado) faz
+  // parecer que o CRM não está recebendo mensagem.
+  return { notifyDesktop: d.notifyDesktop !== false, notifySound: d.notifySound !== false }
+}
+
 function toCampaignStatus(v: unknown): CampaignStatus {
   return v === 'enviando' || v === 'pausada' || v === 'concluida' ? v : 'rascunho'
 }
@@ -486,5 +529,10 @@ export function profileFromDoc(d: DocumentData | undefined): UserProfile | null 
     features: (d.features ?? {}) as UserProfile['features'],
     orgName: d.orgName ?? '',
     businessHours: businessHoursFromDoc(d.businessHours),
+    signature: d.signature ?? '',
+    phone: d.phone ?? '',
+    closingMessage: d.closingMessage ?? '',
+    closingEnabled: !!d.closingEnabled,
+    prefs: prefsFromDoc(d.prefs),
   }
 }

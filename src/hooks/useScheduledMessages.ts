@@ -1,4 +1,4 @@
-import { collection, orderBy, query, Timestamp, where } from 'firebase/firestore'
+import { collection, limit, orderBy, query, Timestamp, where } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { scheduledMessageFromDoc } from '../lib/converters'
 import { useCollection } from './useCollection'
@@ -16,5 +16,21 @@ export function useScheduledMessages(contactId?: string | null) {
     },
     scheduledMessageFromDoc,
     [contactId],
+  )
+}
+
+/**
+ * Todos os agendamentos, do mais recente para trás — inclusive os já enviados,
+ * cancelados e falhos. É a lista de Configurações › Agendamentos, que existe para
+ * responder "o que saiu daqui?", e não só "o que ainda vai sair".
+ *
+ * Sem filtro de status de propósito: ordenar por um campo só dispensa índice composto,
+ * e o volume é pequeno o bastante para o teto resolver.
+ */
+export function useAllScheduledMessages(max = 100) {
+  return useCollection<ScheduledMessage>(
+    (uid) => query(collection(db, `users/${uid}/scheduledMessages`), orderBy('dueAt', 'desc'), limit(max)),
+    scheduledMessageFromDoc,
+    [max],
   )
 }

@@ -25,7 +25,20 @@ export function ref(path: string) {
   return doc(db, `users/${uid()}/${path}`)
 }
 
-/** Referência ao doc do próprio usuário (perfil + agente). */
+/** Doc do TENANT ativo (config da operação: agente, horários, dados da organização). */
 export function userRef() {
   return doc(db, 'users', uid())
+}
+
+/**
+ * Doc da CONTA logada — não do tenant ativo.
+ *
+ * Perfil e preferências pessoais são da pessoa, não da operação: um atendente
+ * convidado tem que editar a própria assinatura sem escrever no doc do dono da
+ * equipe (onde, aliás, as regras nem deixariam).
+ */
+export function selfRef() {
+  const u = auth.currentUser
+  if (!u) throw new Error('Sem usuário autenticado')
+  return doc(db, 'users', u.uid)
 }

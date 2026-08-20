@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
+import { useSelfProfile } from '../../hooks/useProfile'
 import { useMessageNotifications, requestNotificationPermission } from '../../hooks/useMessageNotifications'
 import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
@@ -41,6 +42,7 @@ export default function Topbar() {
   const selectContact = useUIStore((s) => s.selectContact)
   const setActiveBoard = useUIStore((s) => s.setActiveBoard)
   const { docs: contacts } = useContacts()
+  const { prefs } = useSelfProfile()
   const { docs: deals } = useAllDeals()
   const { docs: activities } = useActivities()
   const { docs: invoices } = useInvoices()
@@ -49,7 +51,7 @@ export default function Topbar() {
   const [focused, setFocused] = useState(false)
 
   // Vive no Topbar, e não na página de Conversas, para o aviso valer em qualquer tela.
-  useMessageNotifications(contacts)
+  useMessageNotifications(contacts, prefs)
   const unreadTotal = contacts.reduce((n, c) => n + (c.unreadCount ?? 0), 0)
 
   const results = useMemo<SearchResult[]>(() => {

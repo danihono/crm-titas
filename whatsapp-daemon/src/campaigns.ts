@@ -34,9 +34,33 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Troca {{nome}} e {{empresa}} pelos dados do destinatário. */
+/** Troca {{chave}} pelo valor. Placeholder sem valor vira vazio — melhor um espaço em
+ *  branco do que mandar "{{nome}}" cru para o cliente. */
 function applyVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => vars[key.toLowerCase()] ?? '')
+}
+
+/**
+ * Variáveis cadastradas do tenant (Configurações › Variáveis), em cache por tick.
+ *
+ * O cache existe porque o disparo é uma mensagem por vez: sem ele, uma campanha de
+ * 500 destinatários faria 500 leituras da mesma coleção que quase nunca muda.
+ */
+const varsCache = new Map<string, { at: number; vars: Record<string, string> }>()
+const VARS_TTL_MS = 5 * 60_000
+
+async function tenantVariables(uid: string, now: Date): Promise<Record<string, string>> {
+  const cached = varsCache.get(uid)
+  if (cached && now.getTime() - cached.at < VARS_TTL_MS) return cached.vars
+
+  const snap = await db.collection('users').doc(uid).collection('variables').get()
+  const vars: Record<string, string> = {}
+  snap.docs.forEach((d) => {
+    const key = String(d.get('key') ?? '').toLowerCase()
+    if (key) vars[key] = String(d.get('value') ?? '')
+  })
+  varsCache.set(uid, { at: now.getTime(), vars })
+  return vars
 }
 
 function hhmmToMinutes(v: string): number {
@@ -166,7 +190,11 @@ async function finishIfDone(uid: string, campaignId: string): Promise<void> {
   logger.info({ uid, campaignId }, 'campanha concluida')
 }
 
-async function dispatch(claimed: Claimed, quotaRef: FirebaseFirestore.DocumentReference): Promise<void> {
+async function dispatch(
+  claimed: Claimed,
+  quotaRef: FirebaseFirestore.DocumentReference,
+  vars: Record<string, string>,
+): Promise<void> {
   const { uid, campaignId, targetId, contactId, phone } = claimed
   const campaignRef = db.collection('users').doc(uid).collection('campaigns').doc(campaignId)
   const targetRef = campaignRef.collection('targets').doc(targetId)
@@ -187,7 +215,10 @@ async function dispatch(claimed: Claimed, quotaRef: FirebaseFirestore.DocumentRe
     return
   }
 
+  // As do contato vêm por último para vencerem uma variável cadastrada com o mesmo
+  // nome — {{nome}} tem de ser o nome de quem vai receber.
   const text = applyVariables(claimed.text, {
+    ...vars,
     nome: String(contact.get('name') ?? ''),
     empresa: String(contact.get('company') ?? '').replace(/^—$/, ''),
   })
@@ -283,7 +314,7 @@ async function tick(): Promise<void> {
 
         const claimed = await claimNext(uid, campaign, pending.docs[0], now)
         if (!claimed) continue
-        await dispatch(claimed, quotaRef)
+        await dispatch(claimed, quotaRef, await tenantVariables(uid, now))
         await finishIfDone(uid, campaign.id)
         break
       }
