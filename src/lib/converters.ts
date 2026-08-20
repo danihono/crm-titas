@@ -4,6 +4,8 @@ import type {
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
   ScheduledMessage, ScheduledMessageStatus, ContactNameSource, HistoryImport, HistoryImportStatus, PhotoSource,
   MediaRecovery, Flow, FlowNode, FlowEdge, FlowNodeKind,
+  Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
+  BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -127,6 +129,159 @@ export function flowFromDoc(id: string, d: DocumentData): Flow {
   }
 }
 
+function toStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+export function toMemberRole(v: unknown): MemberRole {
+  return v === 'dono' || v === 'gestor' ? v : 'atendente'
+}
+
+export function memberFromDoc(id: string, d: DocumentData): Member {
+  return {
+    id,
+    name: d.name ?? '',
+    email: d.email ?? '',
+    role: toMemberRole(d.role),
+    sectorIds: toStringArray(d.sectorIds),
+    // Sem o campo, o vínculo é antigo/criado à mão — vale como ativo.
+    active: d.active !== false,
+    tenantName: d.tenantName ?? '',
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+export function inviteFromDoc(id: string, d: DocumentData): Invite {
+  return {
+    id,
+    email: d.email ?? id,
+    tenantUid: d.tenantUid ?? '',
+    tenantName: d.tenantName ?? '',
+    role: toMemberRole(d.role),
+    sectorIds: toStringArray(d.sectorIds),
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+export function sectorFromDoc(id: string, d: DocumentData): Sector {
+  return {
+    id,
+    name: d.name ?? '',
+    color: d.color ?? '#7a52a0',
+    greeting: d.greeting ?? '',
+    order: d.order ?? 0,
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+export function tagFromDoc(id: string, d: DocumentData): Tag {
+  return {
+    id,
+    label: d.label ?? '',
+    color: d.color ?? '#7a52a0',
+    order: d.order ?? 0,
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+export function quickReplyFromDoc(id: string, d: DocumentData): QuickReply {
+  return {
+    id,
+    shortcut: d.shortcut ?? '',
+    title: d.title ?? '',
+    text: d.text ?? '',
+    sectorId: d.sectorId ?? '',
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+function toCustomFieldType(v: unknown): CustomFieldType {
+  return v === 'numero' || v === 'data' || v === 'lista' || v === 'booleano' ? v : 'texto'
+}
+
+export function customFieldFromDoc(id: string, d: DocumentData): CustomField {
+  return {
+    id,
+    label: d.label ?? '',
+    type: toCustomFieldType(d.type),
+    options: toStringArray(d.options),
+    order: d.order ?? 0,
+    createdAt: toDate(d.createdAt),
+  }
+}
+
+function toDayHours(v: unknown): DayHours {
+  const d = (v ?? {}) as Record<string, unknown>
+  return {
+    enabled: !!d.enabled,
+    open: typeof d.open === 'string' ? d.open : '09:00',
+    close: typeof d.close === 'string' ? d.close : '18:00',
+  }
+}
+
+/** Sempre devolve os 7 dias, mesmo se o doc vier curto/torto — a UI indexa por getDay(). */
+export function businessHoursFromDoc(v: unknown): BusinessHours {
+  const d = (v ?? {}) as Record<string, unknown>
+  const raw = Array.isArray(d.days) ? d.days : []
+  return {
+    days: Array.from({ length: 7 }, (_, i) => toDayHours(raw[i])),
+    awayMessage: typeof d.awayMessage === 'string' ? d.awayMessage : '',
+    timezone: typeof d.timezone === 'string' ? d.timezone : 'America/Sao_Paulo',
+  }
+}
+
+export function toConvStatus(v: unknown): ConvStatus {
+  return v === 'esperando' || v === 'finalizado' ? v : 'entrada'
+}
+
+/**
+ * Contato sem `conv` é anterior aos módulos de atendimento (ou nasceu do daemon antigo).
+ * Devolvemos undefined em vez de um estado inventado — quem consome decide o default,
+ * e assim a UI consegue distinguir "nunca atendido" de "na entrada".
+ */
+function toConvState(v: unknown): ConvState | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const d = v as Record<string, unknown>
+  return {
+    status: toConvStatus(d.status),
+    recordId: typeof d.recordId === 'string' ? d.recordId : '',
+    assignedTo: typeof d.assignedTo === 'string' ? d.assignedTo : '',
+    assignedName: typeof d.assignedName === 'string' ? d.assignedName : '',
+    sectorId: typeof d.sectorId === 'string' ? d.sectorId : '',
+    tagIds: toStringArray(d.tagIds),
+    openedAt: toDate(d.openedAt),
+    firstResponseAt: toDate(d.firstResponseAt),
+    closedAt: toDate(d.closedAt),
+    closedBy: typeof d.closedBy === 'string' ? d.closedBy : '',
+  }
+}
+
+function toCustomValues(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object') return {}
+  const out: Record<string, string> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (val !== null && val !== undefined) out[k] = String(val)
+  }
+  return out
+}
+
+export function conversationFromDoc(id: string, d: DocumentData): ConversationRecord {
+  return {
+    id,
+    contactId: d.contactId ?? '',
+    contactName: d.contactName ?? '',
+    assignedTo: d.assignedTo ?? '',
+    assignedName: d.assignedName ?? '',
+    sectorId: d.sectorId ?? '',
+    tagIds: toStringArray(d.tagIds),
+    openedAt: toDate(d.openedAt) ?? new Date(0),
+    firstResponseAt: toDate(d.firstResponseAt),
+    closedAt: toDate(d.closedAt),
+    closedBy: d.closedBy ?? '',
+    rating: typeof d.rating === 'number' ? d.rating : undefined,
+  }
+}
+
 export function contactFromDoc(id: string, d: DocumentData): Contact {
   return {
     id,
@@ -149,6 +304,8 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     lastMessage: d.lastMessage ?? '',
     lastMessageAt: toDate(d.lastMessageAt),
     unreadCount: typeof d.unreadCount === 'number' ? d.unreadCount : 0,
+    conv: toConvState(d.conv),
+    custom: toCustomValues(d.custom),
     createdAt: toDate(d.createdAt),
   }
 }
@@ -283,5 +440,7 @@ export function profileFromDoc(d: DocumentData | undefined): UserProfile | null 
     role: d.role ?? 'Gerente Comercial',
     agent: (d.agent ?? {}) as AgentConfig,
     features: (d.features ?? {}) as UserProfile['features'],
+    orgName: d.orgName ?? '',
+    businessHours: businessHoursFromDoc(d.businessHours),
   }
 }

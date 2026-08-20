@@ -12,6 +12,7 @@ import { auth, db } from '../lib/firebase'
 import { defaultAgentConfig, defaultActTypes } from '../lib/theme'
 import { isOwnerEmail } from '../lib/owners'
 import { useTenantStore } from '../store/tenantStore'
+import { acceptPendingInvite, ensureOwnerMember } from '../lib/team'
 
 interface AuthContextValue {
   user: User | null
@@ -62,19 +63,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  /**
+   * Passos comuns a login e cadastro: doc base, vínculo de dono no próprio tenant e
+   * aceite de um convite pendente. Se havia convite, o usuário já entra atendendo na
+   * equipe que o chamou — é o único motivo de um atendente ter criado a conta.
+   */
+  async function settleSession(uid: string, name: string, email: string) {
+    await bootstrapUserDoc(uid, name)
+    // Backfill do e-mail no doc (permite a lista de clientes do dono filtrar donos).
+    await setDoc(doc(db, 'users', uid), { email }, { merge: true })
+    await ensureOwnerMember(uid, name, email)
+
+    // Best-effort: sem convite (ou com ele já aceito noutra aba) o login segue normal.
+    const joined = await acceptPendingInvite(uid, name, email).catch((err) => {
+      console.error('[acceptPendingInvite]', err)
+      return null
+    })
+    if (joined) {
+      useTenantStore.getState().enterMembership(
+        { uid: joined.tenantUid, name: joined.tenantName },
+        joined.role,
+      )
+    }
+  }
+
   async function signUp(name: string, email: string, password: string) {
     const cred = await createUserWithEmailAndPassword(auth, email, password)
     if (name) await updateProfile(cred.user, { displayName: name })
-    await bootstrapUserDoc(cred.user.uid, name || email)
-    await setDoc(doc(db, 'users', cred.user.uid), { email: cred.user.email }, { merge: true })
+    await settleSession(cred.user.uid, name || email, cred.user.email ?? email)
   }
 
   async function signIn(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(auth, email, password)
     // Garante o doc base caso a conta tenha sido criada fora do fluxo de signup.
-    await bootstrapUserDoc(cred.user.uid, cred.user.displayName || email)
-    // Backfill do e-mail no doc (permite a lista de clientes do dono filtrar donos).
-    await setDoc(doc(db, 'users', cred.user.uid), { email: cred.user.email }, { merge: true })
+    await settleSession(cred.user.uid, cred.user.displayName || email, cred.user.email ?? email)
   }
 
   function logout() {

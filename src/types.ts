@@ -98,6 +98,147 @@ export interface Flow {
   updatedAt?: Date
 }
 
+/** Papéis dentro de um tenant. `dono` é quem criou a conta; os demais entram por convite. */
+export type MemberRole = 'dono' | 'gestor' | 'atendente'
+
+/**
+ * Atendente com acesso ao tenant — users/{tenantUid}/members/{memberUid}.
+ * O id do doc É o uid do Auth: as security rules checam vínculo por
+ * exists(.../members/$(request.auth.uid)), e isso só funciona com o uid na chave.
+ */
+export interface Member {
+  id: string
+  name: string
+  email: string
+  role: MemberRole
+  /** Setores em que o atendente atua. Vazio = todos. */
+  sectorIds: string[]
+  active: boolean
+  /** Nome do tenant, desnormalizado — o atendente lista os vínculos dele sem ler cada dono. */
+  tenantName?: string
+  createdAt?: Date
+}
+
+/** Convite pendente — invites/{email}, criado pelo tenant e aceito pelo convidado. */
+export interface Invite {
+  id: string
+  email: string
+  tenantUid: string
+  tenantName: string
+  role: MemberRole
+  sectorIds: string[]
+  createdAt?: Date
+}
+
+/** Fila/departamento de atendimento (Comercial, Suporte, Financeiro...). */
+export interface Sector {
+  id: string
+  name: string
+  color: string
+  /** Mensagem automática ao transferir a conversa para o setor. Vazio = nenhuma. */
+  greeting: string
+  order: number
+  createdAt?: Date
+}
+
+/** Etiqueta aplicável a contatos/conversas. */
+export interface Tag {
+  id: string
+  label: string
+  color: string
+  order: number
+  createdAt?: Date
+}
+
+/** Resposta pronta, chamada no chat por `/atalho`. Suporta variáveis {{nome}}. */
+export interface QuickReply {
+  id: string
+  shortcut: string
+  title: string
+  text: string
+  sectorId: string
+  createdAt?: Date
+}
+
+export type CustomFieldType = 'texto' | 'numero' | 'data' | 'lista' | 'booleano'
+
+/** Campo extra do cadastro de contato — o valor fica em Contact.custom[fieldId]. */
+export interface CustomField {
+  id: string
+  label: string
+  type: CustomFieldType
+  /** Opções quando type === 'lista'. */
+  options: string[]
+  order: number
+  createdAt?: Date
+}
+
+/**
+ * Janela de atendimento de um dia. `open`/`close` em "HH:MM".
+ * Fora da janela o CRM avisa o atendente e o chatbot responde a mensagem de ausência.
+ */
+export interface DayHours {
+  enabled: boolean
+  open: string
+  close: string
+}
+
+/** Horários de atendimento, domingo (0) a sábado (6). */
+export interface BusinessHours {
+  days: DayHours[]
+  /** Resposta automática fora do horário. Vazio = não responde. */
+  awayMessage: string
+  timezone: string
+}
+
+/** Estado do atendimento, espelhando as abas Entrada · Esperando · Finalizados. */
+export type ConvStatus = 'entrada' | 'esperando' | 'finalizado'
+
+/**
+ * Atendimento corrente do contato — gravado como mapa `conv` no PRÓPRIO doc do contato.
+ * Fica junto (e não em coleção separada) porque a lista de conversas e a lista de
+ * contatos são a mesma tela: assim a caixa de entrada continua sendo UMA consulta.
+ */
+export interface ConvState {
+  status: ConvStatus
+  /** Doc correspondente em users/{uid}/conversations — o ciclo atual no histórico. */
+  recordId: string
+  /** uid do atendente responsável. Vazio = na fila, sem dono. */
+  assignedTo: string
+  assignedName: string
+  sectorId: string
+  tagIds: string[]
+  openedAt?: Date
+  /** Primeira resposta NOSSA depois que o cliente escreveu — base do relatório. */
+  firstResponseAt?: Date
+  closedAt?: Date
+  closedBy?: string
+}
+
+/**
+ * Ciclo de atendimento — users/{uid}/conversations/{convId}.
+ * Só existe para os Relatórios: o mapa `conv` do contato guarda apenas o ciclo atual,
+ * e "conversas finalizadas no período" precisa do histórico. Fica numa coleção PLANA do
+ * tenant (e não sob o contato) para o relatório ser uma consulta simples, sem
+ * collectionGroup — que exigiria regra baseada em `resource.data` e não fecharia para
+ * atendentes convidados.
+ */
+export interface ConversationRecord {
+  id: string
+  contactId: string
+  contactName: string
+  assignedTo: string
+  assignedName: string
+  sectorId: string
+  tagIds: string[]
+  openedAt: Date
+  firstResponseAt?: Date
+  closedAt?: Date
+  closedBy?: string
+  /** Nota de 1 a 5 da pesquisa de satisfação, quando respondida. */
+  rating?: number
+}
+
 export interface Contact {
   id: string
   name: string
@@ -126,6 +267,10 @@ export interface Contact {
   lastMessageAt?: Date
   /** Mensagens recebidas desde a última vez que a conversa foi aberta. */
   unreadCount?: number
+  /** Atendimento corrente. Ausente em contatos criados antes dos módulos de atendimento. */
+  conv?: ConvState
+  /** Valores dos campos personalizados, por id do CustomField. */
+  custom?: Record<string, string>
   createdAt?: Date
 }
 
@@ -270,4 +415,7 @@ export interface UserProfile {
   role: string
   agent: AgentConfig
   features?: Features
+  /** Nome da empresa/organização — cabeçalho de Configurações e dos convites. */
+  orgName?: string
+  businessHours?: BusinessHours
 }

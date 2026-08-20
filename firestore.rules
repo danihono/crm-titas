@@ -1,7 +1,8 @@
 rules_version = '2';
 
-// Single-tenant + SUPER TITAN: cada usuário acessa o seu próprio users/{uid}/...,
-// e os DONOS DO SISTEMA (allowlist de e-mail) leem todos os tenants (somente leitura).
+// Multi-seat + SUPER TITAN: o tenant é users/{uid} — do dono da conta e de todo mundo
+// que tem vínculo em users/{uid}/members/{memberUid} (atendentes convidados). Os DONOS
+// DO SISTEMA (allowlist de e-mail) leem todos os tenants (somente leitura).
 // A allowlist abaixo deve espelhar src/lib/owners.ts (OWNER_EMAILS).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -16,14 +17,75 @@ service cloud.firestore {
       ];
     }
 
+    function memberPath(uid) {
+      return /databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid);
+    }
+    // Vínculo de atendente. Custa 1 leitura por avaliação — por isso `owner(uid)` vem
+    // sempre ANTES nas condições: o caso comum (dono no próprio tenant) nem chega aqui.
+    function isMember(uid) {
+      return signedIn() && exists(memberPath(uid))
+        && get(memberPath(uid)).data.active != false;
+    }
+    function isManager(uid) {
+      return isMember(uid) && get(memberPath(uid)).data.role in ['dono', 'gestor'];
+    }
+
+    // Coleções que um ATENDENTE (papel mais raso) pode escrever. O que fica de fora —
+    // members, sectors, tags, quickReplies, customFields, actTypes, invoices — é de
+    // gestor para cima. Precisa ser decidido AQUI, dentro da própria regra ampla:
+    // as regras do Firestore são união permissiva, então um `allow write: if false`
+    // aninhado não revogaria nada.
+    function agentWritable(seg) {
+      return seg in [
+        'contacts', 'conversations', 'deals', 'boards', 'activities', 'events',
+        'scheduledMessages', 'leads', 'flows', 'waCommands', 'agentMessages'
+      ];
+    }
+
+    function invitePath() {
+      return /databases/$(database)/documents/invites/$(request.auth.token.email);
+    }
+
     match /users/{uid} {
-      allow read: if owner(uid) || isSuperOwner();
-      allow write: if owner(uid);
+      allow read: if owner(uid) || isMember(uid) || isSuperOwner();
+      allow write: if owner(uid) || isManager(uid);
+
+      // O vínculo em si: quem já é gestor administra a equipe. O CONVIDADO cria o
+      // próprio doc (id = uid dele) provando que existe um convite para o e-mail dele
+      // apontando para este tenant — o papel tem que ser igual ao do convite, então
+      // ninguém se promove no caminho. É o que dispensa uma Cloud Function no aceite.
+      match /members/{memberUid} {
+        allow read: if owner(uid) || isMember(uid) || isSuperOwner();
+        allow write: if owner(uid) || isManager(uid);
+        allow create: if signedIn()
+          && memberUid == request.auth.uid
+          && exists(invitePath())
+          && get(invitePath()).data.tenantUid == uid
+          && request.resource.data.role == get(invitePath()).data.role;
+      }
 
       match /{document=**} {
-        allow read: if owner(uid) || isSuperOwner();
-        allow write: if owner(uid);
+        allow read: if owner(uid) || isMember(uid) || isSuperOwner();
+        allow write: if owner(uid) || isManager(uid)
+          || (isMember(uid) && agentWritable(document[0]));
       }
+    }
+
+    // Descoberta de vínculo no login: collectionGroup('members') filtrado pelo próprio
+    // e-mail. A condição espelha exatamente o where() da consulta — é o que o Firestore
+    // exige para aceitar uma query sobre regra baseada em `resource.data`.
+    match /{path=**}/members/{memberUid} {
+      allow read: if signedIn() && resource.data.email == request.auth.token.email;
+    }
+
+    // Convites. O doc é chaveado pelo e-mail do convidado: ele lê e apaga o próprio
+    // convite (ao aceitar); quem convida é gestor do tenant apontado no doc.
+    match /invites/{email} {
+      allow read, delete: if signedIn() && email == request.auth.token.email;
+      allow read, write: if signedIn()
+        && (owner(resource.data.tenantUid) || isManager(resource.data.tenantUid));
+      allow create: if signedIn()
+        && (owner(request.resource.data.tenantUid) || isManager(request.resource.data.tenantUid));
     }
 
     // Leituras agregadas (collectionGroup) para os dashboards SUPER TITAN — só donos.
@@ -31,6 +93,7 @@ service cloud.firestore {
     match /{path=**}/invoices/{id}   { allow read: if isSuperOwner(); }
     match /{path=**}/contacts/{id}   { allow read: if isSuperOwner(); }
     match /{path=**}/activities/{id} { allow read: if isSuperOwner(); }
+    match /{path=**}/conversations/{id} { allow read: if isSuperOwner(); }
 
     // Status da conexão de WhatsApp (QR + estado). Cliente LÊ o próprio; NUNCA escreve
     // (quem escreve é o daemon via Admin SDK). Coleção top-level de propósito, para o
