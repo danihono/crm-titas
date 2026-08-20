@@ -3,6 +3,7 @@ import {
   assignConversation, closeConversation, convOf, reopenConversation,
   setConversationSector, setConversationStatus, toggleConversationTag,
 } from '../../hooks/useConversations'
+import { setContactOptOut } from '../../hooks/useCampaigns'
 import MaterialIcon from '../common/MaterialIcon'
 import { C } from '../../styles/sx'
 import type { Contact, ConvStatus, Member, Sector, Tag } from '../../types'
@@ -143,6 +144,24 @@ export default function AtendimentoBar({ contact, members, sectors, tags, canWri
           </div>
         )}
       </div>
+
+      {contact.optOut && (
+        <span
+          title="Pediu para não receber campanhas (respondeu SAIR/PARE)"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#a03257', background: 'rgba(217,138,171,0.16)', borderRadius: 999, padding: '4px 10px' }}
+        >
+          <MaterialIcon name="do_not_disturb_on" size={14} /> Sem campanhas
+          {canWrite && (
+            <button
+              onClick={() => run(() => setContactOptOut(contact.id, false))}
+              title="Voltar a incluir em campanhas"
+              style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', color: '#a03257', padding: 0, marginLeft: 2 }}
+            >
+              <MaterialIcon name="undo" size={14} />
+            </button>
+          )}
+        </span>
+      )}
 
       <div style={{ flex: 1 }} />
 

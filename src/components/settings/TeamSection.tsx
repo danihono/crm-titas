@@ -25,7 +25,11 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
   const tenantUid = useTenantStore((s) => s.tenantUid) ?? user?.uid ?? null
   const tenantName = useTenantStore((s) => s.client)?.name ?? user?.displayName ?? 'Titãs CRM'
   const { docs: members } = useMembers()
-  const invites = usePendingInvites(tenantUid)
+  // A listagem de convites pendentes só é permitida a quem é o DONO da conta: a regra
+  // do Firestore precisa casar com o where('tenantUid'), e um teste de papel por get()
+  // não é comparável a um filtro de consulta (ver o bloco `invites` em firestore.rules).
+  const isOwnAccount = !useTenantStore.getState().tenantUid
+  const invites = usePendingInvites(isOwnAccount ? tenantUid : null)
 
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<MemberRole>('atendente')

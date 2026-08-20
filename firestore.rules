@@ -80,9 +80,16 @@ service cloud.firestore {
 
     // Convites. O doc é chaveado pelo e-mail do convidado: ele lê e apaga o próprio
     // convite (ao aceitar); quem convida é gestor do tenant apontado no doc.
+    //
+    // A leitura de quem CONVIDA é só `resource.data.tenantUid == request.auth.uid`, de
+    // propósito: a tela lista os pendentes com where('tenantUid','==',uid), e o Firestore
+    // só aceita uma consulta quando consegue casar o filtro com a condição da regra.
+    // Um `get()` de papel aqui dentro não é comparável a um where(), e derrubaria a
+    // listagem inteira — a escrita, que é doc a doc, pode ser mais rica.
     match /invites/{email} {
       allow read, delete: if signedIn() && email == request.auth.token.email;
-      allow read, write: if signedIn()
+      allow read: if signedIn() && resource.data.tenantUid == request.auth.uid;
+      allow update, delete: if signedIn()
         && (owner(resource.data.tenantUid) || isManager(resource.data.tenantUid));
       allow create: if signedIn()
         && (owner(request.resource.data.tenantUid) || isManager(request.resource.data.tenantUid));
