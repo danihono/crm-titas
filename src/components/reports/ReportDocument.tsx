@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { fmtDate, fmtDuration, type ReportModel, type ReportRow } from '../../lib/reportData'
 import { RankedBars, StatusStack, TrendArea } from './Charts'
+import type { ReportSections } from '../../lib/xlsx'
 
 const INK = '#1d1726'
 const SUB = '#6e6780'
@@ -107,7 +108,13 @@ function Breakdown({ title, entity, rows }: { title: string; entity: string; row
  * (Layout > main > Outlet > Reports). Do body, o `@media print` isola com uma regra
  * só — sem portal seria preciso caçar e esconder cada ancestral.
  */
-export default function ReportDocument({ model, orgName }: { model: ReportModel; orgName: string }) {
+export default function ReportDocument({ model, orgName, sections, trendRef }: {
+  model: ReportModel
+  orgName: string
+  sections: ReportSections
+  /** Ref do SVG de tendência — é este gráfico que a planilha rasteriza. */
+  trendRef?: React.Ref<SVGSVGElement>
+}) {
   const k = model.kpis
 
   const doc = (
@@ -129,28 +136,39 @@ export default function ReportDocument({ model, orgName }: { model: ReportModel;
         </div>
       </header>
 
-      <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-        <Kpi label="Conversas" value={String(k.total)} hint="Iniciadas no período" />
-        <Kpi label="Em aberto" value={String(k.open)} hint="Sem finalização" />
-        <Kpi label="Finalizadas" value={String(k.closed)} hint="Encerradas pela equipe" />
+      {sections.resumo && (
+        <>
+          <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <Kpi label="Conversas" value={String(k.total)} hint="Iniciadas no período" />
+            <Kpi label="Em aberto" value={String(k.open)} hint="Sem finalização" />
+            <Kpi label="Finalizadas" value={String(k.closed)} hint="Encerradas pela equipe" />
+          </div>
+          <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <Kpi label="1ª resposta" value={fmtDuration(k.firstResponseMs)} hint="Média entre abrir e responder" />
+            <Kpi label="Até finalizar" value={fmtDuration(k.resolutionMs)} hint="Média entre abrir e encerrar" />
+          </div>
+        </>
+      )}
+
+      {/* O gráfico fica sempre montado, mesmo com a seção desmarcada: é dele que a
+          planilha tira a imagem, e desmontá-lo deixaria a aba Resumo sem gráfico.
+          Quando a seção sai do relatório, some só da vista impressa. */}
+      <div style={sections.porDia ? undefined : { display: 'none' }}>
+        <Section title="Conversas por dia" subtitle="Volume diário de atendimentos iniciados.">
+          <TrendArea points={model.byDay} width={DOC_W} svgRef={trendRef} />
+        </Section>
       </div>
-      <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-        <Kpi label="1ª resposta" value={fmtDuration(k.firstResponseMs)} hint="Média entre abrir e responder" />
-        <Kpi label="Até finalizar" value={fmtDuration(k.resolutionMs)} hint="Média entre abrir e encerrar" />
-      </div>
 
-      <Section title="Conversas por dia" subtitle="Volume diário de atendimentos iniciados.">
-        <TrendArea points={model.byDay} width={DOC_W} />
-      </Section>
+      {sections.agora && (
+        <Section title="Fila agora" subtitle="Estado das conversas abertas no momento da emissão.">
+          <StatusStack fila={model.live.fila} atendimento={model.live.atendimento}
+            esperando={model.live.esperando} width={DOC_W} />
+        </Section>
+      )}
 
-      <Section title="Fila agora" subtitle="Estado das conversas abertas no momento da emissão.">
-        <StatusStack fila={model.live.fila} atendimento={model.live.atendimento}
-          esperando={model.live.esperando} width={DOC_W} />
-      </Section>
-
-      <Breakdown title="Por atendente" entity="Atendente" rows={model.byAgent} />
-      <Breakdown title="Por setor" entity="Setor" rows={model.bySector} />
-      <Breakdown title="Por etiqueta" entity="Etiqueta" rows={model.byTag} />
+      {sections.atendentes && <Breakdown title="Por atendente" entity="Atendente" rows={model.byAgent} />}
+      {sections.setores && <Breakdown title="Por setor" entity="Setor" rows={model.bySector} />}
+      {sections.etiquetas && <Breakdown title="Por etiqueta" entity="Etiqueta" rows={model.byTag} />}
 
       <footer style={{ marginTop: 30, paddingTop: 12, borderTop: `1px solid ${LINE}`,
         display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: MUTED }}>

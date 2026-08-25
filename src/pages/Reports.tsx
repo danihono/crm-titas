@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useContacts } from '../hooks/useContacts'
 import { useConversations, convOf } from '../hooks/useConversations'
 import { useMembers } from '../hooks/useTeam'
@@ -7,7 +7,9 @@ import { sx, C } from '../styles/sx'
 import MaterialIcon from '../components/common/MaterialIcon'
 import TabBar, { type TabDef } from '../components/common/TabBar'
 import { buildReport, fmtDuration, avgSpan } from '../lib/reportData'
-import { buildReportCsv, downloadText, reportFileName } from '../lib/csv'
+import { exportReportXlsx, ALL_SECTIONS, type ReportSections } from '../lib/xlsx'
+import { svgElementToPng } from '../lib/svgToPng'
+import ExportModal from '../components/reports/ExportModal'
 import ReportDocument from '../components/reports/ReportDocument'
 import { TrendArea } from '../components/reports/Charts'
 
@@ -46,6 +48,9 @@ export default function Reports() {
   const { docs: sectors } = useSectors()
   const { docs: tags } = useTags()
   const orgName = useOrgName()
+  const [showExport, setShowExport] = useState(false)
+  const [sections, setSections] = useState<ReportSections>(ALL_SECTIONS)
+  const trendRef = useRef<SVGSVGElement>(null)
 
   const closed = conversations.filter((c) => c.closedAt)
   const open = conversations.filter((c) => !c.closedAt)
@@ -57,18 +62,26 @@ export default function Reports() {
     [conversations, contacts, members, sectors, tags, from, to, days],
   )
 
-  function exportCsv() {
-    downloadText(
-      buildReportCsv(model, orgName),
-      reportFileName(model, 'csv'),
-      'text/csv;charset=utf-8',
-    )
-  }
+  /**
+   * Executa a exportação no formato escolhido, respeitando o filtro de seções.
+   *
+   * As seções entram no estado ANTES de gerar: o documento de impressão precisa
+   * re-renderizar já filtrado, senão o PDF sairia com o que estava marcado antes.
+   */
+  async function handleExport(format: 'pdf' | 'xlsx', chosen: ReportSections) {
+    setSections(chosen)
 
-  // O documento de impressão já está montado no DOM (invisível na tela); imprimir é só
-  // pedir a caixa do navegador. Sem timeout o Safari às vezes imprime antes de pintar.
-  function exportPdf() {
-    setTimeout(() => window.print(), 60)
+    if (format === 'xlsx') {
+      // O gráfico vira imagem a partir do MESMO SVG que o PDF mostra.
+      const trend = trendRef.current ? await svgElementToPng(trendRef.current) : null
+      await exportReportXlsx(model, orgName, chosen, { trend })
+      return
+    }
+
+    // Espera o React repintar com o novo filtro antes de abrir a caixa de impressão —
+    // sem isso o navegador captura o documento ainda com as seções antigas.
+    await new Promise((r) => setTimeout(r, 120))
+    window.print()
   }
 
   return (
@@ -82,11 +95,8 @@ export default function Reports() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            <button onClick={exportCsv} title="Baixar planilha com todas as seções" style={exportBtn}>
-              <MaterialIcon name="table_view" size={17} /> CSV
-            </button>
-            <button onClick={exportPdf} title="Abre a impressão do navegador — escolha Salvar como PDF" style={exportBtn}>
-              <MaterialIcon name="picture_as_pdf" size={17} /> PDF
+            <button onClick={() => setShowExport(true)} title="Escolher seções e formato" style={exportBtn}>
+              <MaterialIcon name="download" size={17} /> Exportar
             </button>
             <span style={{ width: 1, height: 22, background: C.fieldBorder, margin: '0 4px' }} />
             {RANGES.map((r) => (
@@ -227,7 +237,9 @@ export default function Reports() {
 
       {/* Fica sempre montado: `display:none` na tela, visível só no @media print.
           Montar sob demanda faria o window.print() disparar antes do React pintar. */}
-      <ReportDocument model={model} orgName={orgName} />
+      <ReportDocument model={model} orgName={orgName} sections={sections} trendRef={trendRef} />
+
+      {showExport && <ExportModal onClose={() => setShowExport(false)} onExport={handleExport} />}
     </div>
   )
 }

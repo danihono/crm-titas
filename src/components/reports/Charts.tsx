@@ -39,10 +39,12 @@ function barPath(x0: number, y: number, x1: number, h: number, r = 4): string {
  * Conversas por dia. Série única — sem legenda de propósito: uma caixa com um único
  * quadradinho só repete o título e come espaço.
  */
-export function TrendArea({ points, width = 720, height = 190 }: {
+export function TrendArea({ points, width = 720, height = 190, svgRef }: {
   points: DayPoint[]
   width?: number
   height?: number
+  /** Exposto para a exportação rasterizar ESTE mesmo gráfico para a planilha. */
+  svgRef?: React.Ref<SVGSVGElement>
 }) {
   if (points.length === 0) return <EmptyPlot width={width} height={height} />
 
@@ -72,7 +74,7 @@ export function TrendArea({ points, width = 720, height = 190 }: {
     : [0, Math.floor(lastIdx / 2), lastIdx]
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
+    <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
       aria-label={`Conversas por dia, máximo de ${max}`}>
       {[0, 0.5, 1].map((t) => (
         <line key={t} x1={padL} x2={padL + plotW} y1={padT + plotH * t} y2={padT + plotH * t}
