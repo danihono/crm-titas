@@ -41,6 +41,13 @@ receber qualquer coisa vinda deste teste.
 Antes de **cada** envio, confirme no cabeçalho da conversa que o nome é **Daniel
 Honorato**. Se tiver qualquer dúvida sobre em qual conversa você está, não envie.
 
+**Reconfira o nome imediatamente antes de cada clique em Enviar ou Finalizar** — não vale
+a confirmação que você fez três passos atrás. Referência de botão guardada de uma tela
+anterior já causou um envio para o contato errado neste roteiro: depois de qualquer
+navegação, recarga, troca de aba ou reconexão do navegador, **localize o elemento de
+novo** e leia o cabeçalho outra vez. Se a página mudou de estado entre a leitura e o
+clique, comece a verificação do zero.
+
 #### Nunca, em hipótese alguma
 
 1. **Não envie mensagem em nenhuma conversa que não seja a do Daniel Honorato.** Cada
