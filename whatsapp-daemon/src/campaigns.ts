@@ -266,17 +266,25 @@ const CLAIM_TIMEOUT_MS = 5 * 60_000
 
 async function releaseStaleClaims(campaignRef: FirebaseFirestore.DocumentReference, now: Date): Promise<void> {
   const cutoff = Timestamp.fromMillis(now.getTime() - CLAIM_TIMEOUT_MS)
-  const stale = await campaignRef.collection('targets')
-    .where('status', '==', 'enviando')
-    .where('claimedAt', '<=', cutoff)
-    .limit(20)
-    .get()
-  if (stale.empty) return
+  try {
+    const stale = await campaignRef.collection('targets')
+      .where('status', '==', 'enviando')
+      .where('claimedAt', '<=', cutoff)
+      .limit(20)
+      .get()
+    if (stale.empty) return
 
-  const batch = db.batch()
-  stale.docs.forEach((d) => batch.update(d.ref, { status: 'pendente', claimedAt: FieldValue.delete() }))
-  await batch.commit()
-  logger.warn({ campaign: campaignRef.id, released: stale.size }, 'reservas de campanha destravadas')
+    const batch = db.batch()
+    stale.docs.forEach((d) => batch.update(d.ref, { status: 'pendente', claimedAt: FieldValue.delete() }))
+    await batch.commit()
+    logger.warn({ campaign: campaignRef.id, released: stale.size }, 'reservas de campanha destravadas')
+  } catch (err) {
+    // Esta consulta precisa de índice composto (status + claimedAt). Enquanto o índice
+    // está sendo criado ela falha — e, sem este catch, a exceção subia até o try do tick
+    // e matava o disparo de TODOS os tenants antes de qualquer envio. Destravar reserva
+    // pendurada é manutenção; nunca pode impedir a campanha de andar.
+    logger.warn({ err, campaign: campaignRef.id }, 'nao foi possivel destravar reservas — seguindo mesmo assim')
+  }
 }
 
 async function tick(): Promise<void> {
@@ -301,22 +309,31 @@ async function tick(): Promise<void> {
       for (const campaign of campaigns.docs) {
         if (campaign.get('respectBusinessHours') !== false && !withinBusinessHours(hours, now)) continue
 
-        await releaseStaleClaims(campaign.ref, now)
+        // Cada campanha é isolada: uma que falhe não pode derrubar as outras nem o tick.
+        // E o motivo vai para o próprio doc — uma campanha parada com "Último erro" vazio
+        // não dá ao usuário nenhuma pista do que fazer.
+        try {
+          await releaseStaleClaims(campaign.ref, now)
 
-        const pending = await campaign.ref.collection('targets')
-          .where('status', '==', 'pendente')
-          .limit(1)
-          .get()
-        if (pending.empty) {
+          const pending = await campaign.ref.collection('targets')
+            .where('status', '==', 'pendente')
+            .limit(1)
+            .get()
+          if (pending.empty) {
+            await finishIfDone(uid, campaign.id)
+            continue
+          }
+
+          const claimed = await claimNext(uid, campaign, pending.docs[0], now)
+          if (!claimed) continue
+          await dispatch(claimed, quotaRef, await tenantVariables(uid, now))
           await finishIfDone(uid, campaign.id)
-          continue
+          break
+        } catch (err) {
+          const code = err instanceof Error ? err.message : 'campaign_tick_failed'
+          logger.error({ err, uid, campaign: campaign.id }, 'campanha falhou no tick')
+          await campaign.ref.set({ lastError: code }, { merge: true }).catch(() => {})
         }
-
-        const claimed = await claimNext(uid, campaign, pending.docs[0], now)
-        if (!claimed) continue
-        await dispatch(claimed, quotaRef, await tenantVariables(uid, now))
-        await finishIfDone(uid, campaign.id)
-        break
       }
     }
   } catch (err) {

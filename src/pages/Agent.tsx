@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   useAgentConfig, useAgentChat, updateAgentField, toggleAgentSource, pushAgentMessage, callTitaIA, fallbackReply,
+  agentErrorHint, errorCode,
 } from '../hooks/useAgent'
 import { useTenantStore } from '../store/tenantStore'
 import { knowledgeContext, useKnowledge } from '../hooks/useLibrary'
@@ -123,8 +124,13 @@ export default function Agent() {
         const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
         reply = await callTitaIA({ system, history, question: q })
         if (!reply) reply = fallbackReply(q)
-      } catch {
-        reply = fallbackReply(q)
+      } catch (err) {
+        // Engolir o erro aqui escondia a causa: a tela dizia "modo offline" e o console
+        // ficava limpo, entao nao dava para saber se a funcao nao estava publicada ou se
+        // o App Check estava barrando. Agora o motivo vai para o console E para a resposta.
+        const code = errorCode(err)
+        console.error('[callTitaIA]', code || err, err)
+        reply = fallbackReply(q) + agentErrorHint(code)
       }
       await pushAgentMessage('agent', reply)
     } catch (e) {

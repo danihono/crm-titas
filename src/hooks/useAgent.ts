@@ -60,6 +60,38 @@ export async function callTitaIA(req: AskRequest): Promise<string> {
   return (res.data?.reply || '').trim()
 }
 
+/**
+ * Traduz o código de erro da callable em algo acionável dentro do próprio chat.
+ *
+ * Sem isto, toda falha vira o mesmo "modo offline" — e não dá para distinguir função
+ * não publicada de App Check barrando a chamada. Foi exatamente o que travou o
+ * diagnóstico num teste de ponta a ponta.
+ */
+export function agentErrorHint(code: string): string {
+  const hint = (t: string) => `\n\n_(Diagnóstico: ${t})_`
+  switch (code) {
+    case 'functions/not-found':
+      return hint('a Cloud Function askTitaIA não está publicada neste projeto — falta `firebase deploy --only functions`.')
+    case 'functions/unauthenticated':
+    case 'functions/permission-denied':
+      return hint('a chamada foi barrada pelo App Check. A build precisa de VITE_RECAPTCHA_SITE_KEY, ou o App Check precisa ser desligado na função.')
+    case 'functions/resource-exhausted':
+      return hint('cota da API da Anthropic esgotada.')
+    case 'functions/internal':
+      return hint('a função falhou por dentro — veja `firebase functions:log`.')
+    case 'functions/unavailable':
+      return hint('não foi possível alcançar a função — verifique a região configurada.')
+    default:
+      return code ? hint(code) : ''
+  }
+}
+
+/** Código do erro do Firebase, quando houver — é ele que diz o que consertar. */
+export function errorCode(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err) return String((err as { code: unknown }).code)
+  return ''
+}
+
 /** Resposta scriptada de degradação (porta fallbackReply do protótipo). */
 export function fallbackReply(q: string): string {
   const ql = q.toLowerCase()
