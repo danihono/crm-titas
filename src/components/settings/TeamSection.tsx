@@ -28,8 +28,10 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
   // A listagem de convites pendentes só é permitida a quem é o DONO da conta: a regra
   // do Firestore precisa casar com o where('tenantUid'), e um teste de papel por get()
   // não é comparável a um filtro de consulta (ver o bloco `invites` em firestore.rules).
-  const isOwnAccount = !useTenantStore.getState().tenantUid
-  const invites = usePendingInvites(isOwnAccount ? tenantUid : null)
+  // Lido pelo seletor do store (e não por getState), senão trocar de equipe não
+  // re-renderiza esta seção.
+  const activeTenant = useTenantStore((s) => s.tenantUid)
+  const invites = usePendingInvites(activeTenant ? null : tenantUid)
 
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<MemberRole>('atendente')

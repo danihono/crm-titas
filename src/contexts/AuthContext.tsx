@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -53,22 +53,41 @@ async function bootstrapUserDoc(uid: string, displayName: string) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  /** uid já preparado nesta sessão — trava o settleSession contra reentrada. */
+  const settledUid = useRef<string | null>(null)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       setUser(u)
       setLoading(false)
-      // ao deslogar, limpa o cliente selecionado por um dono (evita herança de tenant).
-      if (!u) useTenantStore.getState().exitClient()
+      if (!u) {
+        // ao deslogar, limpa o cliente selecionado por um dono (evita herança de tenant).
+        settledUid.current = null
+        useTenantStore.getState().exitClient()
+        return
+      }
+      // Sessão restaurada do navegador NÃO passa por signIn(), então é aqui que o
+      // vínculo de dono é garantido. Sem isto, quem já estava logado quando os módulos
+      // de atendimento subiram nunca ganha o doc em members — e some da lista de
+      // atendentes, do seletor de responsável e dos relatórios por atendente.
+      void settleSession(u.uid, u.displayName || u.email || '', u.email ?? '').catch((err) =>
+        console.error('[settleSession]', err),
+      )
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /**
-   * Passos comuns a login e cadastro: doc base, vínculo de dono no próprio tenant e
-   * aceite de um convite pendente. Se havia convite, o usuário já entra atendendo na
-   * equipe que o chamou — é o único motivo de um atendente ter criado a conta.
+   * Passos comuns a toda sessão: doc base, vínculo de dono no próprio tenant e aceite
+   * de um convite pendente. Se havia convite, o usuário já entra atendendo na equipe
+   * que o chamou — é o único motivo de um atendente ter criado a conta.
+   *
+   * Roda uma vez por sessão: o listener de auth dispara também em renovação de token,
+   * e repetir isto a cada renovação seria leitura paga à toa.
    */
   async function settleSession(uid: string, name: string, email: string) {
+    if (settledUid.current === uid) return
+    settledUid.current = uid
     await bootstrapUserDoc(uid, name)
     // Backfill do e-mail no doc (permite a lista de clientes do dono filtrar donos).
     await setDoc(doc(db, 'users', uid), { email }, { merge: true })
@@ -91,6 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cred = await createUserWithEmailAndPassword(auth, email, password)
     if (name) await updateProfile(cred.user, { displayName: name })
     await settleSession(cred.user.uid, name || email, cred.user.email ?? email)
+    // O listener de auth dispara já na criação da conta, quando o displayName ainda não
+    // foi gravado — nesse caso ele preparou a sessão usando o e-mail como nome. Reescreve
+    // nos dois lugares que exibem o nome, em vez de disputar a corrida com ele.
+    if (name) {
+      const uid = cred.user.uid
+      await setDoc(doc(db, 'users', uid), { displayName: name }, { merge: true })
+      await setDoc(doc(db, 'users', uid, 'members', uid), { name }, { merge: true })
+    }
   }
 
   async function signIn(email: string, password: string) {
