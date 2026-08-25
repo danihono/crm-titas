@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import { useContacts } from '../hooks/useContacts'
 import { useConversations, convOf } from '../hooks/useConversations'
 import { useMembers } from '../hooks/useTeam'
-import { useSectors, useTags } from '../hooks/useSettings'
+import { useSectors, useTags, useOrgName } from '../hooks/useSettings'
 import { sx, C } from '../styles/sx'
 import MaterialIcon from '../components/common/MaterialIcon'
 import TabBar, { type TabDef } from '../components/common/TabBar'
-import type { ConversationRecord } from '../types'
+import { buildReport, fmtDuration, avgSpan } from '../lib/reportData'
+import { buildReportCsv, downloadText, reportFileName } from '../lib/csv'
+import ReportDocument from '../components/reports/ReportDocument'
+import { TrendArea } from '../components/reports/Charts'
 
 type ReportTab = 'geral' | 'agora' | 'atendentes' | 'setores' | 'etiquetas'
 
@@ -23,31 +26,6 @@ const RANGES = [
   { days: 30, label: '30 dias' },
   { days: 90, label: '90 dias' },
 ]
-
-/** Duração legível a partir de milissegundos. "—" quando não há amostra. */
-function fmtDuration(ms: number | null): string {
-  if (ms === null || !Number.isFinite(ms)) return '—'
-  const min = Math.round(ms / 60000)
-  if (min < 1) return 'menos de 1 min'
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const rest = min % 60
-  if (h < 24) return rest ? `${h}h ${rest}min` : `${h}h`
-  const d = Math.floor(h / 24)
-  return `${d}d ${h % 24}h`
-}
-
-/** Média das durações presentes; null se nenhuma conversa tiver o par de marcos. */
-function avgSpan(rows: ConversationRecord[], to: (r: ConversationRecord) => Date | undefined): number | null {
-  const spans = rows.flatMap((r) => {
-    const end = to(r)
-    if (!end || !r.openedAt) return []
-    const ms = end.getTime() - r.openedAt.getTime()
-    return ms >= 0 ? [ms] : []
-  })
-  if (spans.length === 0) return null
-  return spans.reduce((a, b) => a + b, 0) / spans.length
-}
 
 export default function Reports() {
   const [tab, setTab] = useState<ReportTab>('geral')
@@ -67,9 +45,31 @@ export default function Reports() {
   const { docs: members } = useMembers()
   const { docs: sectors } = useSectors()
   const { docs: tags } = useTags()
+  const orgName = useOrgName()
 
   const closed = conversations.filter((c) => c.closedAt)
   const open = conversations.filter((c) => !c.closedAt)
+
+  // Modelo único: a tela, o CSV e o PDF leem daqui. Recalcular em cada lugar é como um
+  // número exportado passa a divergir do que o usuário viu na tela.
+  const model = useMemo(
+    () => buildReport({ conversations, contacts, members, sectors, tags, from, to, days }),
+    [conversations, contacts, members, sectors, tags, from, to, days],
+  )
+
+  function exportCsv() {
+    downloadText(
+      buildReportCsv(model, orgName),
+      reportFileName(model, 'csv'),
+      'text/csv;charset=utf-8',
+    )
+  }
+
+  // O documento de impressão já está montado no DOM (invisível na tela); imprimir é só
+  // pedir a caixa do navegador. Sem timeout o Safari às vezes imprime antes de pintar.
+  function exportPdf() {
+    setTimeout(() => window.print(), 60)
+  }
 
   return (
     <div>
@@ -81,7 +81,14 @@ export default function Reports() {
               Volume de conversas, tempo de resposta e desempenho por atendente, setor e etiqueta.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            <button onClick={exportCsv} title="Baixar planilha com todas as seções" style={exportBtn}>
+              <MaterialIcon name="table_view" size={17} /> CSV
+            </button>
+            <button onClick={exportPdf} title="Abre a impressão do navegador — escolha Salvar como PDF" style={exportBtn}>
+              <MaterialIcon name="picture_as_pdf" size={17} /> PDF
+            </button>
+            <span style={{ width: 1, height: 22, background: C.fieldBorder, margin: '0 4px' }} />
             {RANGES.map((r) => (
               <button
                 key={r.days}
@@ -129,6 +136,14 @@ export default function Reports() {
                 value={fmtDuration(avgSpan(closed, (r) => r.closedAt))}
               />
             </div>
+            <div style={{ ...sx.card, padding: '20px 22px', marginTop: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Conversas por dia</div>
+              <div style={{ fontSize: 12, color: C.sub, marginTop: 2, marginBottom: 10 }}>
+                Volume diário de atendimentos iniciados no período.
+              </div>
+              <TrendArea points={model.byDay} width={860} />
+            </div>
+
             {conversations.length === 0 && (
               <Empty>
                 Nenhuma conversa registrada neste período. Os relatórios passam a contar a partir do
@@ -209,8 +224,19 @@ export default function Reports() {
           />
         )}
       </div>
+
+      {/* Fica sempre montado: `display:none` na tela, visível só no @media print.
+          Montar sob demanda faria o window.print() disparar antes do React pintar. */}
+      <ReportDocument model={model} orgName={orgName} />
     </div>
   )
+}
+
+const exportBtn: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6,
+  border: '1px solid ' + C.fieldBorder, background: '#fff', color: C.sub,
+  borderRadius: 20, padding: '7px 13px', fontSize: 12.5, fontWeight: 700,
+  cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
 }
 
 function Kpi({ icon, color, label, hint, value }: {

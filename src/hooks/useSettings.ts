@@ -199,3 +199,28 @@ export function isWithinBusinessHours(hours: BusinessHours, at: Date = new Date(
   if (close <= open) return now >= open || now < close
   return now >= open && now < close
 }
+
+/**
+ * Nome da organização do tenant ativo (Configurações › Dados e canais).
+ *
+ * Lê o doc do TENANT, não o da conta logada — quem exporta um relatório de uma equipe
+ * precisa ver o nome da equipe no cabeçalho, não o próprio nome.
+ */
+export function useOrgName(): string {
+  const { user } = useAuth()
+  const tenantUid = useTenantStore((s) => s.tenantUid)
+  const [orgName, setOrgName] = useState('')
+
+  useEffect(() => {
+    const uid = tenantUid ?? user?.uid
+    if (!uid) {
+      setOrgName('')
+      return
+    }
+    return onSnapshot(doc(db, 'users', uid), (snap) => {
+      setOrgName((snap.data()?.orgName ?? '') as string)
+    })
+  }, [user?.uid, tenantUid])
+
+  return orgName
+}
