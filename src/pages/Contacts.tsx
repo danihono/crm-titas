@@ -10,13 +10,14 @@ import { deleteScheduledMessage } from '../hooks/useEvents'
 import { sendWhatsappMessage, sendWhatsappMedia, fetchWhatsappHistory, refreshWhatsappPhoto, purgeWhatsappContact, retryWhatsappMedia, whatsappEnabled, waErrorCode } from '../lib/whatsapp'
 import { useDaemonOnline } from '../hooks/useDaemonOnline'
 import { useMembers } from '../hooks/useTeam'
-import { useSectors, useTags, useQuickReplies, applyVariables } from '../hooks/useSettings'
+import { useSectors, useTags, useQuickReplies, applyVariables, useCustomFields } from '../hooks/useSettings'
 import { useVariables, variableMap } from '../hooks/useLibrary'
 import { useSelfProfile, withSignature } from '../hooks/useProfile'
 import { convOf, ensureConversation, markFirstResponse } from '../hooks/useConversations'
 import InboxTabs, { filterByInbox } from '../components/conversation/InboxTabs'
 import AtendimentoBar from '../components/conversation/AtendimentoBar'
 import QuickReplyPicker, { matchQuickReplies, quickReplyQuery } from '../components/conversation/QuickReplyPicker'
+import CustomFieldsCard from '../components/conversation/CustomFieldsCard'
 import { useAuth } from '../contexts/AuthContext'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
@@ -82,6 +83,7 @@ export default function Contacts() {
   const { docs: sectors } = useSectors()
   const { docs: tags } = useTags()
   const { docs: quickReplies } = useQuickReplies()
+  const { docs: customFields } = useCustomFields()
   const { docs: variables } = useVariables()
   const profile = useSelfProfile()
   const { user } = useAuth()
@@ -839,6 +841,7 @@ export default function Contacts() {
                   <InfoRow icon="call" color="#4f7fc0" bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
                   <InfoRow icon="chat" color="#1f8a4c" bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
                   <InfoRow icon="business" color="#b3801f" bg="rgba(216,169,96,0.18)" label="Empresa" value={active.company} />
+                  <CustomFieldsCard contact={active} fields={customFields} canEdit={!readOnly} />
                   {waEnabled && wa.status === 'connected' && active.whatsapp && (
                     <div style={{ marginTop: 18 }}>
                       <HistoryBar
