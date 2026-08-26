@@ -1,6 +1,13 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
+import { initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getStorage } from 'firebase-admin/storage'
 import Anthropic from '@anthropic-ai/sdk'
+
+// Admin SDK — usado pela exclusão de cliente (varre Firestore, Storage e Auth).
+initializeApp()
 
 // Chave da Anthropic — no Secret Manager, NUNCA no bundle do cliente.
 // Definir com:  firebase functions:secrets:set ANTHROPIC_API_KEY
@@ -252,5 +259,117 @@ export const gerarFluxoIA = onCall(
       console.error('[gerarFluxoIA] erro Anthropic:', err)
       throw new HttpsError('internal', 'Não foi possível gerar o fluxo agora.')
     }
+  },
+)
+
+// ---------------------------------------------------------------------------
+// Exclusão de cliente (painel SUPER TITAN → Clientes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Donos do sistema. Espelha src/lib/owners.ts e a allowlist do firestore.rules —
+ * as três listas precisam andar juntas.
+ */
+const OWNER_EMAILS = [
+  'danielboy200627@gmail.com',
+  // 'dono2@exemplo.com',
+  // 'dono3@exemplo.com',
+].map((e) => e.toLowerCase())
+
+/** Roda o passo e só registra a falha: um erro no Storage não pode abortar o resto. */
+async function step(label: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn()
+  } catch (err) {
+    console.error(`[excluirCliente] falha em ${label}:`, err)
+  }
+}
+
+/**
+ * Callable: apaga DEFINITIVAMENTE o tenant users/{uid} — subcoleções, arquivos no
+ * Storage, convites, vínculos de equipe e a conta no Auth.
+ *
+ * O navegador não conseguiria fazer isso: as regras nem deixam o dono do sistema ler as
+ * subcoleções do cliente (dados confidenciais), quanto mais varrê-las. Aqui a autorização
+ * é refeita do zero contra a allowlist — não se confia em nada vindo do cliente além do uid.
+ */
+export const excluirCliente = onCall(
+  {
+    region: 'southamerica-east1',
+    // Exigido em produção; dispensado no emulador, onde o app roda sem reCAPTCHA e a
+    // chamada voltaria 401 — o que deixaria a exclusão sem como ser testada localmente.
+    // A autorização de verdade é a allowlist logo abaixo, não o App Check.
+    enforceAppCheck: !process.env.FUNCTIONS_EMULATOR,
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+    }
+    const callerEmail = String(request.auth.token.email || '').toLowerCase()
+    if (!OWNER_EMAILS.includes(callerEmail)) {
+      throw new HttpsError('permission-denied', 'Apenas o dono do sistema pode excluir clientes.')
+    }
+
+    const uid = String((request.data || {}).uid || '').trim()
+    if (!uid) {
+      throw new HttpsError('invalid-argument', 'uid do cliente não informado.')
+    }
+    if (uid === request.auth.uid) {
+      throw new HttpsError('failed-precondition', 'Você não pode excluir a própria conta por aqui.')
+    }
+
+    const db = getFirestore()
+    const userRef = db.doc(`users/${uid}`)
+
+    // E-mail do alvo: primeiro o Auth (fonte da verdade), com o doc como reserva.
+    let targetEmail = ''
+    try {
+      targetEmail = String((await getAuth().getUser(uid)).email || '').toLowerCase()
+    } catch {
+      const snap = await userRef.get()
+      targetEmail = String(snap.data()?.email || '').toLowerCase()
+    }
+    if (targetEmail && OWNER_EMAILS.includes(targetEmail)) {
+      throw new HttpsError('failed-precondition', 'Contas de dono do sistema não podem ser excluídas por aqui.')
+    }
+
+    await step('storage', async () => {
+      const bucket = process.env.TITA_STORAGE_BUCKET
+        ? getStorage().bucket(process.env.TITA_STORAGE_BUCKET)
+        : getStorage().bucket()
+      await bucket.deleteFiles({ prefix: `users/${uid}/` })
+    })
+
+    // recursiveDelete cuida das subcoleções (contacts/messages, deals, conversations…),
+    // que é justamente o que o SDK do navegador não alcança.
+    await step('firestore/users', () => db.recursiveDelete(userRef))
+    await step('firestore/whatsappStatus', () => db.recursiveDelete(db.doc(`whatsappStatus/${uid}`)))
+    await step('firestore/whatsappSessions', () => db.recursiveDelete(db.doc(`whatsappSessions/${uid}`)))
+
+    await step('firestore/invites', async () => {
+      const snap = await db.collection('invites').where('tenantUid', '==', uid).get()
+      await Promise.all(snap.docs.map((d) => d.ref.delete()))
+    })
+
+    // Vínculos que este e-mail tinha como atendente em OUTROS tenants — senão sobra um
+    // convidado fantasma na equipe de quem o convidou.
+    if (targetEmail) {
+      await step('firestore/members', async () => {
+        const snap = await db.collectionGroup('members').where('email', '==', targetEmail).get()
+        await Promise.all(snap.docs.map((d) => d.ref.delete()))
+      })
+    }
+
+    await step('auth', async () => {
+      try {
+        await getAuth().deleteUser(uid)
+      } catch (err) {
+        if ((err as { code?: string }).code !== 'auth/user-not-found') throw err
+      }
+    })
+
+    console.info(`[excluirCliente] cliente ${uid} excluído por ${callerEmail}`)
+    return { ok: true }
   },
 )

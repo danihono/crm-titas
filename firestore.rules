@@ -1,8 +1,13 @@
 rules_version = '2';
 
 // Multi-seat + SUPER TITAN: o tenant é users/{uid} — do dono da conta e de todo mundo
-// que tem vínculo em users/{uid}/members/{memberUid} (atendentes convidados). Os DONOS
-// DO SISTEMA (allowlist de e-mail) leem todos os tenants (somente leitura).
+// que tem vínculo em users/{uid}/members/{memberUid} (atendentes convidados).
+//
+// Os DONOS DO SISTEMA (allowlist de e-mail) NÃO entram no tenant do cliente: os dados de
+// atendimento podem ser confidenciais. O que eles têm é (1) ler o DOC users/{uid} para
+// listar os clientes, (2) alterar só a ficha administrativa desse doc — nome, cor e logo —
+// e (3) as consultas de grupo agregadas dos dashboards. Conversas, mensagens, arquivos e
+// configurações ficam fora do alcance deles.
 // A allowlist abaixo deve espelhar src/lib/owners.ts (OWNER_EMAILS).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -50,12 +55,19 @@ service cloud.firestore {
       allow read: if owner(uid) || isMember(uid) || isSuperOwner();
       allow write: if owner(uid) || isManager(uid);
 
+      // Ficha administrativa do cliente, editada no painel SUPER TITAN. O hasOnly é a
+      // trava de verdade: sem ele, "editar o nome do cliente" viraria escrita livre no
+      // doc do tenant (agent, horários, prefs…).
+      allow update: if isSuperOwner()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['displayName', 'brandColor', 'logoUrl', 'logoPath']);
+
       // O vínculo em si: quem já é gestor administra a equipe. O CONVIDADO cria o
       // próprio doc (id = uid dele) provando que existe um convite para o e-mail dele
       // apontando para este tenant — o papel tem que ser igual ao do convite, então
       // ninguém se promove no caminho. É o que dispensa uma Cloud Function no aceite.
       match /members/{memberUid} {
-        allow read: if owner(uid) || isMember(uid) || isSuperOwner();
+        allow read: if owner(uid) || isMember(uid);
         allow write: if owner(uid) || isManager(uid);
         allow create: if signedIn()
           && memberUid == request.auth.uid
@@ -65,7 +77,7 @@ service cloud.firestore {
       }
 
       match /{document=**} {
-        allow read: if owner(uid) || isMember(uid) || isSuperOwner();
+        allow read: if owner(uid) || isMember(uid);
         allow write: if owner(uid) || isManager(uid)
           || (isMember(uid) && agentWritable(document[0]));
       }
@@ -95,19 +107,25 @@ service cloud.firestore {
         && (owner(request.resource.data.tenantUid) || isManager(request.resource.data.tenantUid));
     }
 
-    // Leituras agregadas (collectionGroup) para os dashboards SUPER TITAN — só donos.
-    match /{path=**}/deals/{id}      { allow read: if isSuperOwner(); }
-    match /{path=**}/invoices/{id}   { allow read: if isSuperOwner(); }
-    match /{path=**}/contacts/{id}   { allow read: if isSuperOwner(); }
-    match /{path=**}/activities/{id} { allow read: if isSuperOwner(); }
-    match /{path=**}/conversations/{id} { allow read: if isSuperOwner(); }
+    // Leituras agregadas (collectionGroup) para os dashboards SUPER TITAN — só donos, e só
+    // o que o useOwnerStats realmente consome: pipeline, faturamento e as contagens de
+    // contatos e atividades. `conversations` e `messages` NÃO entram aqui de propósito —
+    // é o conteúdo do atendimento, e nenhum dashboard precisa dele.
+    //
+    // `list`, e não `read`: assim vale para a consulta de grupo que alimenta os números e
+    // NÃO para um `get` direto em users/{cliente}/contacts/{id} — que seria abrir a ficha
+    // de um contato específico do cliente pelo caminho, exatamente o que não pode.
+    match /{path=**}/deals/{id}      { allow list: if isSuperOwner(); }
+    match /{path=**}/invoices/{id}   { allow list: if isSuperOwner(); }
+    match /{path=**}/contacts/{id}   { allow list: if isSuperOwner(); }
+    match /{path=**}/activities/{id} { allow list: if isSuperOwner(); }
 
     // Status da conexão de WhatsApp (QR + estado). Cliente LÊ o próprio; NUNCA escreve
     // (quem escreve é o daemon via Admin SDK). Coleção top-level de propósito, para o
     // read-only ser limpo — regras do Firestore são UNIÃO permissiva, então um write:false
     // aninhado sob users/{uid}/{document=**} não revogaria o owner-write recursivo.
     match /whatsappStatus/{uid} {
-      allow read: if owner(uid) || isSuperOwner();
+      allow read: if owner(uid);
       allow write: if false;
     }
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente

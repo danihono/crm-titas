@@ -12,16 +12,23 @@ export interface ClientRef {
  * - Atendente convidado: `tenantUid` = uid do dono da equipe, `readOnly` = false,
  *   `role` = papel dele lá dentro (limita o que a UI oferece; as security rules
  *   limitam de verdade).
- * - Dono (SUPER TITAN) visualizando um cliente: `tenantUid` = uid do cliente,
- *   `readOnly` = true (apenas leitura sobre os dados de outro tenant).
+ *
+ * O DONO DO SISTEMA (SUPER TITAN) NÃO entra em tenant de cliente: os dados de
+ * atendimento são confidenciais. Ele administra a ficha do cliente (nome, cor, logo)
+ * e vê métricas agregadas em /super — nada mais. Por isso não existe mais um
+ * `enterClient()` aqui, e o `CrmRoute` devolve todo dono para /super.
  */
 interface TenantState {
   tenantUid: string | null
+  /**
+   * Trava de escrita da UI, lida em todo o CRM. Hoje nenhum caminho a liga — sobrou
+   * como defesa em profundidade depois que o acesso somente-leitura do dono do sistema
+   * foi removido.
+   */
   readOnly: boolean
   client: ClientRef | null
   /** Papel no tenant ativo. null = está na própria conta (manda em tudo). */
   role: MemberRole | null
-  enterClient: (c: ClientRef) => void
   enterMembership: (c: ClientRef, role: MemberRole) => void
   exitClient: () => void
 }
@@ -31,7 +38,6 @@ export const useTenantStore = create<TenantState>((set) => ({
   readOnly: false,
   client: null,
   role: null,
-  enterClient: (c) => set({ tenantUid: c.uid, readOnly: true, client: c, role: null }),
   enterMembership: (c, role) => set({ tenantUid: c.uid, readOnly: false, client: c, role }),
   exitClient: () => set({ tenantUid: null, readOnly: false, client: null, role: null }),
 }))

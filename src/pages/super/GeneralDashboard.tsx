@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import SuperShell from './SuperShell'
 import { useOwnerStats } from '../../hooks/useOwnerStats'
 import { useClients } from '../../hooks/useClients'
-import { useTenantStore } from '../../store/tenantStore'
+import { brandGradient } from '../../lib/clientBrand'
 import { fmtBRL, fmtMoney } from '../../lib/format'
 import MaterialIcon from '../../components/common/MaterialIcon'
 
@@ -11,7 +11,6 @@ export default function GeneralDashboard() {
   const navigate = useNavigate()
   const stats = useOwnerStats()
   const { clients } = useClients()
-  const enterClient = useTenantStore((s) => s.enterClient)
 
   const kpis = [
     { icon: 'groups', c: '#7a52a0', label: 'Clientes', value: String(clients.length) },
@@ -61,24 +60,24 @@ export default function GeneralDashboard() {
         {ranking.length === 0 && <div className="text-sm text-[#8a7d97] py-6 text-center">Nenhum cliente com dados ainda.</div>}
         <div className="flex flex-col gap-3">
           {ranking.map((r) => (
-            <div
-              key={r.uid}
-              onClick={() => { enterClient({ uid: r.uid, name: r.displayName }); navigate('/') }}
-              className="flex items-center gap-3 cursor-pointer group"
-            >
-              <div className="w-9 h-9 rounded-full grid place-items-center text-[12px] font-bold text-[#160f1d] shrink-0" style={{ background: 'linear-gradient(150deg,#b692d6,#6f4d92)' }}>
-                {(r.displayName[0] || '?').toUpperCase()}
+            <div key={r.uid} className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-full grid place-items-center overflow-hidden text-[12px] font-bold text-[#160f1d] shrink-0"
+                style={{ background: brandGradient(r.brandColor) }}
+              >
+                {r.logoUrl
+                  ? <img src={r.logoUrl} alt="" className="w-full h-full object-cover" />
+                  : (r.displayName[0] || '?').toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between text-[13px] mb-1">
-                  <span className="text-[#ece6f0] font-semibold truncate group-hover:text-[#c9a6e0]">{r.displayName}</span>
+                  <span className="text-[#ece6f0] font-semibold truncate">{r.displayName}</span>
                   <span className="text-[#9a8fa8]">R$ {fmtMoney(r.pipeline)} · {r.deals} neg.</span>
                 </div>
                 <div className="h-2 rounded bg-[rgba(255,255,255,0.06)] overflow-hidden">
-                  <div className="h-full rounded" style={{ width: `${Math.round((r.pipeline / maxPipe) * 100)}%`, background: 'linear-gradient(90deg,#9a6fb8,#7a52a0)' }} />
+                  <div className="h-full rounded" style={{ width: `${Math.round((r.pipeline / maxPipe) * 100)}%`, background: brandGradient(r.brandColor, 90) }} />
                 </div>
               </div>
-              <MaterialIcon name="chevron_right" size={20} color="#6f6579" />
             </div>
           ))}
         </div>

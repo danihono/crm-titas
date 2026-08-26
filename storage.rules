@@ -5,8 +5,28 @@ rules_version = '2';
 // (users/{uid}/members/{authUid} no Firestore, o mesmo teste do firestore.rules).
 // Upload pelo navegador limitado a 10 MB; o daemon escreve pelo Admin SDK e não passa
 // por aqui, então mídia recebida do WhatsApp não esbarra neste teto.
+//
+// O DONO DO SISTEMA (SUPER TITAN) não entra nesses arquivos: só na pasta
+// users/{uid}/brand/, que é a logo que ele mesmo define no painel de Clientes.
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allowlist espelhando firestore.rules (isSuperOwner) e src/lib/owners.ts.
+    function isSuperOwner() {
+      return request.auth != null && request.auth.token.email in [
+        'danielboy200627@gmail.com'
+        // , 'dono2@exemplo.com'
+        // , 'dono3@exemplo.com'
+      ];
+    }
+
+    // Logo administrativa do cliente. Match mais específico que o de baixo: como as
+    // regras são união permissiva, o dono do sistema ganha acesso AQUI e só aqui.
+    match /users/{uid}/brand/{file} {
+      allow read: if isSuperOwner() || (request.auth != null && request.auth.uid == uid);
+      allow create, update: if isSuperOwner() && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if isSuperOwner();
+    }
+
     match /users/{uid}/{allPaths=**} {
       function isOwner() {
         return request.auth != null && request.auth.uid == uid;

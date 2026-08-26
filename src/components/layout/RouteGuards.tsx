@@ -11,14 +11,14 @@ export function OwnerRoute() {
 }
 
 /**
- * Rotas do CRM (Layout). Donos só entram aqui com um cliente selecionado;
- * sem cliente, vão para o painel SUPER TITAN.
+ * Rotas do CRM (Layout). O DONO DO SISTEMA não entra aqui de jeito nenhum — nem
+ * digitando a rota na barra de endereços: os dados de atendimento dos clientes são
+ * confidenciais. Ele fica no painel SUPER TITAN.
  */
 export function CrmRoute() {
   const { isOwner } = useAuth()
-  const tenantUid = useTenantStore((s) => s.tenantUid)
   useAutoEnterMembership()
-  if (isOwner && !tenantUid) return <Navigate to="/super" replace />
+  if (isOwner) return <Navigate to="/super" replace />
   return <Outlet />
 }
 

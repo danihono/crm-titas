@@ -20,6 +20,28 @@ etiquetas e as transições de estado. Cada ciclo vira um registro em
 `users/{uid}/conversations`, que é o que alimenta os Relatórios.
 Ver `docs/modulos-atendimento.md` para o modelo de dados e o que ainda não foi feito.
 
+## SUPER TITAN (dono do sistema)
+As contas listadas em `src/lib/owners.ts` entram num painel próprio (`/super`), fora do CRM:
+
+- **Visão Geral** — métricas agregadas de todos os clientes (pipeline, faturamento, contagens).
+- **Clientes** — a ficha administrativa de cada conta: **nome, cor e logo** (editáveis) e a
+  **exclusão definitiva** da conta.
+
+O dono do sistema **não entra no CRM de nenhum cliente**: conversas, mensagens, contatos e
+arquivos são confidenciais. Isso vale nas rotas (`CrmRoute` devolve todo dono para `/super`)
+e, principalmente, nas security rules — `users/{uid}/{document=**}` não é mais legível por
+ele, e a escrita no doc do cliente é limitada a `displayName`, `brandColor`, `logoUrl` e
+`logoPath`. A allowlist de e-mails vive em três lugares que precisam andar juntos:
+`src/lib/owners.ts`, `firestore.rules` e `storage.rules` (+ `OWNER_EMAILS` em
+`functions/src/index.ts`).
+
+A exclusão roda na callable **`excluirCliente`** (Admin SDK): apaga `users/{uid}` e todas as
+subcoleções, os arquivos em `users/{uid}/` no Storage, os convites, os vínculos de equipe e a
+conta no Auth. Depende de deploy:
+```bash
+firebase deploy --only functions,firestore:rules,storage
+```
+
 ## Pré-requisitos
 - **Node 18+** e **npm** (testado em Node 24).
 - **Firebase CLI** (`npm i -g firebase-tools`) — já instalado.
