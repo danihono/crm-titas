@@ -11,26 +11,53 @@
  * negócios) mas É membro do ambiente de outra pessoa. Só isso é apagado — a sessão de um
  * ambiente de verdade nunca entra na lista.
  *
- * Uso:
+ * Uso (projeto real — precisa de GOOGLE_APPLICATION_CREDENTIALS e GCLOUD_PROJECT):
  *   npm run wa:sessions            lista o que seria apagado (dry-run, não muda nada)
  *   npm run wa:sessions -- --apply apaga de fato
  *
- * Contra o projeto REAL, exporte as credenciais do Admin SDK e o GCLOUD_PROJECT antes;
- * sem isso ele fala com os emuladores locais.
+ * Nos emuladores locais:
+ *   npm run wa:sessions -- --emulator
  *
  * Depois de aplicar, REINICIE O DAEMON: as sessões que ele subiu no boot seguem em memória.
  */
 import admin from 'firebase-admin'
 
 const APPLY = process.argv.includes('--apply')
-const REAL = !!process.env.GOOGLE_APPLICATION_CREDENTIALS || !!process.env.FIRESTORE_EMULATOR_HOST
+const EMULADOR = process.argv.includes('--emulator') || !!process.env.FIRESTORE_EMULATOR_HOST
 
-if (!REAL) {
+// O alvo é EXPLÍCITO de propósito. Antes, sem credencial, o script apontava calado para
+// 127.0.0.1:8080 e ficava pendurado num emulador que não estava de pé — parecia travado,
+// quando o que faltava era credencial.
+if (EMULADOR) {
   process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080'
   process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099'
+} else if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  console.error(`
+Falta dizer com qual banco falar.
+
+  Projeto real:
+    Windows (cmd):  set GOOGLE_APPLICATION_CREDENTIALS=C:\\caminho\\chave.json
+                    set GCLOUD_PROJECT=titas-c8967
+                    npm run wa:sessions
+    Linux/macOS:    GOOGLE_APPLICATION_CREDENTIALS=/caminho/chave.json \\
+                    GCLOUD_PROJECT=titas-c8967 npm run wa:sessions
+
+  A chave sai em: Console do Firebase > Configurações do projeto > Contas de serviço >
+  "Gerar nova chave privada". É a MESMA que o daemon já usa — rodar este script na
+  máquina do daemon costuma funcionar sem preparar nada.
+
+  Emuladores locais:
+    npm run wa:sessions -- --emulator
+`)
+  process.exit(1)
 }
 
-const projectId = process.env.GCLOUD_PROJECT || process.env.VITE_FIREBASE_PROJECT_ID || 'demo-titas-crm'
+const projectId = process.env.GCLOUD_PROJECT || process.env.VITE_FIREBASE_PROJECT_ID
+  || (EMULADOR ? 'demo-titas-crm' : '')
+if (!projectId) {
+  console.error('Defina GCLOUD_PROJECT com o id do projeto (ex.: titas-c8967).')
+  process.exit(1)
+}
 admin.initializeApp({ projectId })
 const db = admin.firestore()
 
