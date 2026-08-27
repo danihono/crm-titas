@@ -10,6 +10,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { uid as tenantUid } from './paths'
 
 /**
  * Canal de comandos com o daemon de WhatsApp — via Firestore, não HTTP.
@@ -191,17 +192,23 @@ async function runCommand(
   if (WHATSAPP_KILL_SWITCH) {
     throw new Error('O WhatsApp está temporariamente desativado.')
   }
-  const user = auth.currentUser
-  if (!user) throw new Error('Sem usuário autenticado.')
+  if (!auth.currentUser) throw new Error('Sem usuário autenticado.')
 
   // Falha rápida quando sabemos que não há daemon: evita esperar o timeout inteiro.
   if (heartbeatKnown() && !daemonOnline()) {
     throw waErr('daemon_offline', 'O serviço de WhatsApp está fora do ar. Inicie-o e tente de novo.')
   }
 
-  // Sempre o uid do usuário autenticado — nunca o tenant impersonado pelo super-owner,
-  // que cairia num path onde a rule nega a escrita.
-  const ref = await addDoc(collection(db, 'users', user.uid, WA_COMMANDS), {
+  // A fila é do AMBIENTE, não da pessoa: o número de WhatsApp é o da empresa, e a sessão
+  // precisa ser uma só para todo mundo daquela operação. Com o uid de quem está logado, o
+  // "conectar" de um atendente convidado abria uma SEGUNDA sessão — outro aparelho vinculado
+  // ao mesmo número — que disputava o pareamento e derrubava a conexão do ambiente; e ele
+  // ainda nunca via o próprio QR, porque a tela observa whatsappStatus/{tenant}.
+  //
+  // O motivo antigo de usar o uid da conta (não escrever no tenant impersonado pelo dono do
+  // sistema) morreu quando o dono perdeu o acesso ao ambiente do cliente. `waCommands` está
+  // em agentWritable nas rules, então qualquer membro ativo escreve nesta fila.
+  const ref = await addDoc(collection(db, 'users', tenantUid(), WA_COMMANDS), {
     type,
     args,
     status: 'pending',

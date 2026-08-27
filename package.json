@@ -11,7 +11,8 @@
     "emulators": "firebase emulators:start --only auth,firestore,storage --import=./.emulator-data --export-on-exit=./.emulator-data",
     "emulators:all": "firebase emulators:start --import=./.emulator-data --export-on-exit=./.emulator-data",
     "dev:full": "concurrently -k -n EMU,VITE -c magenta,cyan \"npm:emulators\" \"npm:dev\"",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "wa:sessions": "tsx scripts/wa-sessions.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.3",

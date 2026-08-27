@@ -152,7 +152,10 @@ service cloud.firestore {
     // read-only ser limpo — regras do Firestore são UNIÃO permissiva, então um write:false
     // aninhado sob users/{uid}/{document=**} não revogaria o owner-write recursivo.
     match /whatsappStatus/{uid} {
-      allow read: if owner(uid);
+      // Qualquer membro ativo do ambiente lê: o número é o da empresa, e a sessão é uma só
+      // para toda a operação — sem isto o atendente nunca via o QR nem o estado da conexão,
+      // porque a tela observa whatsappStatus/{tenant}, não o uid dele.
+      allow read: if owner(uid) || isMember(uid);
       allow write: if false;
     }
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
