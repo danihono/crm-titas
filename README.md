@@ -112,6 +112,24 @@ firebase functions:secrets:set ANTHROPIC_API_KEY     # cole sua chave da Anthrop
 
 > Enquanto a Function não estiver no ar, o chat do Titã IA usa um **fallback scriptado** (respostas por palavra-chave) automaticamente.
 
+### Sem a chave da Anthropic ainda?
+Dá para publicar o resto sem tocar nas functions — só o Titã IA e o gerador de fluxos
+dependem da chave:
+```bash
+npm run build
+firebase deploy --only firestore:rules,storage,hosting
+```
+E a exclusão de cliente (que **não** usa a Anthropic) pode ir sozinha, sem o secret:
+```bash
+firebase deploy --only functions:excluirCliente
+```
+
+> **`TS7006: Parameter 'request' implicitly has an 'any' type` no predeploy** não tem nada a
+> ver com a chave: é o `functions/node_modules` faltando, então o `tsc` não acha os tipos de
+> `firebase-functions` e todo callback vira `any`. O `predeploy` do `firebase.json` já roda
+> `npm --prefix functions install` antes de compilar; se ainda assim acontecer, rode
+> `npm --prefix functions ci` na mão.
+
 ## Modelo de dados (Firestore, single-tenant)
 `users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `leads`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
 

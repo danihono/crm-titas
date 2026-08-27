@@ -23,7 +23,10 @@
       "codebase": "default",
       "runtime": "nodejs20",
       "ignore": ["node_modules", ".git", "*.local"],
-      "predeploy": ["npm --prefix functions run build"]
+      "predeploy": [
+        "npm --prefix functions install",
+        "npm --prefix functions run build"
+      ]
     }
   ],
   "emulators": {
