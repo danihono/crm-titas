@@ -334,6 +334,15 @@ export interface ActType {
   evColor: string
 }
 
+/** Forma de pagamento registrada na nota. Livre o bastante para servir de registro. */
+export type PaymentMethod = 'Pix' | 'Boleto' | 'Cartão' | 'Transferência' | 'Dinheiro' | 'Outro'
+
+/**
+ * Nota de faturamento — registro interno, não documento fiscal.
+ *
+ * Os campos abaixo de `createdAt` são todos opcionais de propósito: notas emitidas antes
+ * deste módulo ganhar corpo não têm nenhum deles, e precisam continuar abrindo.
+ */
 export interface Invoice {
   id: string
   num: string
@@ -342,6 +351,21 @@ export interface Invoice {
   dueAt: Date
   status: InvoiceStatus
   createdAt?: Date
+  /** Número em forma de inteiro — `num` é string e ordena mal a partir de #1000. */
+  seq?: number
+  desc?: string
+  /** Contato vinculado, quando o cliente foi escolhido da lista. */
+  contactId?: string
+  paymentMethod?: PaymentMethod
+  notes?: string
+  /** Quando a baixa foi dada. Só existe em nota paga. */
+  paidAt?: Date
+  /** Agrupa as notas geradas juntas (parcelamento ou recorrência mensal). */
+  seriesId?: string
+  /** Posição na série: 2 de 12. */
+  installment?: { n: number; of: number }
+  /** 'mensal' quando a série veio de uma cobrança recorrente. */
+  recurrence?: 'mensal'
 }
 
 export interface EventDoc {

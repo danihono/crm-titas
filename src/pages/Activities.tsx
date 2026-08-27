@@ -42,7 +42,6 @@ export default function Activities() {
               key={f.id}
               radius={11}
               active={on}
-              quiet
               onClick={() => ui.setActFilter(f.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',

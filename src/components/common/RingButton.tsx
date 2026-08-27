@@ -6,8 +6,6 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   radius?: number
   /** Anel sempre girando (para abas/chips selecionados). */
   active?: boolean
-  /** Anel só aparece no hover (abas/chips não selecionados). */
-  quiet?: boolean
   /** Ocupa 100% da largura do contêiner. */
   block?: boolean
   /** Estilo do wrapper externo. */
@@ -16,16 +14,16 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 /**
  * Envolve um botão com o anel roxo giratório (mesmo efeito da aba ativa da
- * sidebar) como borda animada. O anel acende no hover; com `active` fica
- * sempre girando. Repassa todos os props/estilo ao <button> interno.
+ * sidebar) como borda animada. Em repouso o botão fica limpo — o anel acende no
+ * hover; com `active` fica sempre girando. Repassa props/estilo ao <button>.
  */
 const RingButton = forwardRef<HTMLButtonElement, Props>(function RingButton(
-  { radius = 11, active = false, quiet = false, block = false, wrapStyle, style, className, children, ...rest },
+  { radius = 11, active = false, block = false, wrapStyle, style, className, children, ...rest },
   ref,
 ) {
   return (
     <span
-      className={`ring-btn${active ? ' is-active' : ''}${quiet ? ' ring-quiet' : ''}`}
+      className={`ring-btn${active ? ' is-active' : ''}`}
       style={{
         ['--rr' as string]: `${radius}px`,
         ...(block ? { display: 'flex', width: '100%' } : null),

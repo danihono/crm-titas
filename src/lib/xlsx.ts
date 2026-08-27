@@ -1,6 +1,7 @@
 import type { ReportModel, ReportRow } from './reportData'
 import { fmtDate, fmtDuration } from './reportData'
 import { downloadBlob, reportFileName } from './download'
+import { brandTitle, dataRow, tableHeader, PURPLE, SUB } from './xlsxStyle'
 
 /** Seções que o usuário pode ligar/desligar antes de exportar. */
 export type SectionId = 'resumo' | 'porDia' | 'agora' | 'atendentes' | 'setores' | 'etiquetas'
@@ -20,13 +21,6 @@ export const ALL_SECTIONS: ReportSections = {
   resumo: true, porDia: true, agora: true, atendentes: true, setores: true, etiquetas: true,
 }
 
-// Cores da marca, no formato ARGB que o Excel usa (alfa na frente).
-const PURPLE = 'FF7A52A0'
-const PURPLE_DEEP = 'FF553578'
-const INK = 'FF1D1726'
-const SUB = 'FF6E6780'
-const ZEBRA = 'FFF7F5FA'
-const BORDER = 'FFE6E3EE'
 
 /** Imagens dos gráficos, já rasterizadas pela tela. */
 export interface ChartImages {
@@ -37,48 +31,12 @@ type Sheet = import('exceljs').Worksheet
 type Wb = import('exceljs').Workbook
 
 function titleBlock(ws: Sheet, model: ReportModel, orgName: string, title: string, cols: number) {
-  ws.mergeCells(1, 1, 1, cols)
-  const t = ws.getCell(1, 1)
-  t.value = orgName ? `TITÃS CRM · ${orgName}` : 'TITÃS CRM'
-  t.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
-  t.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PURPLE_DEEP } }
-  t.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
-  ws.getRow(1).height = 26
-
-  ws.mergeCells(2, 1, 2, cols)
-  const s = ws.getCell(2, 1)
-  s.value = `${title} · ${fmtDate(model.from)} a ${fmtDate(model.to)} (${model.days} dias)`
-  s.font = { name: 'Calibri', size: 10, color: { argb: SUB } }
-  s.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
-  ws.getRow(2).height = 18
-}
-
-/** Cabeçalho de tabela no roxo da marca, com painel congelado logo abaixo. */
-function tableHeader(ws: Sheet, rowIdx: number, headers: string[]) {
-  const row = ws.getRow(rowIdx)
-  headers.forEach((h, i) => {
-    const cell = row.getCell(i + 1)
-    cell.value = h
-    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PURPLE } }
-    cell.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'center' }
-    cell.border = { bottom: { style: 'thin', color: { argb: BORDER } } }
-  })
-  row.height = 20
-  // Congela o cabeçalho: rolar uma lista longa sem perder de vista o nome da coluna.
-  ws.views = [{ state: 'frozen', ySplit: rowIdx }]
-}
-
-function dataRow(ws: Sheet, rowIdx: number, values: (string | number)[], zebra: boolean) {
-  const row = ws.getRow(rowIdx)
-  values.forEach((v, i) => {
-    const cell = row.getCell(i + 1)
-    cell.value = v
-    cell.font = { name: 'Calibri', size: 10, color: { argb: INK } }
-    cell.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'center' }
-    if (zebra) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } }
-    cell.border = { bottom: { style: 'hair', color: { argb: BORDER } } }
-  })
+  brandTitle(
+    ws,
+    cols,
+    orgName ? `TITÃS CRM · ${orgName}` : 'TITÃS CRM',
+    `${title} · ${fmtDate(model.from)} a ${fmtDate(model.to)} (${model.days} dias)`,
+  )
 }
 
 function breakdownSheet(wb: Wb, name: string, entity: string, rows: ReportRow[], model: ReportModel, orgName: string) {

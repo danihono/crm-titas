@@ -153,7 +153,6 @@ export default function KanbanBoard() {
               key={b.id}
               radius={11}
               active={on}
-              quiet
               onClick={() => setActiveBoard(b.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',

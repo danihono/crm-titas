@@ -454,6 +454,7 @@ export function actTypeFromDoc(id: string, d: DocumentData): ActType {
 }
 
 export function invoiceFromDoc(id: string, d: DocumentData): Invoice {
+  const inst = d.installment
   return {
     id,
     num: d.num ?? '',
@@ -462,6 +463,18 @@ export function invoiceFromDoc(id: string, d: DocumentData): Invoice {
     dueAt: toDate(d.dueAt) ?? new Date(),
     status: (d.status ?? 'Pendente') as InvoiceStatus,
     createdAt: toDate(d.createdAt),
+    // Nota antiga não tem nenhum destes — daí o cuidado com cada um.
+    seq: typeof d.seq === 'number' ? d.seq : undefined,
+    desc: d.desc ?? '',
+    contactId: d.contactId || undefined,
+    paymentMethod: d.paymentMethod || undefined,
+    notes: d.notes ?? '',
+    paidAt: toDate(d.paidAt),
+    seriesId: d.seriesId || undefined,
+    installment: inst && typeof inst.n === 'number' && typeof inst.of === 'number'
+      ? { n: inst.n, of: inst.of }
+      : undefined,
+    recurrence: d.recurrence === 'mensal' ? 'mensal' : undefined,
   }
 }
 

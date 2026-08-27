@@ -148,7 +148,6 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   overflow: hidden;
   z-index: 0;
   pointer-events: none;
-  opacity: 1;
   transition: opacity .35s ease;
 }
 .ring-btn__anim::before {
@@ -162,18 +161,16 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   background: var(--purple-ring-grad);
   animation: nav-ring-spin 4.5s linear infinite;
 }
-/* Padrão (CTAs roxos): anel sempre girando + glow sutil; hover intensifica. */
-.ring-btn__glow { opacity: 0.3; }
-.ring-btn:hover .ring-btn__glow { opacity: 0.55; }
-
-/* Variante "quiet" (abas/chips não selecionados): anel só aparece no hover,
-   para não poluir. `.is-active` reativa o anel permanente. */
-.ring-btn.ring-quiet .ring-btn__anim { opacity: 0; }
-.ring-btn.ring-quiet .ring-btn__glow { opacity: 0; }
-.ring-btn.ring-quiet:hover .ring-btn__anim { opacity: 1; }
-.ring-btn.ring-quiet:hover .ring-btn__glow { opacity: 0.45; }
-.ring-btn.ring-quiet.is-active .ring-btn__anim { opacity: 1; }
-.ring-btn.ring-quiet.is-active .ring-btn__glow { opacity: 0.4; }
+/* Em repouso o botão fica limpo: o anel e o glow só acendem no hover. Girando o
+   tempo todo em cada botão roxo — e são quase todos — o efeito virava ruído, em
+   especial nas telas de formulário (Configurações). `.is-active` mantém o anel
+   permanente onde ele carrega sentido: a aba/chip selecionado. */
+.ring-btn__anim { opacity: 0; }
+.ring-btn__glow { opacity: 0; }
+.ring-btn:hover .ring-btn__anim { opacity: 1; }
+.ring-btn:hover .ring-btn__glow { opacity: 0.45; }
+.ring-btn.is-active .ring-btn__anim { opacity: 1; }
+.ring-btn.is-active .ring-btn__glow { opacity: 0.4; }
 
 @media (prefers-reduced-motion: reduce) {
   .ring-btn__anim::before { animation: none; }
