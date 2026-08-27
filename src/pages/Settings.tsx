@@ -88,6 +88,12 @@ export default function Settings() {
             })}
           </div>
         ))}
+
+        {/* Versão publicada. Serve para saber, num relance, se o que está no ar é o que
+            está no git — sem precisar caçar diferença de tela para descobrir isso. */}
+        <div style={{ fontSize: 10.5, color: C.faint, padding: '10px 12px 2px', borderTop: '1px solid ' + C.lineSoft, marginTop: 4 }}>
+          versão {__BUILD_ID__}
+        </div>
       </nav>
 
       <div style={{ flex: 1, minWidth: 0 }}>
