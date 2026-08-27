@@ -3,15 +3,19 @@ import { useUIStore } from '../../store/uiStore'
 import { useTenantStore } from '../../store/tenantStore'
 import {
   useBoards, useAllDeals, addBoard, addColumn, addDeal, moveDeal, updateDeal, deleteDeal,
-  type DealForm,
+  updateBoard, deleteBoard, updateColumn, deleteColumn, moveColumn,
+  type DealForm, type BoardForm, type ColumnForm,
 } from '../../hooks/useDeals'
 import Column from '../kanban/Column'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import DealModal from '../modals/DealModal'
+import BoardModal from './BoardModal'
+import ColumnModal from './ColumnModal'
+import { colorGradient } from '../../lib/color'
 import { fmtK } from '../../lib/format'
 import { sx } from '../../styles/sx'
-import type { Deal } from '../../types'
+import type { Column as Col, Deal } from '../../types'
 
 export default function KanbanBoard() {
   const { docs: boards } = useBoards()
@@ -22,7 +26,9 @@ export default function KanbanBoard() {
 
   const [dragId, setDragId] = useState<string | null>(null)
   const [newColName, setNewColName] = useState('')
-  const [newBoardName, setNewBoardName] = useState('')
+  // Modal de quadro: 'novo' para criar, o Board para editar. Modal de etapa: a coluna.
+  const [boardModal, setBoardModal] = useState<'novo' | 'editar' | null>(null)
+  const [editingCol, setEditingCol] = useState<Col | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [filterText, setFilterText] = useState('')
   const [filterTag, setFilterTag] = useState('')
@@ -47,16 +53,38 @@ export default function KanbanBoard() {
 
   const boardTotal = visibleDeals.reduce((s, d) => s + (d.value || 0), 0)
 
-  async function handleAddBoard() {
-    const n = newBoardName.trim()
-    if (!n) return
-    try {
-      const id = await addBoard(n)
+  /** Os erros sobem para o BoardModal/ColumnModal, que os mostram na própria caixa. */
+  async function saveBoard(form: BoardForm) {
+    if (boardModal === 'editar' && current) {
+      await updateBoard(current.id, form)
+    } else {
+      const id = await addBoard(form.name.trim(), form.icon, form.color)
       setActiveBoard(id)
-      setNewBoardName('')
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao criar o quadro.')
     }
+  }
+
+  async function removeBoard() {
+    if (!current) return
+    await deleteBoard(current.id, allDeals)
+    // Cai no primeiro quadro que sobrar; sem nenhum, o estado fica limpo para o próximo.
+    setActiveBoard(boards.find((b) => b.id !== current.id)?.id ?? '')
+  }
+
+  async function saveColumn(form: ColumnForm) {
+    if (!current || !editingCol) return
+    await updateColumn(current, editingCol.id, form)
+  }
+
+  async function removeColumn() {
+    if (!current || !editingCol) return
+    await deleteColumn(current, editingCol.id, deals)
+  }
+
+  function handleMoveColumn(columnId: string, dir: 'left' | 'right') {
+    if (!current) return
+    moveColumn(current, columnId, dir).catch((e) => {
+      alert(e instanceof Error ? e.message : 'Falha ao mover a etapa.')
+    })
   }
 
   async function handleAddColumn() {
@@ -79,7 +107,7 @@ export default function KanbanBoard() {
   /** Botão "Novo negócio" do topo: cai na primeira etapa do quadro atual. */
   function handleNewDeal() {
     // Sem quadro (ou sem etapa) o botão antes não fazia nada, em silêncio.
-    if (!current) { alert('Crie um quadro primeiro — use o campo "Nome do quadro..." acima.'); return }
+    if (!current) { alert('Crie um quadro primeiro — use o botão "Novo quadro" acima.'); return }
     if (!columns[0]) { alert('Este quadro ainda não tem etapas. Crie uma etapa antes de adicionar negócios.'); return }
     handleAddDeal(columns[0].id)
   }
@@ -131,25 +159,26 @@ export default function KanbanBoard() {
                 display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                 ...(on
-                  ? { background: 'linear-gradient(140deg,#7a52a0,#553578)', color: '#f4eefa', border: '1px solid rgba(200,160,230,0.3)', boxShadow: '0 4px 12px rgba(110,65,150,0.22)' }
+                  ? { background: colorGradient(b.color, 140), color: '#f4eefa', border: '1px solid rgba(200,160,230,0.3)', boxShadow: '0 4px 12px rgba(110,65,150,0.22)' }
                   : { background: '#ffffff', color: '#6e6780', border: '1px solid #e6e3ee' }),
               }}
             >
               <MaterialIcon name={b.icon} size={16} />
               {b.name} <span style={{ opacity: 0.55, fontWeight: 600 }}>{count}</span>
+              {on && !readOnly && (
+                <MaterialIcon
+                  name="edit"
+                  size={15}
+                  style={{ marginLeft: 2, opacity: 0.8 }}
+                  onClick={(e) => { e.stopPropagation(); setBoardModal('editar') }}
+                />
+              )}
             </RingButton>
           )
         })}
         {!readOnly && <>
           <div style={{ width: 1, height: 24, background: '#e0dcea', margin: '0 4px' }} />
-          <input
-            value={newBoardName}
-            onChange={(e) => setNewBoardName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddBoard() }}
-            placeholder="Nome do quadro..."
-            style={{ width: 160, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '9px 12px', color: '#1d1726', fontSize: 13, outline: 'none' }}
-          />
-          <RingButton radius={11} onClick={handleAddBoard} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1d1726', border: '1px solid #1d1726', padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <RingButton radius={11} onClick={() => setBoardModal('novo')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1d1726', border: '1px solid #1d1726', padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <MaterialIcon name="dashboard_customize" size={18} /> Novo quadro
           </RingButton>
         </>}
@@ -208,16 +237,20 @@ export default function KanbanBoard() {
 
       {/* Colunas */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 14 }}>
-        {columns.map((col) => (
+        {columns.map((col, i) => (
           <Column
             key={col.id}
             column={col}
             cards={visibleDeals.filter((d) => d.columnId === col.id)}
             readOnly={readOnly}
+            canMoveLeft={i > 0}
+            canMoveRight={i < columns.length - 1}
             onDragStart={setDragId}
             onDrop={onDrop}
             onAddCard={handleAddDeal}
             onOpenCard={setEditingDeal}
+            onEdit={setEditingCol}
+            onMove={handleMoveColumn}
           />
         ))}
 
@@ -249,6 +282,27 @@ export default function KanbanBoard() {
           onClose={closeDealModal}
           onSave={saveDeal}
           onDelete={editingDeal ? removeDeal : undefined}
+        />
+      )}
+
+      {boardModal && (
+        <BoardModal
+          board={boardModal === 'editar' ? current ?? null : null}
+          dealCount={boardModal === 'editar' ? deals.length : 0}
+          onClose={() => setBoardModal(null)}
+          onSave={saveBoard}
+          onDelete={boardModal === 'editar' && current ? removeBoard : undefined}
+        />
+      )}
+
+      {editingCol && (
+        <ColumnModal
+          column={editingCol}
+          dealCount={deals.filter((d) => d.columnId === editingCol.id).length}
+          canDelete={columns.length > 1}
+          onClose={() => setEditingCol(null)}
+          onSave={saveColumn}
+          onDelete={removeColumn}
         />
       )}
     </div>

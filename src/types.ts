@@ -42,6 +42,8 @@ export interface Board {
   id: string
   name: string
   icon: string
+  /** Cor do quadro, escolhida pelo usuário. Hex. */
+  color: string
   columns: Column[]
   createdAt?: Date
 }

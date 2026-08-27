@@ -57,6 +57,7 @@ export function boardFromDoc(id: string, d: DocumentData): Board {
     id,
     name: d.name ?? '',
     icon: d.icon ?? 'dashboard',
+    color: typeof d.color === 'string' && d.color ? d.color : '#7a52a0',
     columns: Array.isArray(d.columns) ? d.columns : [],
     createdAt: toDate(d.createdAt),
   }

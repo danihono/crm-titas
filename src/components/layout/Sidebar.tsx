@@ -3,14 +3,20 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { navDefs } from '../../lib/theme'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
+import { useSelfProfile } from '../../hooks/useProfile'
 import { initialsOf } from '../../lib/format'
+import Avatar from '../common/Avatar'
 import MaterialIcon from '../common/MaterialIcon'
 
 export default function Sidebar() {
   const collapsed = useUIStore((s) => s.sidebarCollapsed)
   const { user, logout } = useAuth()
+  // Nome/cargo/foto vêm do doc da conta (Configurações → Perfil), não do Auth: o
+  // displayName do Auth só é escrito no cadastro e nunca mais, então editar o perfil
+  // não chegava aqui. O Auth fica como reserva enquanto o doc não carregou.
+  const profile = useSelfProfile()
   const expanded = !collapsed
-  const name = user?.displayName || user?.email || 'Usuário'
+  const name = profile.displayName || user?.displayName || user?.email || 'Usuário'
 
   // Indicador deslizante (anel roxo giratório) — mede a posição do item ativo
   // e desliza até ele com overshoot (cubic-bezier definido em .nav-ring).
@@ -116,28 +122,20 @@ export default function Sidebar() {
           justifyContent: collapsed ? 'center' : undefined,
         }}
       >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            borderRadius: '50%',
-            background: 'linear-gradient(150deg,#b692d6,#6f4d92)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 13,
-            color: '#160f1d',
-          }}
-        >
-          {initialsOf(name)}
-        </div>
+        <Avatar
+          photoUrl={profile.photoUrl || undefined}
+          initials={initialsOf(name) || '?'}
+          size={36}
+          bg="#6f4d92"
+          fontSize={13}
+        />
         {expanded && (
           <>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#ece6f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-              <div style={{ fontSize: 11, color: '#7d7388' }}>Gerente Comercial</div>
+              {profile.role && (
+                <div style={{ fontSize: 11, color: '#7d7388', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.role}</div>
+              )}
             </div>
             <MaterialIcon name="logout" size={18} color="#6f6579" style={{ cursor: 'pointer' }} onClick={() => logout()} />
           </>

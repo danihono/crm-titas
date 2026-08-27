@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react'
 import { doc, onSnapshot, setDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { auth, db, storage } from '../lib/firebase'
 import { selfRef } from '../lib/paths'
 import { prefsFromDoc } from '../lib/converters'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserPrefs } from '../types'
 
-/** Perfil da CONTA logada — nome, assinatura, telefone e mensagem de finalização. */
+/** Perfil da CONTA logada — nome, cargo, foto, assinatura, telefone e finalização. */
 export interface SelfProfile {
   displayName: string
+  /** Cargo livre ("Gerente Comercial"), exibido no rodapé da sidebar. */
+  role: string
+  photoUrl: string
+  /** Caminho no Storage — guardado para conseguir apagar a foto antiga. */
+  photoPath: string
   signature: string
   phone: string
   closingMessage: string
@@ -18,6 +24,9 @@ export interface SelfProfile {
 
 const EMPTY: SelfProfile = {
   displayName: '',
+  role: '',
+  photoUrl: '',
+  photoPath: '',
   signature: '',
   phone: '',
   closingMessage: '',
@@ -42,6 +51,9 @@ export function useSelfProfile(): SelfProfile {
       const d = snap.data() ?? {}
       setProfile({
         displayName: d.displayName ?? '',
+        role: d.role ?? '',
+        photoUrl: d.photoUrl ?? '',
+        photoPath: d.photoPath ?? '',
         signature: d.signature ?? '',
         phone: d.phone ?? '',
         closingMessage: d.closingMessage ?? '',
@@ -60,6 +72,39 @@ export async function saveSelfProfile(patch: Partial<Omit<SelfProfile, 'prefs'>>
 
 export async function saveSelfPrefs(prefs: Partial<UserPrefs>): Promise<void> {
   await setDoc(selfRef(), { prefs }, { merge: true })
+}
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024
+
+/** uid da CONTA logada — a foto é da pessoa, não do tenant que ela está atendendo. */
+function selfUid(): string {
+  const u = auth.currentUser
+  if (!u) throw new Error('Sem usuário autenticado')
+  return u.uid
+}
+
+/** Apaga um arquivo do Storage ignorando "já não existe". */
+async function deleteStoragePath(path: string): Promise<void> {
+  await deleteObject(storageRef(storage, path)).catch((err) => {
+    if ((err as { code?: string }).code !== 'storage/object-not-found') throw err
+  })
+}
+
+/** Sobe a foto de perfil e grava url + caminho no doc da conta. */
+export async function uploadSelfPhoto(file: File, oldPath?: string): Promise<void> {
+  if (!file.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem (PNG, JPG…).')
+  if (file.size > MAX_PHOTO_BYTES) throw new Error('A imagem precisa ter no máximo 2 MB.')
+  const path = `users/${selfUid()}/profile/${Date.now()}_${file.name}`
+  await uploadBytes(storageRef(storage, path), file, { contentType: file.type })
+  const photoUrl = await getDownloadURL(storageRef(storage, path))
+  await setDoc(selfRef(), { photoUrl, photoPath: path }, { merge: true })
+  if (oldPath && oldPath !== path) await deleteStoragePath(oldPath)
+}
+
+/** Remove a foto de perfil (volta às iniciais). */
+export async function removeSelfPhoto(oldPath?: string): Promise<void> {
+  await setDoc(selfRef(), { photoUrl: '', photoPath: '' }, { merge: true })
+  if (oldPath) await deleteStoragePath(oldPath)
 }
 
 /**
