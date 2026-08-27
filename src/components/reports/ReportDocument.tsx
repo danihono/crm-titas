@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { fmtDate, fmtDuration, type ReportModel, type ReportRow } from '../../lib/reportData'
 import { RankedBars, StatusStack, TrendArea } from './Charts'
+import BrandMark from '../common/BrandMark'
 import type { ReportSections } from '../../lib/xlsx'
 
 const INK = '#1d1726'
@@ -11,24 +12,6 @@ const PURPLE = '#7a52a0'
 
 /** Largura útil de uma A4 retrato com margem de 12mm, em px de impressão (~96dpi). */
 const DOC_W = 700
-
-/** Marca dos Titãs redesenhada inline — SVG no documento imprime em vetor. Um <img>
- *  apontando para arquivo externo às vezes é omitido pelo navegador na impressão. */
-function Logo({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Titãs CRM">
-      <defs>
-        <linearGradient id="titas-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#9a6fb8" />
-          <stop offset="1" stopColor="#5a3a7e" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="16" fill="url(#titas-mark)" />
-      <text x="32" y="44" fontFamily="Georgia, 'Cormorant Garamond', serif" fontSize="40"
-        fontWeight="600" textAnchor="middle" fill="#ffffff">T</text>
-    </svg>
-  )
-}
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
@@ -120,7 +103,7 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
   const doc = (
     <div className="print-doc" style={{ fontFamily: "'Manrope',sans-serif", color: INK, background: '#fff', width: DOC_W, margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 14, borderBottom: `2px solid ${PURPLE}` }}>
-        <Logo />
+        <BrandMark />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 600, letterSpacing: '.16em', lineHeight: 1 }}>
             TITÃS

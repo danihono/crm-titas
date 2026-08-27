@@ -8,13 +8,10 @@ import {
   PAYMENT_METHODS, type Billing, type InvoiceForm,
 } from '../../hooks/useInvoices'
 import { parseValueBR, fmtMoney, dateKeyOf } from '../../lib/format'
+import ClientCombo, { type ClientOption } from '../common/ClientCombo'
 import type { Invoice, PaymentMethod } from '../../types'
 
-/** Sugestão de cliente: rótulo mostrado e, quando vem de um contato, o id dele. */
-export interface ClientOption {
-  label: string
-  contactId?: string
-}
+export type { ClientOption }
 
 /**
  * Emite e edita a nota de faturamento. Registro interno — sem emissão fiscal.
@@ -31,6 +28,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
 }) {
   const editing = !!invoice
   const [client, setClient] = useState(invoice?.client ?? '')
+  const [contactId, setContactId] = useState(invoice?.contactId)
   const [value, setValue] = useState(invoice ? fmtMoney(invoice.value) : '')
   const [due, setDue] = useState(dateKeyOf(invoice?.dueAt ?? new Date()))
   const [desc, setDesc] = useState(invoice?.desc ?? '')
@@ -53,11 +51,12 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
     : []
 
   function form(): InvoiceForm {
+    // O vínculo vem de quem foi escolhido na lista; se o nome foi digitado à mão e bate
+    // com uma opção, aproveita o id dela do mesmo jeito.
     const opt = clientOptions.find((o) => o.label.toLowerCase() === client.trim().toLowerCase())
     return {
       client: client.trim(),
-      // Vincula ao contato quando o nome bate com a lista; texto livre segue aceito.
-      contactId: opt?.contactId ?? invoice?.contactId,
+      contactId: contactId ?? opt?.contactId,
       value: parsedValue,
       due,
       desc,
@@ -108,18 +107,17 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
       </div>
 
       <label style={sx.label}>Cliente</label>
-      {/* Texto livre + sugestões (datalist): um <select> só com os clientes de notas
-          antigas impedia a primeira nota de qualquer conta nova. */}
-      <input
-        value={client}
-        onChange={(e) => setClient(e.target.value)}
-        list="invoice-client-options"
-        placeholder="Escolha um contato ou digite um cliente novo"
-        style={{ ...sx.input, margin: '6px 0 14px' }}
-      />
-      <datalist id="invoice-client-options">
-        {clientOptions.map((c) => <option key={c.label} value={c.label} />)}
-      </datalist>
+      {/* Combo próprio, não o <datalist> nativo: aquele o navegador desenhava do jeito dele
+          e não mostrava empresa, telefone nem foto. Segue aceitando texto livre — numa conta
+          sem contato nenhum, é o que permite emitir a primeira nota. */}
+      <div style={{ margin: '6px 0 14px' }}>
+        <ClientCombo
+          value={client}
+          options={clientOptions}
+          onChange={(label, id) => { setClient(label); setContactId(id) }}
+          placeholder="Escolha um contato ou digite um cliente novo"
+        />
+      </div>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>

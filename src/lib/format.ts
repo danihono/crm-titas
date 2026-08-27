@@ -52,6 +52,37 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
+/**
+ * Telefone brasileiro legível: '+5511998489772' -> '+55 11 99848-9772'.
+ *
+ * Contato criado pelo espelhamento do WhatsApp guarda o número cru, e ele acaba aparecendo
+ * como se fosse nome. Formatos reconhecidos: com ou sem DDI 55, celular (9 dígitos) e fixo
+ * (8). O que não casar volta como veio — melhor um número feio do que um número escondido.
+ */
+export function fmtPhoneBR(raw: string): string {
+  const d = (raw || '').replace(/\D/g, '')
+  const nat = d.startsWith('55') && (d.length === 12 || d.length === 13) ? d.slice(2) : d
+  const ddi = nat === d ? '' : '+55 '
+  if (nat.length === 11) return `${ddi}${nat.slice(0, 2)} ${nat.slice(2, 7)}-${nat.slice(7)}`
+  if (nat.length === 10) return `${ddi}${nat.slice(0, 2)} ${nat.slice(2, 6)}-${nat.slice(6)}`
+  return raw
+}
+
+/** É só um número, sem nome? (contato do WhatsApp que nunca foi nomeado) */
+export function looksLikePhone(v: string): boolean {
+  const t = (v || '').trim()
+  return t.length > 0 && /^\+?[\d\s()-]+$/.test(t) && t.replace(/\D/g, '').length >= 8
+}
+
+/** Texto comparável para busca: sem acento, sem pontuação, minúsculo. */
+export function searchable(v: string): string {
+  return (v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
 /** Iniciais a partir do nome completo: "João Silva" -> "JS". */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/)

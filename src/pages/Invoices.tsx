@@ -9,11 +9,18 @@ import { fmtMoney } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import InvoiceModal, { type ClientOption } from '../components/modals/InvoiceModal'
+import InvoicesDocument from '../components/invoices/InvoicesDocument'
 import { sx, C } from '../styles/sx'
 import type { Invoice, InvoiceStatus } from '../types'
 
 type StatusFilter = 'todas' | InvoiceStatus
 const STATUS_FILTERS: StatusFilter[] = ['todas', 'Pendente', 'Vencida', 'Paga']
+
+/** Colunas por onde a lista pode ser ordenada — e o que sai nos dois exports. */
+type SortKey = 'num' | 'client' | 'value' | 'dueAt' | 'status'
+const SORT_LABEL: Record<SortKey, string> = {
+  num: 'nota', client: 'cliente', value: 'valor', dueAt: 'vencimento', status: 'status',
+}
 
 const GRID = '86px 1.5fr 1fr 118px 104px 120px'
 
@@ -28,6 +35,8 @@ export default function Invoices() {
   const [status, setStatus] = useState<StatusFilter>('todas')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('num')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
@@ -40,12 +49,29 @@ export default function Invoices() {
     const byLabel = new Map<string, ClientOption>()
     for (const c of contacts) {
       const label = c.company && c.company !== '—' ? c.company : c.name
-      if (label.trim() && !byLabel.has(label)) byLabel.set(label, { label, contactId: c.id })
+      if (!label.trim() || byLabel.has(label)) continue
+      // Empresa, telefone e foto vão junto: é o que o combo mostra na segunda linha para
+      // dizer QUEM é cada um — sem isso a lista era só uma coluna de texto solto.
+      byLabel.set(label, {
+        label,
+        contactId: c.id,
+        name: c.name,
+        company: c.company,
+        phone: c.phone || c.whatsapp,
+        photoUrl: c.photoUrl,
+        origem: 'contato',
+      })
     }
     for (const iv of invoices) {
-      if (iv.client.trim() && !byLabel.has(iv.client)) byLabel.set(iv.client, { label: iv.client })
+      if (iv.client.trim() && !byLabel.has(iv.client)) {
+        byLabel.set(iv.client, { label: iv.client, origem: 'nota' })
+      }
     }
-    return [...byLabel.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+    // Contatos primeiro; dentro de cada grupo, ordem alfabética.
+    return [...byLabel.values()].sort((a, b) =>
+      a.origem === b.origem
+        ? a.label.localeCompare(b.label, 'pt-BR')
+        : a.origem === 'contato' ? -1 : 1)
   }, [contacts, invoices])
 
   const withStatus = useMemo(
@@ -53,12 +79,13 @@ export default function Invoices() {
     [invoices],
   )
 
-  // O recorte visível manda em tudo: lista, totais e exportação saem daqui.
+  // O recorte visível manda em TUDO: lista, totais, XLSX e PDF saem daqui — filtro e
+  // ordenação são os mesmos da tela, sem configuração paralela de exportação.
   const visible = useMemo(() => {
     const term = q.trim().toLowerCase()
     const fromT = from ? new Date(from + 'T00:00:00').getTime() : null
     const toT = to ? new Date(to + 'T23:59:59').getTime() : null
-    return withStatus.filter(({ iv, status: st }) => {
+    const filtered = withStatus.filter(({ iv, status: st }) => {
       if (status !== 'todas' && st !== status) return false
       if (fromT !== null && iv.dueAt.getTime() < fromT) return false
       if (toT !== null && iv.dueAt.getTime() > toT) return false
@@ -67,7 +94,28 @@ export default function Invoices() {
         || iv.client.toLowerCase().includes(term)
         || (iv.desc ?? '').toLowerCase().includes(term)
     })
-  }, [withStatus, q, status, from, to])
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'client': return dir * a.iv.client.localeCompare(b.iv.client, 'pt-BR')
+        case 'value': return dir * (a.iv.value - b.iv.value)
+        case 'dueAt': return dir * (a.iv.dueAt.getTime() - b.iv.dueAt.getTime())
+        case 'status': return dir * a.status.localeCompare(b.status, 'pt-BR')
+        default: {
+          // Pelo número: comparar como inteiro, porque '#1049' e '#999' em texto saem ao
+          // contrário do esperado.
+          const n = (x: Invoice) => x.seq ?? (parseInt(x.num.replace(/\D/g, ''), 10) || 0)
+          return dir * (n(a.iv) - n(b.iv))
+        }
+      }
+    })
+  }, [withStatus, q, status, from, to, sortKey, sortDir])
+
+  /** Clique no cabeçalho: ordena por ela, ou inverte se já era a coluna ativa. */
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(k); setSortDir(k === 'client' || k === 'status' ? 'asc' : 'desc') }
+  }
 
   const sumBy = (s: string) => visible.filter((x) => x.status === s).reduce((a, x) => a + x.iv.value, 0)
   const faturado = sumBy('Paga')
@@ -76,6 +124,16 @@ export default function Invoices() {
   const total = visible.reduce((a, x) => a + x.iv.value, 0)
 
   const filtering = !!q.trim() || status !== 'todas' || !!from || !!to
+
+  /** Frase que descreve o recorte — vai no cabeçalho do PDF e no subtítulo do XLSX. */
+  const recorte = [
+    status === 'todas' ? 'todas as notas' : `apenas ${status.toLowerCase()}s`,
+    q.trim() && `busca "${q.trim()}"`,
+    from && `de ${new Date(from + 'T12:00').toLocaleDateString('pt-BR')}`,
+    to && `até ${new Date(to + 'T12:00').toLocaleDateString('pt-BR')}`,
+    `por ${SORT_LABEL[sortKey]} ${sortDir === 'asc' ? '↑' : '↓'}`,
+    `${visible.length} nota(s)`,
+  ].filter(Boolean).join(' · ')
 
   async function togglePaid(iv: Invoice, isPaid: boolean) {
     setBusyId(iv.id)
@@ -90,12 +148,21 @@ export default function Invoices() {
     }
   }
 
+  /**
+   * PDF pela caixa de impressão do navegador, sobre o InvoicesDocument — mesma mecânica do
+   * relatório de atendimento. O tique antes do print não é enfeite: sem esperar o React
+   * repintar, o navegador captura o documento ainda com o recorte anterior.
+   */
+  async function handlePdf() {
+    await new Promise((r) => setTimeout(r, 120))
+    window.print()
+  }
+
   async function handleExport() {
     setExporting(true)
     setError('')
     try {
-      const label = filtering ? 'recorte filtrado' : 'todas as notas'
-      await exportInvoicesXlsx(visible.map((x) => x.iv), profile.displayName, `${label} · ${visible.length} nota(s)`)
+      await exportInvoicesXlsx(visible.map((x) => x.iv), profile.displayName, recorte)
     } catch (err) {
       console.error('[Invoices/export]', err)
       setError('Não foi possível gerar a planilha.')
@@ -124,6 +191,9 @@ export default function Invoices() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <button onClick={() => void handleExport()} disabled={exporting} style={{ ...sx.btnGhost, opacity: exporting ? 0.6 : 1 }}>
               <MaterialIcon name="download" size={18} /> {exporting ? 'Gerando…' : 'Exportar XLSX'}
+            </button>
+            <button onClick={() => void handlePdf()} style={sx.btnGhost}>
+              <MaterialIcon name="picture_as_pdf" size={18} /> Exportar PDF
             </button>
             {!readOnly && (
               <RingButton radius={11} onClick={() => setModal('novo')} style={{ ...sx.btnPrimary }}>
@@ -181,7 +251,12 @@ export default function Invoices() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
-          <span>NOTA</span><span>CLIENTE</span><span>VALOR</span><span>VENCIMENTO</span><span>STATUS</span><span style={{ textAlign: 'right' }}>AÇÕES</span>
+          <SortHead k="num" label="NOTA" active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="client" label="CLIENTE" active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="value" label="VALOR" active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="dueAt" label="VENCIMENTO" active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="status" label="STATUS" active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <span style={{ textAlign: 'right' }}>AÇÕES</span>
         </div>
 
         {visible.map(({ iv, status: st }) => {
@@ -247,6 +322,8 @@ export default function Invoices() {
         )}
       </div>
 
+      <InvoicesDocument rows={visible} orgName={profile.displayName} recorte={recorte} />
+
       {modal && (
         <InvoiceModal
           invoice={modal === 'novo' ? null : modal}
@@ -257,6 +334,32 @@ export default function Invoices() {
         />
       )}
     </div>
+  )
+}
+
+/** Cabeçalho clicável: ordena pela coluna e inverte no segundo clique. */
+function SortHead({ k, label, active, dir, onClick }: {
+  k: SortKey
+  label: string
+  active: SortKey
+  dir: 'asc' | 'desc'
+  onClick: (k: SortKey) => void
+}) {
+  const on = k === active
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(k)}
+      title={`Ordenar por ${label.toLowerCase()}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 2, border: 'none', background: 'transparent',
+        padding: 0, cursor: 'pointer', font: 'inherit', letterSpacing: 'inherit',
+        color: on ? C.purple : C.muted, fontWeight: 700, textAlign: 'left',
+      }}
+    >
+      {label}
+      {on && <MaterialIcon name={dir === 'asc' ? 'arrow_upward' : 'arrow_downward'} size={13} />}
+    </button>
   )
 }
 
