@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BorderBeam } from '@/components/ui/border-beam'
 import { useAllDeals, useBoards } from '../hooks/useDeals'
@@ -6,6 +6,11 @@ import { useActivities, useActTypes } from '../hooks/useActivities'
 import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
 import { useLeads } from '../hooks/useLeads'
 import { useEvents } from '../hooks/useEvents'
+import { useContacts } from '../hooks/useContacts'
+import { useConversations } from '../hooks/useConversations'
+import { buildJourney, buildHeatmap } from '../lib/dashboardData'
+import JourneyFunnel from '../components/dashboard/JourneyFunnel'
+import ConversationHeatmap from '../components/dashboard/ConversationHeatmap'
 import { revenueChart } from '../hooks/useRevenueChart'
 import { fmtK, fmtMoney, dateKeyOf, dueInfo, relativeLabel } from '../lib/format'
 import { srcMap } from '../lib/theme'
@@ -39,7 +44,28 @@ export default function Dashboard() {
   const { docs: invoices } = useInvoices()
   const { docs: leads } = useLeads()
   const { docs: events } = useEvents(now.getFullYear(), now.getMonth())
+  const { docs: contacts } = useContacts()
   const rev = revenueChart(invoices, now)
+
+  // Período dos gráficos de jornada e de calor. Sem ele a jornada compararia contatos de
+  // sempre com notas do mês, e a conversão sairia sem sentido.
+  const [dias, setDias] = useState(90)
+  // O intervalo precisa ser estável entre renders: `useConversations` reassina a consulta a
+  // cada objeto Date novo, e um `new Date()` solto aqui religaria o listener sem parar.
+  const [from, to] = useMemo(() => {
+    const fim = new Date()
+    fim.setHours(23, 59, 59, 999)
+    const ini = new Date(fim)
+    ini.setDate(ini.getDate() - (dias - 1))
+    ini.setHours(0, 0, 0, 0)
+    return [ini, fim]
+  }, [dias])
+  const { docs: conversations } = useConversations(from, to)
+  const journey = useMemo(
+    () => buildJourney({ contacts, conversations, deals, invoices, from, to }),
+    [contacts, conversations, deals, invoices, from, to],
+  )
+  const heat = useMemo(() => buildHeatmap(conversations), [conversations])
   const typeMap = Object.fromEntries(types.map((t) => [t.id, t]))
 
   // Origem dos leads — contagem real por `source`, do mais comum para o menos.
@@ -144,6 +170,47 @@ export default function Dashboard() {
             <BorderBeam className="beam-layer" colorFrom={k.beam.from} colorTo={k.beam.to} duration={9} delay={i * 1.8} />
           </div>
         ))}
+      </div>
+
+      {/* Jornada + mapa de calor: os dois únicos gráficos que cruzam módulos. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Visão do sistema</div>
+        <div style={{ flex: 1 }} />
+        {[30, 90, 365].map((d) => (
+          <button
+            key={d}
+            onClick={() => setDias(d)}
+            style={{
+              border: '1px solid ' + (dias === d ? '#7a52a0' : '#e6e3ee'),
+              background: dias === d ? 'rgba(150,110,200,0.12)' : '#fff',
+              color: dias === d ? '#7a52a0' : '#6e6780',
+              borderRadius: 10, padding: '7px 13px', fontSize: 12.5, fontWeight: 700,
+              cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
+            }}
+          >
+            {d === 365 ? '12 meses' : `${d} dias`}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: 16, marginBottom: 16 }}>
+        <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Jornada Titãs</div>
+          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 16 }}>
+            Do primeiro contato ao dinheiro na conta
+          </div>
+          <JourneyFunnel stages={journey} />
+          <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} />
+        </div>
+
+        <div className="beam-card" style={beamCardStyle(BEAMS.blue, { borderRadius: 20, padding: '22px 24px' })}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Quando o cliente procura</div>
+          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 16 }}>
+            Conversas abertas por dia da semana e hora
+          </div>
+          <ConversationHeatmap data={heat} />
+          <BorderBeam className="beam-layer" colorFrom={BEAMS.blue.from} colorTo={BEAMS.blue.to} duration={14} />
+        </div>
       </div>
 
       {/* Receita (mock) + Origem (mock) */}
