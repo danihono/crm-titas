@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { canManage, useTenantStore } from '../store/tenantStore'
+import { useEffect, useMemo, useState } from 'react'
+import { canEditSettings, canSeeSettings, useTenantStore } from '../store/tenantStore'
 import { sx, C } from '../styles/sx'
 import MaterialIcon from '../components/common/MaterialIcon'
 import { ReadOnlyNote } from '../components/settings/primitives'
@@ -51,9 +51,23 @@ export default function Settings() {
   const [active, setActive] = useState<SectionId>('perfil')
   const readOnly = useTenantStore((s) => s.readOnly)
   const role = useTenantStore((s) => s.role)
-  const canEdit = canManage(role, readOnly)
+  const canEdit = canEditSettings(role, readOnly)
+  const verTenant = canSeeSettings(role)
 
-  const groups = SECTIONS.reduce<Record<string, SectionDef[]>>((acc, s) => {
+  // Atendente fica só com CONTA — as seções da operação nem entram no menu, em vez de
+  // aparecerem travadas prometendo um acesso que ele não tem.
+  const visiveis = useMemo(
+    () => SECTIONS.filter((s) => s.group === 'CONTA' || verTenant),
+    [verTenant],
+  )
+
+  // Papel pode mudar durante a sessão (troca de equipe): sem isto a tela ficaria em
+  // branco, presa numa seção que deixou de existir para este usuário.
+  useEffect(() => {
+    if (!visiveis.some((s) => s.id === active)) setActive('perfil')
+  }, [visiveis, active])
+
+  const groups = visiveis.reduce<Record<string, SectionDef[]>>((acc, s) => {
     ;(acc[s.group] ||= []).push(s)
     return acc
   }, {})
@@ -103,7 +117,7 @@ export default function Settings() {
           <ReadOnlyNote>
             {readOnly
               ? 'Você está visualizando o CRM de um cliente — as configurações são somente leitura.'
-              : 'Seu papel é Atendente: as configurações da equipe são administradas por um gestor.'}
+              : 'Somente o dono do ambiente altera as configurações — você pode consultar.'}
           </ReadOnlyNote>
         )}
 

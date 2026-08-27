@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { updateProfile } from 'firebase/auth'
 import { doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { auth, db, storage } from '../lib/firebase'
@@ -66,8 +67,34 @@ export function useSelfProfile(): SelfProfile {
   return profile
 }
 
+/**
+ * Salva o perfil da conta.
+ *
+ * O nome vive em TRÊS lugares, e até aqui só um era atualizado — por isso ele "voltava"
+ * para o de cadastro:
+ *   1. users/{uid}.displayName        — o que o perfil já gravava;
+ *   2. users/{uid}/members/{uid}.name — alimenta a lista de Atendentes, o seletor de
+ *      responsável na conversa e os relatórios por atendente;
+ *   3. o displayName do Auth          — escrito uma vez no cadastro e nunca mais.
+ * O `signUp` já gravava 1 e 2 juntos; renomear depois precisa fazer o mesmo.
+ *
+ * Os dois extras são best-effort: quem não tem doc de membro naquele tenant não pode ver o
+ * salvamento do próprio perfil falhar por causa disso.
+ */
 export async function saveSelfProfile(patch: Partial<Omit<SelfProfile, 'prefs'>>): Promise<void> {
   await setDoc(selfRef(), patch, { merge: true })
+
+  const name = patch.displayName?.trim()
+  if (!name) return
+  const u = auth.currentUser
+  if (!u) return
+
+  await Promise.all([
+    setDoc(doc(db, 'users', u.uid, 'members', u.uid), { name }, { merge: true })
+      .catch((err) => console.warn('[saveSelfProfile/member]', err)),
+    updateProfile(u, { displayName: name })
+      .catch((err) => console.warn('[saveSelfProfile/auth]', err)),
+  ])
 }
 
 export async function saveSelfPrefs(prefs: Partial<UserPrefs>): Promise<void> {

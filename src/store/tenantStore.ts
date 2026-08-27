@@ -42,8 +42,37 @@ export const useTenantStore = create<TenantState>((set) => ({
   exitClient: () => set({ tenantUid: null, readOnly: false, client: null, role: null }),
 }))
 
-/** Pode mexer em equipe, setores, etiquetas e demais configurações do tenant? */
+/**
+ * Papel de dono do ambiente: o titular da conta (`role === null`, está no próprio tenant)
+ * ou quem foi promovido a `dono` na equipe.
+ */
+export function isOwnerRole(role: MemberRole | null): boolean {
+  return role === null || role === 'dono'
+}
+
+/**
+ * Quem ALTERA as configurações do tenant: só o dono do ambiente.
+ *
+ * Diferente de `canManage` de propósito — o Gestor consulta as configurações, mas não mexe.
+ */
+export function canEditSettings(role: MemberRole | null, readOnly: boolean): boolean {
+  if (readOnly) return false
+  return isOwnerRole(role)
+}
+
+/** Quem ABRE as configurações do tenant. O Atendente fica só com as seções de CONTA. */
+export function canSeeSettings(role: MemberRole | null): boolean {
+  return role !== 'atendente'
+}
+
+/**
+ * Pode administrar equipe, setores, etiquetas e afins?
+ *
+ * ATENÇÃO: não é a regra de Configurações — lá vale `canEditSettings`, mais estrita. Esta
+ * continua incluindo o Gestor e é usada por Campanhas; mudá-la aqui tiraria o Gestor de um
+ * módulo que não faz parte deste pedido.
+ */
 export function canManage(role: MemberRole | null, readOnly: boolean): boolean {
   if (readOnly) return false
-  return role === null || role === 'dono' || role === 'gestor'
+  return isOwnerRole(role) || role === 'gestor'
 }
