@@ -95,6 +95,13 @@ firestore.rules · storage.rules · firestore.indexes.json · firebase.json
    firebase deploy --only firestore:rules,firestore:indexes,storage,hosting
    ```
 
+> **`dist/` é gerada, nunca vem do git** (está no `.gitignore`). O `firebase deploy` publica
+> o que estiver nessa pasta — sem compilar. Um `git pull` seguido de deploy sem build subiria
+> a `dist/` antiga que ficou na máquina, e o site voltaria no tempo: menus somem, telas
+> reaparecem numa versão velha. Por isso o `hosting` tem `"predeploy": ["npm run build"]` no
+> `firebase.json` — o build passa a rodar sozinho antes de publicar. Se o menu do CRM não
+> mostrar os 10 itens (até Configurações), é sinal de build velho no ar.
+
 ## Fase 7 — Titã IA (Cloud Function) + deploy
 Requer o plano **Blaze**.
 ```bash
