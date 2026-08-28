@@ -1,11 +1,11 @@
 # Titãs CRM
 
-CRM de vendas em **React + Vite + TypeScript** sobre **Firebase** (Firestore, Auth, Storage, Hosting) com assistente de IA **Titã IA** (Claude via Cloud Function). Migrado do protótipo de arquivo único `legacy/CRM Titãs.dc.html`.
+CRM de vendas em **React + Vite + TypeScript** sobre **Firebase** (Firestore, Auth, Storage, Hosting) com assistente de IA **Titã IA** (Gemini via Cloud Function). Migrado do protótipo de arquivo único `legacy/CRM Titãs.dc.html`.
 
 ## Stack
 - **Vite + React 18 + TypeScript**, `react-router-dom`, **Zustand** (estado de UI).
 - **Firebase SDK v11**: Auth (e-mail/senha), Firestore (tempo real via `onSnapshot`), Storage (arquivos), Hosting.
-- **Cloud Functions (Node 20)** + `@anthropic-ai/sdk` para o agente Claude (`claude-opus-4-8`).
+- **Cloud Functions (Node 20)** + `@google/genai` para o Titã IA (`gemini-3.5-flash-lite`).
 - Visual portado 1:1 do protótipo (estilos inline, fontes Google + Material Symbols).
 
 ## Módulos
@@ -119,10 +119,29 @@ firestore.rules · storage.rules · firestore.indexes.json · firebase.json
 Requer o plano **Blaze**.
 ```bash
 cd functions && npm install && cd ..
-firebase functions:secrets:set ANTHROPIC_API_KEY     # cole sua chave da Anthropic
+firebase functions:secrets:set GEMINI_API_KEY     # cole sua chave do Google AI Studio
 ```
+
+> ⚠️ **A chave precisa ser de um projeto com billing vinculado.** No tier gratuito do
+> Gemini o Google pode usar seus prompts e respostas para treinar os produtos dele — e o
+> que trafega aqui é conversa de cliente, o mesmo dado que as security rules escondem até
+> do dono do sistema. O pago custa centavos e encerra esse uso.
+
 - **App Check (reCAPTCHA v3):** registre o app no console, copie a *site key* para `VITE_RECAPTCHA_SITE_KEY` no `.env.local`. A função usa `enforceAppCheck: true`.
-- Modelo configurável: variável de ambiente `TITA_MODEL` na função (default `claude-opus-4-8`; use `claude-haiku-4-5` para baratear).
+- Modelos configuráveis por env, sem mexer em código: `TITA_MODEL` (chat, default
+  `gemini-3.5-flash-lite`) e `TITA_FLOW_MODEL` (gerador de fluxos, mesmo default).
+- **Antes de publicar, teste contra a API de verdade** — a lógica vive em
+  `functions/src/ia.ts` justamente para poder ser exercitada fora do Firebase:
+  ```bash
+  cd functions
+  GEMINI_API_KEY=... npm run ia:teste      # 17 checagens: chat, histórico e o grafo do fluxo
+  GEMINI_API_KEY=... npm run ia:modelos    # o que esta chave enxerga hoje
+  ```
+  O `ia:teste` confere o que o schema NÃO garante: seta apontando para etapa inexistente,
+  etapa órfã, decisão sem rótulo. É o que quebra quando se troca de modelo.
+- **Modelo do Gemini sai de linha.** O `gemini-2.5-flash-lite` virou 404 com
+  "no longer available to new users". Quando acontecer, rode `npm run ia:modelos` e ajuste
+  o default — não chute o próximo nome.
 - Deploy:
   ```bash
   npm run build
@@ -132,14 +151,14 @@ firebase functions:secrets:set ANTHROPIC_API_KEY     # cole sua chave da Anthrop
 
 > Enquanto a Function não estiver no ar, o chat do Titã IA usa um **fallback scriptado** (respostas por palavra-chave) automaticamente.
 
-### Sem a chave da Anthropic ainda?
+### Sem a chave do Gemini ainda?
 Dá para publicar o resto sem tocar nas functions — só o Titã IA e o gerador de fluxos
 dependem da chave:
 ```bash
 npm run build
 firebase deploy --only firestore:rules,storage,hosting
 ```
-E a exclusão de cliente (que **não** usa a Anthropic) pode ir sozinha, sem o secret:
+E a exclusão de cliente (que **não** usa IA) pode ir sozinha, sem o secret:
 ```bash
 firebase deploy --only functions:excluirCliente
 ```

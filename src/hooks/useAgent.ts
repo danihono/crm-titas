@@ -53,7 +53,7 @@ export async function pushAgentMessage(role: 'user' | 'agent', text: string) {
 interface AskRequest { system: string; history: { role: 'user' | 'assistant'; content: string }[]; question: string }
 interface AskResponse { reply: string }
 
-/** Chama a Cloud Function askTitaIA (Claude). Lança em erro de rede/quota. */
+/** Chama a Cloud Function askTitaIA (Gemini). Lança em erro de rede/quota. */
 export async function callTitaIA(req: AskRequest): Promise<string> {
   const fn = httpsCallable<AskRequest, AskResponse>(functions, 'askTitaIA')
   const res = await fn(req)
@@ -76,7 +76,7 @@ export function agentErrorHint(code: string): string {
     case 'functions/permission-denied':
       return hint('a chamada foi barrada pelo App Check. A build precisa de VITE_RECAPTCHA_SITE_KEY, ou o App Check precisa ser desligado na função.')
     case 'functions/resource-exhausted':
-      return hint('cota da API da Anthropic esgotada.')
+      return hint('cota da API do Gemini esgotada.')
     case 'functions/internal':
       return hint('a função falhou por dentro — veja `firebase functions:log`.')
     case 'functions/unavailable':
@@ -107,5 +107,5 @@ export function fallbackReply(q: string): string {
   if (ql.includes('mensag') || ql.includes('redij') || ql.includes('escrev') || ql.includes('propost')) {
     return 'Sugestão de mensagem para a Marina (Nexa Software):\n\n"Oi Marina! Conforme combinamos, segue a proposta do plano Enterprise cobrindo os 3 ambientes (produção, homologação e dev) com suporte prioritário. Fico à disposição para ajustar qualquer ponto — podemos fechar ainda esta semana? 🚀"'
   }
-  return 'Analisei os dados do seu CRM. Posso priorizar seu dia, analisar um negócio específico, cobrar notas vencidas ou redigir mensagens — é só pedir. (Observação: a IA respondeu em modo offline; configure a Cloud Function askTitaIA para respostas do Claude em tempo real.)'
+  return 'Analisei os dados do seu CRM. Posso priorizar seu dia, analisar um negócio específico, cobrar notas vencidas ou redigir mensagens — é só pedir. (Observação: a IA respondeu em modo offline; configure a Cloud Function askTitaIA para respostas em tempo real.)'
 }

@@ -208,7 +208,7 @@ export default function Agent() {
             </div>
           </div>
           <div style={{ fontSize: 11, color: '#6e6780', background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 8, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <MaterialIcon name="bolt" size={14} color="#7a52a0" />Claude · Anthropic
+            <MaterialIcon name="bolt" size={14} color="#7a52a0" />Gemini · Google
           </div>
         </div>
 

@@ -62,7 +62,7 @@ export interface GeneratedFlow {
 }
 
 /**
- * Chama a Cloud Function gerarFluxoIA (Claude) e monta o grafo.
+ * Chama a Cloud Function gerarFluxoIA (Gemini) e monta o grafo.
  *
  * O modelo devolve só a estrutura — as coordenadas saem do autoLayout aqui,
  * porque pedir x/y para o modelo gasta tokens e posiciona pior.

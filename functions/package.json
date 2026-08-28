@@ -10,15 +10,18 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "npm run build && firebase deploy --only functions"
+    "deploy": "npm run build && firebase deploy --only functions",
+    "ia:teste": "tsx scripts/ia-teste.ts",
+    "ia:modelos": "tsx scripts/ia-modelos.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
+    "@google/genai": "^2.19.0",
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.2"
   }
 }
