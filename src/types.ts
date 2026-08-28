@@ -36,6 +36,8 @@ export interface Column {
   title: string
   color: string
   order: number
+  /** Etapa que existe no quadro mas NÃO é degrau do funil (a coluna Perdido). */
+  outOfFunnel?: boolean
 }
 
 export interface Board {
@@ -46,6 +48,12 @@ export interface Board {
   color: string
   columns: Column[]
   createdAt?: Date
+  /**
+   * Quadro do sistema — nome, etapas e existência são fixos. Hoje só o 'leads', que é o
+   * trilho do funil do painel: se as etapas pudessem ser renomeadas ou apagadas, o funil
+   * mudaria de significado sozinho e o histórico de avanço perderia o pé.
+   */
+  system?: 'leads'
 }
 
 /** Card do Kanban — normalizado em users/{uid}/deals. value em reais (inteiro). */
@@ -60,6 +68,14 @@ export interface Deal {
   columnId: string
   order: number
   createdAt?: Date
+  /** Contato vinculado, quando escolhido da lista. Digitar o nome à mão continua valendo. */
+  contactId?: string
+  /**
+   * Quando o card alcançou cada etapa, por id de coluna. Só é escrito na PRIMEIRA vez que
+   * ele chega — voltar atrás não reescreve a data. É isso que deixa o funil contar "passou
+   * por aqui" em vez de "está aqui agora", e o que permite medir o tempo de cada degrau.
+   */
+  reachedAt?: Record<string, Date>
 }
 
 /** Tipo de caixa do fluxograma — define a cor da faixa e o ícone. */

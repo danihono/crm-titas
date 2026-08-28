@@ -60,7 +60,19 @@ export function boardFromDoc(id: string, d: DocumentData): Board {
     color: typeof d.color === 'string' && d.color ? d.color : '#7a52a0',
     columns: Array.isArray(d.columns) ? d.columns : [],
     createdAt: toDate(d.createdAt),
+    system: d.system === 'leads' ? 'leads' : undefined,
   }
+}
+
+/** `reachedAt` chega como mapa de Timestamps; entrada sem data válida é descartada. */
+function toReachedAt(v: unknown): Record<string, Date> | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  const out: Record<string, Date> = {}
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    const d = toDate(raw)
+    if (d) out[k] = d
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 export function dealFromDoc(id: string, d: DocumentData): Deal {
@@ -75,6 +87,8 @@ export function dealFromDoc(id: string, d: DocumentData): Deal {
     columnId: d.columnId ?? '',
     order: d.order ?? 0,
     createdAt: toDate(d.createdAt),
+    contactId: typeof d.contactId === 'string' && d.contactId ? d.contactId : undefined,
+    reachedAt: toReachedAt(d.reachedAt),
   }
 }
 

@@ -9,6 +9,7 @@ import { fmtMoney } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import InvoiceModal, { type ClientOption } from '../components/modals/InvoiceModal'
+import { contactOptions, withLegacyNames } from '../components/common/ClientCombo'
 import InvoicesDocument from '../components/invoices/InvoicesDocument'
 import { sx, C } from '../styles/sx'
 import type { Invoice, InvoiceStatus } from '../types'
@@ -45,34 +46,10 @@ export default function Invoices() {
   // Tirar os contatos daqui deixava a lista VAZIA numa conta nova — e sem opção não havia
   // como emitir a primeira nota. O campo do modal aceita texto livre, então isto é só atalho.
   // `company` vem como '—' quando o contato foi salvo sem empresa (ver saveContact).
-  const clientOptions = useMemo<ClientOption[]>(() => {
-    const byLabel = new Map<string, ClientOption>()
-    for (const c of contacts) {
-      const label = c.company && c.company !== '—' ? c.company : c.name
-      if (!label.trim() || byLabel.has(label)) continue
-      // Empresa, telefone e foto vão junto: é o que o combo mostra na segunda linha para
-      // dizer QUEM é cada um — sem isso a lista era só uma coluna de texto solto.
-      byLabel.set(label, {
-        label,
-        contactId: c.id,
-        name: c.name,
-        company: c.company,
-        phone: c.phone || c.whatsapp,
-        photoUrl: c.photoUrl,
-        origem: 'contato',
-      })
-    }
-    for (const iv of invoices) {
-      if (iv.client.trim() && !byLabel.has(iv.client)) {
-        byLabel.set(iv.client, { label: iv.client, origem: 'nota' })
-      }
-    }
-    // Contatos primeiro; dentro de cada grupo, ordem alfabética.
-    return [...byLabel.values()].sort((a, b) =>
-      a.origem === b.origem
-        ? a.label.localeCompare(b.label, 'pt-BR')
-        : a.origem === 'contato' ? -1 : 1)
-  }, [contacts, invoices])
+  const clientOptions = useMemo<ClientOption[]>(
+    () => withLegacyNames(contactOptions(contacts, 'empresa'), invoices.map((iv) => iv.client)),
+    [contacts, invoices],
+  )
 
   const withStatus = useMemo(
     () => invoices.map((iv) => ({ iv, status: invoiceStatus(iv) })),

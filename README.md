@@ -12,6 +12,19 @@ CRM de vendas em **React + Vite + TypeScript** sobre **Firebase** (Firestore, Au
 Dashboard · Pipeline (Kanban com drag&drop) · Contatos + WhatsApp + Atendimento + Arquivos ·
 Atividades · Faturamento · Agenda · Agente de IA · Campanhas · Relatórios · Configurações.
 
+**Pipeline e o funil.** O Kanban tem um quadro do sistema, **Leads** (`boards/leads`), com
+seis etapas fixas — Novo lead · Contato feito · Qualificado · Proposta enviada · Ganho, mais
+*Perdido* fora do funil. Nome e etapas não são editáveis (a trava está em `useDeals.ts`, não
+só no botão), porque é esse trilho que o **Funil de Leads** do painel lê: cada card grava em
+`reachedAt` a data da primeira vez que alcançou cada etapa, e o gráfico segue a coorte criada
+no período — por isso ele só estreita, e a conversão de cada degrau quer dizer alguma coisa.
+Qualquer outro quadro segue com CRUD completo de quadro, etapa e card. O card pode apontar
+para um contato (`contactId`, opcional) pelo mesmo combo que o Faturamento usa.
+
+**Contatos** tem duas abas: *Atendimento* (Entrada · Esperando · Finalizados, a caixa de
+conversas) e *Contatos* (o cadastro — busca, telefone, etiquetas, último contato). Quem não
+tem conversa aberta só aparece na segunda.
+
 **Atendimento (multi-seat).** O tenant é `users/{uid}` e pode ter vários atendentes
 (`users/{uid}/members/{memberUid}`, papéis dono/gestor/atendente, convite por e-mail).
 Contatos e conversas ficam na MESMA tela: a lista da esquerda tem as abas
@@ -138,7 +151,12 @@ firebase deploy --only functions:excluirCliente
 > `npm --prefix functions ci` na mão.
 
 ## Modelo de dados (Firestore, single-tenant)
-`users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `leads`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
+`users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`, `contactId` e `reachedAt`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
+
+> A coleção `leads` **não existe mais**: na primeira abertura do Pipeline, `ensureLeadsBoard()`
+> cria o quadro Leads e migra cada lead para um card (id `lead-<id>`, origem virando etiqueta),
+> apagando a lista antiga. É idempotente — o doc do quadro é gravado no último lote, então
+> "quadro existe" significa "migração terminou".
 
 ## Notas
 - Valores monetários em **reais (inteiro)**; datas em **Timestamp** (rótulos "Hoje/Ontem/há 2h" derivados na UI).

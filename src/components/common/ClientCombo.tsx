@@ -4,6 +4,7 @@ import { avPalette } from '../../lib/theme'
 import { sx, C } from '../../styles/sx'
 import Avatar from './Avatar'
 import MaterialIcon from './MaterialIcon'
+import type { Contact } from '../../types'
 
 /** Uma sugestão de cliente. `contactId` só existe quando veio da agenda de contatos. */
 export interface ClientOption {
@@ -16,6 +17,50 @@ export interface ClientOption {
   photoUrl?: string
   /** 'contato' = da agenda; 'nota' = nome que só aparece em notas antigas. */
   origem: 'contato' | 'nota'
+}
+
+/**
+ * Transforma a agenda em opções do combo.
+ *
+ * O rótulo muda com o campo: a NOTA sai para a empresa, então lá a empresa manda; o
+ * negócio tem campo de empresa separado, então lá o rótulo é a pessoa. Nos dois casos nome,
+ * empresa, telefone e foto vão junto — é o que o combo usa para dizer quem é cada um, e o
+ * que permite achar alguém digitando qualquer um dos dois nomes.
+ */
+export function contactOptions(contacts: Contact[], rotulo: 'nome' | 'empresa'): ClientOption[] {
+  const byLabel = new Map<string, ClientOption>()
+  for (const c of contacts) {
+    // '—' é como saveContact grava "sem empresa"; não serve de rótulo.
+    const empresa = c.company && c.company !== '—' ? c.company : ''
+    const label = rotulo === 'empresa' ? empresa || c.name : c.name || empresa
+    if (!label.trim() || byLabel.has(label)) continue
+    byLabel.set(label, {
+      label,
+      contactId: c.id,
+      name: c.name,
+      company: c.company,
+      phone: c.phone || c.whatsapp,
+      photoUrl: c.photoUrl,
+      origem: 'contato',
+    })
+  }
+  return [...byLabel.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+}
+
+/**
+ * Junta opções da agenda com nomes soltos que só existem em registros antigos, sem duplicar.
+ * Os contatos ficam na frente; dentro de cada grupo, ordem alfabética.
+ */
+export function withLegacyNames(base: ClientOption[], nomes: string[]): ClientOption[] {
+  const byLabel = new Map(base.map((o) => [o.label, o]))
+  for (const n of nomes) {
+    const label = n.trim()
+    if (label && !byLabel.has(label)) byLabel.set(label, { label, origem: 'nota' })
+  }
+  return [...byLabel.values()].sort((a, b) =>
+    a.origem === b.origem
+      ? a.label.localeCompare(b.label, 'pt-BR')
+      : a.origem === 'contato' ? -1 : 1)
 }
 
 /**

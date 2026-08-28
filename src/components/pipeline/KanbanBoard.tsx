@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useUIStore } from '../../store/uiStore'
+import { useContacts } from '../../hooks/useContacts'
 import { useTenantStore } from '../../store/tenantStore'
 import {
   useBoards, useAllDeals, addBoard, addColumn, addDeal, moveDeal, updateDeal, deleteDeal,
-  updateBoard, deleteBoard, updateColumn, deleteColumn, moveColumn,
+  updateBoard, deleteBoard, updateColumn, deleteColumn, moveColumn, ensureLeadsBoard,
+  LEADS_BOARD_ID,
   type DealForm, type BoardForm, type ColumnForm,
 } from '../../hooks/useDeals'
 import Column from '../kanban/Column'
+import { contactOptions, withLegacyNames } from '../common/ClientCombo'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import DealModal from '../modals/DealModal'
@@ -20,7 +23,10 @@ import type { Column as Col, Deal } from '../../types'
 export default function KanbanBoard() {
   const { docs: boards } = useBoards()
   const { docs: allDeals } = useAllDeals()
+  const { docs: contacts } = useContacts()
   const activeBoard = useUIStore((s) => s.activeBoard)
+  const novoLead = useUIStore((s) => s.novoLead)
+  const limparNovoLead = useUIStore((s) => s.limparNovoLead)
   const setActiveBoard = useUIStore((s) => s.setActiveBoard)
   const readOnly = useTenantStore((s) => s.readOnly)
 
@@ -37,12 +43,44 @@ export default function KanbanBoard() {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
 
+  // Garante o quadro LEADS (e traz os leads antigos para dentro dele) na primeira vez que
+  // alguém abre o Pipeline. É idempotente; em ambiente só-leitura nem tenta.
+  useEffect(() => {
+    if (readOnly) return
+    ensureLeadsBoard().catch(() => {
+      // Sem permissão ou offline: o Kanban segue com os quadros que já existem, e a
+      // próxima abertura tenta de novo. Não é erro que valha interromper a tela.
+    })
+  }, [readOnly])
+
+  // Pedido vindo da agenda ("criar lead com este contato"): abre o card já preenchido na
+  // primeira etapa do quadro LEADS e some com o pedido, para não reabrir a cada render.
+  useEffect(() => {
+    if (!novoLead) return
+    const leads = boards.find((b) => b.id === LEADS_BOARD_ID)
+    if (!leads) return
+    const primeira = [...leads.columns].sort((a, b) => a.order - b.order)[0]
+    if (!primeira) return
+    setActiveBoard(LEADS_BOARD_ID)
+    setCreatingIn(primeira.id)
+  }, [novoLead, boards, setActiveBoard])
+
   const current = boards.find((b) => b.id === activeBoard) ?? boards[0]
   const boardId = current?.id ?? ''
+  // Quadro do sistema: nome e etapas são fixos. Os cards não — criar, arrastar, editar e
+  // excluir lead continua tudo liberado.
+  const fixo = current?.system === 'leads'
   // `deals` (quadro inteiro) alimenta as mutações (cálculo de order);
   // `visibleDeals` é o que as colunas renderizam com os filtros aplicados.
   const deals = allDeals.filter((d) => d.boardId === boardId)
   const columns = current ? [...current.columns].sort((a, b) => a.order - b.order) : []
+
+  // Agenda para o campo Contato do modal, com os nomes que só existem em cards antigos
+  // entrando atrás — assim editar um negócio velho não perde o nome que ele já tinha.
+  const opcoesContato = useMemo(
+    () => withLegacyNames(contactOptions(contacts, 'nome'), allDeals.map((d) => d.contact)),
+    [contacts, allDeals],
+  )
 
   const tags = Array.from(new Set(deals.map((d) => d.tag).filter(Boolean))).sort()
   const ft = filterText.trim().toLowerCase()
@@ -115,6 +153,9 @@ export default function KanbanBoard() {
   function closeDealModal() {
     setEditingDeal(null)
     setCreatingIn(null)
+    // Limpa o pedido da agenda ao fechar (salvando ou cancelando), senão a próxima vez que
+    // alguém entrasse no Pipeline abriria o mesmo lead de novo.
+    limparNovoLead()
   }
 
   // Os erros sobem para o DealModal, que os mostra na própria caixa.
@@ -164,7 +205,12 @@ export default function KanbanBoard() {
             >
               <MaterialIcon name={b.icon} size={16} />
               {b.name} <span style={{ opacity: 0.55, fontWeight: 600 }}>{count}</span>
-              {on && !readOnly && (
+              {b.system === 'leads' && (
+                <span title="Quadro do sistema — etapas fixas" style={{ display: 'flex', opacity: 0.55 }}>
+                  <MaterialIcon name="lock" size={13} />
+                </span>
+              )}
+              {on && !readOnly && b.system !== 'leads' && (
                 <MaterialIcon
                   name="edit"
                   size={15}
@@ -242,6 +288,7 @@ export default function KanbanBoard() {
             column={col}
             cards={visibleDeals.filter((d) => d.columnId === col.id)}
             readOnly={readOnly}
+            fixed={fixo}
             canMoveLeft={i > 0}
             canMoveRight={i < columns.length - 1}
             onDragStart={setDragId}
@@ -253,8 +300,8 @@ export default function KanbanBoard() {
           />
         ))}
 
-        {/* Adicionar etapa */}
-        {!readOnly && (
+        {/* Adicionar etapa — no quadro do sistema as etapas são fixas, então some. */}
+        {!readOnly && !fixo && (
           <div style={{ width: 230, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 2 }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
@@ -278,6 +325,8 @@ export default function KanbanBoard() {
       {(editingDeal || creatingIn) && (
         <DealModal
           deal={editingDeal}
+          preset={!editingDeal && novoLead ? novoLead : undefined}
+          contactOptions={opcoesContato}
           onClose={closeDealModal}
           onSave={saveDeal}
           onDelete={editingDeal ? removeDeal : undefined}

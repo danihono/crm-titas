@@ -4,6 +4,15 @@ import { dateKeyOf } from '../lib/format'
 export type ContactView = 'chat' | 'info' | 'files'
 export type ActFilter = 'todas' | 'pendente' | 'atrasada' | 'concluida'
 export type PipelineView = 'kanban' | 'fluxos'
+/** Aba da tela de Contatos: a caixa de atendimento ou o cadastro. */
+export type ContactsView = 'atendimento' | 'cadastro'
+
+/** Lead que a agenda mandou criar — o Pipeline consome uma vez e limpa. */
+export interface NovoLead {
+  contact: string
+  company: string
+  contactId: string
+}
 
 const now = new Date()
 
@@ -11,6 +20,8 @@ interface UIState {
   sidebarCollapsed: boolean
   activeBoard: string
   pipelineView: PipelineView
+  contactsView: ContactsView
+  novoLead: NovoLead | null
   /** Fluxo aberto no editor; null = mostrando a lista de fluxos. */
   activeFlow: string | null
   selectedContact: string | null
@@ -30,6 +41,9 @@ interface UIState {
   toggleSidebar: () => void
   setActiveBoard: (id: string) => void
   setPipelineView: (v: PipelineView) => void
+  setContactsView: (v: ContactsView) => void
+  pedirNovoLead: (l: NovoLead) => void
+  limparNovoLead: () => void
   openFlow: (id: string) => void
   closeFlow: () => void
   selectContact: (id: string) => void
@@ -55,8 +69,13 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
-  activeBoard: 'b1',
+  // Vazio, não um id chutado: sem quadro escolhido o Kanban cai no primeiro da lista, que é
+  // o LEADS (nasce com createdAt zero). Fixar 'b1' abria num quadro de seed que pode nem
+  // existir no ambiente do cliente.
+  activeBoard: '',
   pipelineView: 'kanban',
+  contactsView: 'atendimento',
+  novoLead: null,
   activeFlow: null,
   selectedContact: null,
   contactView: 'chat',
@@ -75,6 +94,9 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setActiveBoard: (id) => set({ activeBoard: id }),
   setPipelineView: (v) => set({ pipelineView: v }),
+  setContactsView: (v) => set({ contactsView: v }),
+  pedirNovoLead: (l) => set({ novoLead: l }),
+  limparNovoLead: () => set({ novoLead: null }),
   openFlow: (id) => set({ activeFlow: id }),
   closeFlow: () => set({ activeFlow: null }),
   selectContact: (id) => set({ selectedContact: id, contactView: 'chat' }),

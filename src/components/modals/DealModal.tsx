@@ -5,6 +5,7 @@ import RingButton from '../common/RingButton'
 import { sx } from '../../styles/sx'
 import { tagMap } from '../../lib/theme'
 import { fmtMoney, parseValueBR } from '../../lib/format'
+import ClientCombo, { type ClientOption } from '../common/ClientCombo'
 import type { DealForm } from '../../hooks/useDeals'
 import type { Deal } from '../../types'
 
@@ -16,15 +17,20 @@ const TAGS = Object.keys(tagMap)
  *
  * Coluna e ordem NÃO entram aqui de propósito — quem move o card é o arraste.
  */
-export default function DealModal({ deal, onClose, onSave, onDelete }: {
+export default function DealModal({ deal, preset, contactOptions, onClose, onSave, onDelete }: {
   deal?: Deal | null
+  /** Valores iniciais ao criar (a agenda manda o contato já escolhido). Ignorado ao editar. */
+  preset?: { contact: string; company: string; contactId: string }
+  /** Agenda para o campo Contato. Vazia numa conta nova — o campo segue de texto livre. */
+  contactOptions: ClientOption[]
   onClose: () => void
   onSave: (form: DealForm) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const editing = !!deal
-  const [company, setCompany] = useState(deal?.company ?? '')
-  const [contact, setContact] = useState(deal?.contact ?? '')
+  const [company, setCompany] = useState(deal?.company ?? preset?.company ?? '')
+  const [contact, setContact] = useState(deal?.contact ?? preset?.contact ?? '')
+  const [contactId, setContactId] = useState(deal?.contactId ?? preset?.contactId ?? '')
   const [value, setValue] = useState(deal?.value ? fmtMoney(deal.value) : '')
   const [tag, setTag] = useState(deal?.tag || 'Novo')
   const [busy, setBusy] = useState(false)
@@ -43,7 +49,7 @@ export default function DealModal({ deal, onClose, onSave, onDelete }: {
     setError('')
     setBusy(true)
     try {
-      await onSave({ company, contact, value: parseValueBR(value), tag })
+      await onSave({ company, contact, value: parseValueBR(value), tag, contactId })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao salvar o negócio.')
       setBusy(false)
@@ -72,10 +78,28 @@ export default function DealModal({ deal, onClose, onSave, onDelete }: {
         {editing ? 'Atualize os dados deste negócio.' : 'Cadastre o negócio que entra no pipeline.'}
       </div>
 
-      <div style={{ display: 'flex', gap: 12 }}>
-        <Field flex label="Empresa" value={company} onChange={setCompany} placeholder="Ex: Atlas Cloud" />
-        <Field flex label="Contato" value={contact} onChange={setContact} placeholder="Ex: Rafa Lima" />
+      <label style={sx.label}>Contato</label>
+      {/* Escolher da agenda grava o vínculo — é ele que deixa o funil do painel seguir a
+          MESMA pessoa até o fim. Digitar um nome solto continua valendo: numa conta nova não
+          há contato nenhum, e exigir vínculo travaria o primeiro lead. */}
+      <div style={{ margin: '6px 0 14px' }}>
+        <ClientCombo
+          value={contact}
+          options={contactOptions}
+          onChange={(label, id) => {
+            setContact(label)
+            setContactId(id ?? '')
+            // Empresa vazia se completa sozinha com a do contato; se o usuário já digitou
+            // algo ali, a escolha dele manda.
+            const opt = id ? contactOptions.find((o) => o.contactId === id) : undefined
+            const empresa = opt?.company && opt.company !== '—' ? opt.company : ''
+            if (empresa && !company.trim()) setCompany(empresa)
+          }}
+          placeholder="Escolha um contato ou digite um nome novo"
+        />
       </div>
+
+      <Field label="Empresa" value={company} onChange={setCompany} placeholder="Ex: Atlas Cloud" />
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>

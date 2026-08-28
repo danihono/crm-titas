@@ -8,6 +8,8 @@ interface Props {
   column: Col
   cards: Deal[]
   readOnly?: boolean
+  /** Etapa de quadro do sistema: some o mover/editar, mas o card continua livre. */
+  fixed?: boolean
   /** Falso na primeira/última etapa — desabilita a seta que não tem para onde ir. */
   canMoveLeft?: boolean
   canMoveRight?: boolean
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export default function Column({
-  column, cards, readOnly, canMoveLeft, canMoveRight,
+  column, cards, readOnly, fixed, canMoveLeft, canMoveRight,
   onDragStart, onDrop, onAddCard, onOpenCard, onEdit, onMove,
 }: Props) {
   const sum = cards.reduce((s, c) => s + (c.value || 0), 0)
@@ -47,7 +49,7 @@ export default function Column({
         <span style={{ width: 9, height: 9, borderRadius: 3, background: column.color }} />
         <span style={{ fontWeight: 700, fontSize: 13.5, color: '#1d1726', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{column.title}</span>
         <span style={{ fontSize: 11, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>{cards.length}</span>
-        {!readOnly && (
+        {!readOnly && !fixed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <HeadAction icon="chevron_left" title="Mover para a esquerda" disabled={!canMoveLeft} onClick={() => onMove?.(column.id, 'left')} />
             <HeadAction icon="chevron_right" title="Mover para a direita" disabled={!canMoveRight} onClick={() => onMove?.(column.id, 'right')} />

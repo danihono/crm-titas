@@ -1,15 +1,13 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BorderBeam } from '@/components/ui/border-beam'
-import { useAllDeals, useBoards } from '../hooks/useDeals'
+import { useAllDeals, useBoards, LEADS_BOARD_ID } from '../hooks/useDeals'
 import { useActivities, useActTypes } from '../hooks/useActivities'
 import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
-import { useLeads } from '../hooks/useLeads'
 import { useEvents } from '../hooks/useEvents'
-import { useContacts } from '../hooks/useContacts'
 import { useConversations } from '../hooks/useConversations'
-import { buildJourney, buildHeatmap } from '../lib/dashboardData'
-import JourneyFunnel from '../components/dashboard/JourneyFunnel'
+import { buildLeadFunnel, buildHeatmap } from '../lib/dashboardData'
+import LeadFunnel from '../components/dashboard/LeadFunnel'
 import ConversationHeatmap from '../components/dashboard/ConversationHeatmap'
 import { revenueChart } from '../hooks/useRevenueChart'
 import { fmtK, fmtMoney, dateKeyOf, dueInfo, relativeLabel } from '../lib/format'
@@ -42,9 +40,7 @@ export default function Dashboard() {
   const { docs: activities } = useActivities()
   const { docs: types } = useActTypes()
   const { docs: invoices } = useInvoices()
-  const { docs: leads } = useLeads()
   const { docs: events } = useEvents(now.getFullYear(), now.getMonth())
-  const { docs: contacts } = useContacts()
   const rev = revenueChart(invoices, now)
 
   // Período dos gráficos de jornada e de calor. Sem ele a jornada compararia contatos de
@@ -61,24 +57,34 @@ export default function Dashboard() {
     return [ini, fim]
   }, [dias])
   const { docs: conversations } = useConversations(from, to)
-  const journey = useMemo(
-    () => buildJourney({ contacts, conversations, deals, invoices, from, to }),
-    [contacts, conversations, deals, invoices, from, to],
+  // O funil sai do quadro LEADS: é o único lugar do sistema onde o MESMO registro anda de
+  // etapa em etapa, e por isso o único que pode virar funil sem inventar ligação.
+  const leadsBoard = boards.find((b) => b.id === LEADS_BOARD_ID)
+  const leadCards = useMemo(() => deals.filter((d) => d.boardId === LEADS_BOARD_ID), [deals])
+  const funil = useMemo(
+    () => buildLeadFunnel({ deals: leadCards, columns: leadsBoard?.columns ?? [], from, to }),
+    [leadCards, leadsBoard, from, to],
   )
+  // Aguardando primeiro contato = quem ainda está na etapa de entrada, não todo lead.
+  const primeiraEtapa = leadsBoard
+    ? [...leadsBoard.columns].sort((a, b) => a.order - b.order)[0]?.id
+    : undefined
+  const leadsNovos = primeiraEtapa ? leadCards.filter((d) => d.columnId === primeiraEtapa).length : 0
   const heat = useMemo(() => buildHeatmap(conversations), [conversations])
   const typeMap = Object.fromEntries(types.map((t) => [t.id, t]))
 
-  // Origem dos leads — contagem real por `source`, do mais comum para o menos.
+  // Origem dos leads — a etiqueta do card, que é para onde a migração levou o `source` da
+  // lista antiga. Uma fonte só: o quadro.
   const sourceCounts = new Map<string, number>()
-  leads.forEach((l) => {
-    const key = l.source?.trim() || 'Sem origem'
+  leadCards.forEach((l) => {
+    const key = l.tag?.trim() || 'Sem origem'
     sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1)
   })
   let acc = 0
   const sourceList = [...sourceCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([name, count], i) => {
-      const share = (count / leads.length) * 100
+      const share = (count / leadCards.length) * 100
       const stop: [number, number] = [acc, (acc += share)]
       return {
         name,
@@ -111,7 +117,7 @@ export default function Dashboard() {
     { icon: 'error', color: '#c14d77', bg: 'rgba(217,138,171,0.16)', beam: BEAMS.rose, title: vencidas.length ? `${vencidas.length} nota(s) vencida(s)` : 'Nenhuma nota vencida', sub: vencidas.length ? `R$ ${fmtMoney(vencidoSum)} em atraso` : 'faturamento em dia' },
     { icon: 'event', color: '#b3801f', bg: 'rgba(216,169,96,0.18)', beam: BEAMS.amber, title: todayEvents[0]?.title ?? 'Sem compromissos hoje', sub: todayEvents[0] ? `Hoje às ${todayEvents[0].time}` : 'agenda livre' },
     { icon: 'task_alt', color: '#7a52a0', bg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, title: nextPending?.title ?? 'Sem tarefas pendentes', sub: nextPending ? dueInfo(nextPending.dueAt, nextPending.done).text : 'tudo em dia' },
-    { icon: 'person_add', color: '#2f9e6f', bg: 'rgba(95,201,166,0.16)', beam: BEAMS.green, title: `${leads.length} novos leads`, sub: 'aguardando primeiro contato' },
+    { icon: 'person_add', color: '#2f9e6f', bg: 'rgba(95,201,166,0.16)', beam: BEAMS.green, title: `${leadsNovos} novos leads`, sub: 'aguardando primeiro contato' },
   ]
   const alertCount = vencidas.length + todayEvents.length + pendingToday.length
 
@@ -120,14 +126,9 @@ export default function Dashboard() {
     { icon: 'handshake', value: String(deals.length), label: 'Negócios ativos', c: '#7a52a0', cbg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, glow: 'radial-gradient(circle,rgba(150,110,200,0.14),transparent 70%)' },
     { icon: 'request_quote', value: `R$ ${fmtMoney(ticket)}`, label: 'Ticket médio', c: '#b3801f', cbg: 'rgba(216,169,96,0.18)', beam: BEAMS.amber, glow: 'radial-gradient(circle,rgba(216,169,96,0.16),transparent 70%)' },
     { icon: 'hourglass_top', value: `R$ ${fmtK(aReceber)}`, label: 'A receber', c: '#4f7fc0', cbg: 'rgba(111,155,207,0.16)', beam: BEAMS.blue, glow: 'radial-gradient(circle,rgba(111,155,207,0.14),transparent 70%)' },
-    { icon: 'person_add', value: String(leads.length), label: 'Novos leads', c: '#7a52a0', cbg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, glow: 'radial-gradient(circle,rgba(150,110,200,0.14),transparent 70%)' },
+    { icon: 'person_add', value: String(leadsNovos), label: 'Novos leads', c: '#7a52a0', cbg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, glow: 'radial-gradient(circle,rgba(150,110,200,0.14),transparent 70%)' },
   ]
 
-  // Funil real (board "Funil de Vendas")
-  const funnelBoard = boards.find((b) => b.name.toLowerCase().includes('funil')) ?? boards[0]
-  const funnelCols = funnelBoard ? [...funnelBoard.columns].sort((a, b) => a.order - b.order) : []
-  const funnelCounts = funnelCols.map((c) => deals.filter((d) => d.boardId === funnelBoard!.id && d.columnId === c.id).length)
-  const funnelMax = Math.max(1, ...funnelCounts)
 
   // Feed real (atividades recentes)
   const feed = activities.slice(0, 5)
@@ -195,11 +196,11 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: 16, marginBottom: 16 }}>
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Jornada Titãs</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 16 }}>
-            Do primeiro contato ao dinheiro na conta
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Funil de Leads</div>
+          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 18 }}>
+            Os leads criados no período, seguidos etapa a etapa
           </div>
-          <JourneyFunnel stages={journey} />
+          <LeadFunnel dados={funil} />
           <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} />
         </div>
 
@@ -268,8 +269,8 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px 0 16px' }}>
             <div style={{ width: 138, height: 138, borderRadius: '50%', background: donutGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 92, height: 92, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726' }}>{leads.length}</div>
-                <div style={{ fontSize: 10.5, color: '#9c95a8' }}>{leads.length === 1 ? 'lead' : 'leads'}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726' }}>{leadCards.length}</div>
+                <div style={{ fontSize: 10.5, color: '#9c95a8' }}>{leadCards.length === 1 ? 'lead' : 'leads'}</div>
               </div>
             </div>
           </div>
@@ -291,27 +292,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Funil (real) + Feed (real) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 16 }}>
-        <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 18 }}>Funil de vendas</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {funnelCols.map((c, i) => (
-              <div key={c.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-                  <span style={{ color: '#4a4458', fontWeight: 500 }}>{c.title}</span>
-                  <span style={{ color: '#1d1726', fontWeight: 700 }}>{funnelCounts[i]}</span>
-                </div>
-                <div style={{ height: 9, borderRadius: 6, background: 'rgba(28,20,50,0.06)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${Math.round((funnelCounts[i] / funnelMax) * 100)}%`, borderRadius: 6, background: c.color }} />
-                </div>
-              </div>
-            ))}
-            {funnelCols.length === 0 && <div style={{ fontSize: 13, color: '#a39bb0' }}>Sem dados de pipeline.</div>}
-          </div>
-          <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} delay={7} />
-        </div>
-
+      {/* Feed (real). O cartão "Funil de vendas" que ficava aqui saiu: ele contava quem ESTÁ
+          em cada coluna do quadro de vendas, enquanto o Funil de Leads acima conta quem
+          PASSOU por cada etapa. Dois cartões com o mesmo nome e números diferentes na mesma
+          tela confundem mais do que informam. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Atividade recente</div>

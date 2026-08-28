@@ -32,7 +32,15 @@ import SchedMessageModal from '../components/modals/SchedMessageModal'
 import WhatsappConnectModal from '../components/modals/WhatsappConnectModal'
 import HistoryRangeModal from '../components/modals/HistoryRangeModal'
 import MediaSendModal from '../components/modals/MediaSendModal'
+import TabBar, { type TabDef } from '../components/common/TabBar'
+import ContactsDirectory from '../components/contacts/ContactsDirectory'
+import type { ContactsView } from '../store/uiStore'
 import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery, ConvStatus, Tag } from '../types'
+
+const CONTACT_TABS: TabDef<ContactsView>[] = [
+  { id: 'atendimento', label: 'Atendimento', icon: 'forum' },
+  { id: 'cadastro', label: 'Contatos', icon: 'contacts' },
+]
 
 const WA_DOT: Record<string, string> = {
   connected: '#34c759',
@@ -66,7 +74,30 @@ function firstUnreadId(messages: Message[], count: number): string | null {
   return oldestIncoming
 }
 
+/**
+ * Casca da tela: as duas abas e a visão ativa.
+ *
+ * Atendimento responde "quem está esperando resposta agora"; Contatos responde "quem eu
+ * tenho cadastrado". Eram a mesma lista, e quem não tinha conversa aberta simplesmente não
+ * aparecia em lugar nenhum.
+ */
 export default function Contacts() {
+  const view = useUIStore((s) => s.contactsView)
+  const setView = useUIStore((s) => s.setContactsView)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ flexShrink: 0 }}>
+        <TabBar tabs={CONTACT_TABS} active={view} onChange={setView} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+        {view === 'atendimento' ? <Atendimento /> : <ContactsDirectory />}
+      </div>
+    </div>
+  )
+}
+
+function Atendimento() {
   const { docs: contacts } = useContacts()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
