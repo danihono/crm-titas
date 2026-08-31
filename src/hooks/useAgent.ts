@@ -74,7 +74,9 @@ export function agentErrorHint(code: string): string {
       return hint('a Cloud Function askTitaIA não está publicada neste projeto — falta `firebase deploy --only functions`.')
     case 'functions/unauthenticated':
     case 'functions/permission-denied':
-      return hint('a chamada foi barrada pelo App Check. A build precisa de VITE_RECAPTCHA_SITE_KEY, ou o App Check precisa ser desligado na função.')
+      // O App Check está desligado nesta função, então a causa provável mudou de
+      // ordem: primeiro sessão caída, e só depois App Check (se alguém religar).
+      return hint('sessão expirada ou sem permissão — saia e entre de novo. Se o App Check tiver sido religado na função, a build também precisa de VITE_RECAPTCHA_SITE_KEY.')
     case 'functions/resource-exhausted':
       return hint('cota da API do Gemini esgotada.')
     case 'functions/internal':

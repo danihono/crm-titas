@@ -29,13 +29,23 @@ interface AskData {
 
 /**
  * Callable: recebe { system, history, question } montados no cliente (single-tenant)
- * e retorna { reply }. Exige autenticação + App Check.
+ * e retorna { reply }. Exige autenticação.
  */
 export const askTitaIA = onCall(
   {
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
-    enforceAppCheck: true,
+    // App Check DESLIGADO por decisão consciente, não por descuido: a build de
+    // produção nunca recebeu VITE_RECAPTCHA_SITE_KEY, então o App Check sequer era
+    // inicializado no site (ver src/lib/firebase.ts) e TODA chamada morria antes de
+    // chegar ao Gemini.
+    //
+    // Quem segura a porta é o `request.auth` abaixo: anônimo não passa. O que se
+    // perde é a defesa contra o token de um usuário logado ser usado FORA do site —
+    // num endpoint que gasta API paga, isso é risco real, não teórico. Para voltar
+    // atrás: registrar o reCAPTCHA v3, pôr a site key no .env.local, rebuildar e
+    // devolver este `true`. O excluirCliente NÃO foi afrouxado.
+    enforceAppCheck: false,
     cors: true,
   },
   async (request) => {
@@ -66,13 +76,14 @@ export const askTitaIA = onCall(
 
 /**
  * Callable: recebe { descricao } e devolve { name, nodes, edges } para a aba
- * Fluxos montar o quadro. Exige autenticação + App Check.
+ * Fluxos montar o quadro. Exige autenticação.
  */
 export const gerarFluxoIA = onCall(
   {
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
-    enforceAppCheck: true,
+    // Desligado pelo mesmo motivo do askTitaIA — ver o comentário longo lá em cima.
+    enforceAppCheck: false,
     cors: true,
   },
   async (request) => {

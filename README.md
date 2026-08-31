@@ -127,7 +127,27 @@ firebase functions:secrets:set GEMINI_API_KEY     # cole sua chave do Google AI 
 > que trafega aqui é conversa de cliente, o mesmo dado que as security rules escondem até
 > do dono do sistema. O pago custa centavos e encerra esse uso.
 
-- **App Check (reCAPTCHA v3):** registre o app no console, copie a *site key* para `VITE_RECAPTCHA_SITE_KEY` no `.env.local`. A função usa `enforceAppCheck: true`.
+- **App Check (reCAPTCHA v3) — hoje está PELA METADE, de propósito:**
+
+  | função | `enforceAppCheck` |
+  |---|---|
+  | `askTitaIA` | `false` |
+  | `gerarFluxoIA` | `false` |
+  | `excluirCliente` | `true` |
+
+  As duas de IA foram afrouxadas porque a build de produção nunca recebeu
+  `VITE_RECAPTCHA_SITE_KEY`: sem ela `src/lib/firebase.ts` nem inicializa o App Check, e
+  toda chamada era recusada antes de chegar ao Gemini. O que segura a porta é o
+  `request.auth` — anônimo não passa. O que se perde é a defesa contra o token de um
+  usuário logado ser usado fora do site, o que num endpoint de API paga é risco real.
+
+  A **exclusão de cliente continua exigindo** App Check e por isso **não funciona** até a
+  site key existir — ela apaga uma conta inteira sem volta, e ali o atrito vale a pena.
+
+  Para fechar o buraco: crie um site reCAPTCHA v3, cole a *secret key* no Firebase Console
+  → App Check, ponha a *site key* em `VITE_RECAPTCHA_SITE_KEY` no `.env.local`, rebuilde e
+  devolva `enforceAppCheck: true` nas duas de IA. O `vite.config.ts` avisa em toda build de
+  produção enquanto a variável estiver faltando.
 - Modelos configuráveis por env, sem mexer em código: `TITA_MODEL` (chat, default
   `gemini-3.5-flash-lite`) e `TITA_FLOW_MODEL` (gerador de fluxos, mesmo default).
 - **Antes de publicar, teste contra a API de verdade** — a lógica vive em

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
@@ -23,19 +23,43 @@ function buildId(): string {
   }
 }
 
+/**
+ * Grita quando a build de produção sai sem a site key do App Check.
+ *
+ * `src/lib/firebase.ts` só inicializa o App Check SE a variável existir. Sem ela a
+ * build funciona, sobe e parece saudável — e só em produção, ao clicar, aparece um
+ * "permission-denied" que não diz nada. Foi assim que o Titã IA passou dias morto no
+ * ar. O aviso não interrompe o build de propósito: quem escolheu desligar o
+ * enforceAppCheck nas funções de IA está num estado válido, só precisa saber que o
+ * `excluirCliente` continua exigindo.
+ */
+function avisaAppCheck(mode: string, dir: string): void {
+  const env = loadEnv(mode, dir, 'VITE_')
+  if (mode !== 'production' || env.VITE_RECAPTCHA_SITE_KEY) return
+  console.warn(
+    '\n\x1b[33m⚠  VITE_RECAPTCHA_SITE_KEY ausente — esta build sai SEM App Check.\x1b[0m\n' +
+    '   As funções com `enforceAppCheck: true` vão recusar toda chamada deste site.\n' +
+    '   Hoje isso atinge: excluirCliente (exclusão definitiva no painel SUPER TITAN).\n' +
+    '   Para resolver: reCAPTCHA v3 no console e a site key no .env.local.\n',
+  )
+}
+
 // https://vite.dev/config/
-export default defineConfig({
-  define: {
-    __BUILD_ID__: JSON.stringify(buildId()),
-  },
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+export default defineConfig(({ mode }) => {
+  avisaAppCheck(mode, __dirname)
+  return {
+    define: {
+      __BUILD_ID__: JSON.stringify(buildId()),
     },
-  },
-  server: {
-    port: 5173,
-    host: true,
-  },
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    server: {
+      port: 5173,
+      host: true,
+    },
+  }
 })
