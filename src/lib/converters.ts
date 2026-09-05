@@ -454,6 +454,7 @@ export function activityFromDoc(id: string, d: DocumentData): Activity {
     type: d.type ?? 'task',
     title: d.title ?? '',
     contact: d.contact ?? '',
+    contactId: d.contactId,
     dueAt: toDate(d.dueAt) ?? new Date(),
     done: !!d.done,
     createdAt: toDate(d.createdAt),
@@ -507,6 +508,7 @@ export function eventFromDoc(id: string, d: DocumentData): EventDoc {
     subtitle: d.subtitle ?? '',
     activityId: d.activityId,
     scheduledMessageId: d.scheduledMessageId,
+    contactId: d.contactId,
     createdAt: toDate(d.createdAt),
   }
 }

@@ -8,7 +8,7 @@
  * Uso:  GEMINI_API_KEY=... npm run ia:teste
  * Trocar de modelo sem editar código:  TITA_MODEL=gemini-2.5-flash npm run ia:teste
  */
-import { perguntar, montarFluxo, MODEL, FLOW_MODEL, type FluxoGerado } from '../src/ia'
+import { perguntar, montarFluxo, sugerirTarefa, MODEL, FLOW_MODEL, type FluxoGerado } from '../src/ia'
 
 const apiKey = process.env.GEMINI_API_KEY
 if (!apiKey) {
@@ -90,6 +90,39 @@ async function main() {
     /\b(de|da|do|para|com|sem|em|no|na|pelo|pela|ao|e|ou|se|que)\b/i.test(textoFluxo))
   ok('não vazou inglês',
     !/\b(the|and|with|from|customer|send|close|deal|step|flow)\b/i.test(textoFluxo))
+
+  // --- 4. Sugestão de próximo passo a partir da conversa -------------------
+  // O que se mede aqui é o que quebra na prática: o modelo tem de escolher um id
+  // de tipo que EXISTE, respeitar a data combinada na conversa e escrever a ação
+  // do atendente, não o resumo do que o cliente disse.
+  const hoje = '2026-03-10' // uma terça-feira, para o "quinta" da conversa ter resposta certa
+  const tipos = [
+    { id: 'call', label: 'Ligação' },
+    { id: 'meeting', label: 'Reunião' },
+    { id: 'email', label: 'E-mail' },
+    { id: 'task', label: 'Tarefa' },
+  ]
+  const t = await sugerirTarefa(apiKey!, {
+    hoje,
+    cliente: 'Atlas Cloud',
+    tipos,
+    mensagens: [
+      { de: 'cliente', texto: 'Oi, recebi a proposta mas o valor do plano anual ficou acima do que a diretoria aprovou.' },
+      { de: 'atendente', texto: 'Entendo. Consigo revisar o desconto e te mandar uma versão nova.' },
+      { de: 'cliente', texto: 'Perfeito. Me manda até quinta que eu levo para a reunião de sexta.' },
+      { de: 'atendente', texto: 'Fechado, mando até quinta.' },
+    ],
+  })
+
+  ok('escolhe um tipo que existe', tipos.some((x) => x.id === t.type), t.type)
+  ok('título é a AÇÃO do atendente', /revis|proposta|enviar|mandar|desconto/i.test(t.title), `"${t.title}"`)
+  ok('respeita a data combinada (quinta)', t.date === '2026-03-12', t.date)
+  ok('hora no formato HH:MM', /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time), t.time)
+  ok('justifica com o que foi dito', t.motivo.trim().length > 10, `"${t.motivo}"`)
+  ok('sugestão em português',
+    /\b(de|da|do|para|com|em|no|na|até|ao)\b/i.test(`${t.title} ${t.motivo}`))
+
+  console.log(`TAREFA SUGERIDA:\n  [${t.type}] ${t.title} — ${t.date} ${t.time}\n  motivo: ${t.motivo}\n`)
 
   console.log('FLUXO GERADO:')
   console.log(nodes.map((n) => `  [${n.kind}] ${n.id} · ${n.title}${n.subtitle ? ` — ${n.subtitle}` : ''}`).join('\n'))

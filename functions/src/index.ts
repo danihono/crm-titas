@@ -4,7 +4,10 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
-import { montarFluxo, perguntar, RespostaVazia, MAX_CONTENT_CHARS, MAX_DESC_CHARS } from './ia'
+import {
+  montarFluxo, perguntar, sugerirTarefa, RespostaVazia,
+  MAX_CONTENT_CHARS, MAX_DESC_CHARS, MAX_MENSAGENS_SUGESTAO,
+} from './ia'
 
 // Admin SDK — usado pela exclusão de cliente (varre Firestore, Storage e Auth).
 initializeApp()
@@ -69,6 +72,90 @@ export const askTitaIA = onCall(
         throw new HttpsError('internal', 'O Titã IA não conseguiu responder isso. Tente reformular a pergunta.')
       }
       console.error('[askTitaIA] erro Gemini:', err)
+      throw new HttpsError('internal', 'Não foi possível consultar o Titã IA agora.')
+    }
+  },
+)
+
+interface SugerirData {
+  mensagens?: { de?: unknown; texto?: unknown }[]
+  tipos?: { id?: unknown; label?: unknown }[]
+  cliente?: unknown
+  hoje?: unknown
+}
+
+const DIA_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Callable: lê as últimas mensagens de um atendimento e devolve UMA tarefa
+ * sugerida — tipo, título, dia e hora — para o modal de nova atividade abrir
+ * preenchido. Não grava nada: quem confirma é a pessoa.
+ *
+ * O `hoje` vem do cliente porque o servidor roda em UTC e não sabe o fuso de
+ * quem está atendendo; "amanhã" calculado no fuso errado marca a tarefa no dia
+ * errado, que é justamente o tipo de erro que ninguém percebe.
+ */
+export const sugerirTarefaIA = onCall(
+  {
+    region: 'southamerica-east1',
+    secrets: [GEMINI_API_KEY],
+    // Mesma decisão do askTitaIA: quem segura a porta é o request.auth.
+    enforceAppCheck: false,
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
+    }
+    const { mensagens, tipos, cliente, hoje } = (request.data || {}) as SugerirData
+
+    if (!Array.isArray(mensagens) || mensagens.length === 0) {
+      throw new HttpsError('invalid-argument', 'Conversa vazia — não há o que sugerir.')
+    }
+    if (!Array.isArray(tipos) || tipos.length === 0) {
+      throw new HttpsError('invalid-argument', 'Nenhum tipo de atividade disponível.')
+    }
+    if (typeof hoje !== 'string' || !DIA_RE.test(hoje)) {
+      throw new HttpsError('invalid-argument', 'Data de hoje ausente ou fora do formato.')
+    }
+
+    // Defesa de custo: o cliente legítimo manda no máximo o teto; o resto é corte.
+    const limpas = mensagens
+      .slice(-MAX_MENSAGENS_SUGESTAO)
+      .flatMap((m) => {
+        const texto = typeof m?.texto === 'string' ? m.texto.trim().slice(0, 600) : ''
+        if (!texto) return []
+        return [{ de: m?.de === 'cliente' ? ('cliente' as const) : ('atendente' as const), texto }]
+      })
+    if (limpas.length === 0) {
+      throw new HttpsError('invalid-argument', 'Conversa sem texto — não há o que sugerir.')
+    }
+
+    const tiposLimpos = tipos
+      .slice(0, 20)
+      .flatMap((t) => {
+        const id = typeof t?.id === 'string' ? t.id.trim().slice(0, 60) : ''
+        if (!id) return []
+        return [{ id, label: typeof t?.label === 'string' ? t.label.trim().slice(0, 60) : id }]
+      })
+    if (tiposLimpos.length === 0) {
+      throw new HttpsError('invalid-argument', 'Nenhum tipo de atividade válido.')
+    }
+
+    try {
+      const tarefa = await sugerirTarefa(GEMINI_API_KEY.value(), {
+        mensagens: limpas,
+        tipos: tiposLimpos,
+        cliente: typeof cliente === 'string' ? cliente.trim().slice(0, 120) : 'o cliente',
+        hoje,
+      })
+      return { tarefa }
+    } catch (err) {
+      if (err instanceof RespostaVazia) {
+        console.warn('[sugerirTarefaIA]', err.message)
+        throw new HttpsError('internal', 'O Titã IA não conseguiu sugerir uma tarefa para esta conversa.')
+      }
+      console.error('[sugerirTarefaIA] erro Gemini:', err)
       throw new HttpsError('internal', 'Não foi possível consultar o Titã IA agora.')
     }
   },

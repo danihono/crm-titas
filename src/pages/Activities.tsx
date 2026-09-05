@@ -1,4 +1,5 @@
 import { useUIStore, type ActFilter } from '../store/uiStore'
+import { useNavigate } from 'react-router-dom'
 import { useTenantStore } from '../store/tenantStore'
 import { useActivities, useActTypes, statusOf, toggleActivity } from '../hooks/useActivities'
 import { useContacts } from '../hooks/useContacts'
@@ -30,7 +31,9 @@ export default function Activities() {
   activities.forEach((a) => { counts[statusOf(a)]++ })
 
   const list = activities.filter((a) => ui.actFilter === 'todas' || statusOf(a) === ui.actFilter)
-  const contactOptions = Array.from(new Set(contacts.map((c) => c.company)))
+  // Um cliente por id: a lista de nomes de antes não dizia QUAL contato era,
+  // e é o id que liga a atividade à conversa.
+  const contactOptions = contacts.map((c) => ({ id: c.id, nome: c.company || c.name }))
 
   return (
     <div style={{ padding: '18px 30px 40px' }}>
@@ -84,6 +87,9 @@ export default function Activities() {
 
 function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: string; bg: string } }) {
   const readOnly = useTenantStore((s) => s.readOnly)
+  const navigate = useNavigate()
+  const selectContact = useUIStore((s) => s.selectContact)
+  const setContactView = useUIStore((s) => s.setContactView)
   const status = statusOf(a)
   const ic = type ?? { icon: 'event', color: C.purple, bg: 'rgba(150,110,200,0.14)' }
   const di = dueInfo(a.dueAt, a.done)
@@ -112,6 +118,17 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: di.overdue ? C.rose : C.sub }}><MaterialIcon name="schedule" size={14} />{di.text}</span>
         </div>
       </div>
+      {/* Volta para a conversa de onde a tarefa saiu. Só aparece quando existe
+          vínculo: atividade antiga guarda o nome do cliente, não o contato. */}
+      {a.contactId && (
+        <button
+          title="Abrir a conversa deste cliente"
+          onClick={() => { selectContact(a.contactId!); setContactView('chat'); navigate('/contatos') }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', color: C.purple, fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+        >
+          <MaterialIcon name="forum" size={17} /> Conversa
+        </button>
+      )}
       <span style={{ fontSize: 11, fontWeight: 700, color: badgeColor, background: badgeBg, borderRadius: 20, padding: '4px 12px' }}>{badgeLabel}</span>
     </div>
   )

@@ -87,6 +87,7 @@ export async function saveScheduledMessage(contactId: string, contactName: strin
     color: BRAND.green,
     subtitle: contactName + ' - mensagem WhatsApp agendada',
     scheduledMessageId: scheduledRef.id,
+    contactId,
     createdAt: serverTimestamp(),
   })
   await batch.commit()

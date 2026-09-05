@@ -200,9 +200,10 @@ export default function Dashboard() {
 
   return (
     // O painel cabe numa tela só: altura fixa, três faixas, e o que sobra vai
-    // para a faixa dos gráficos. `minHeight` é a válvula — numa janela baixa
-    // demais para caber, a página volta a rolar em vez de espremer tudo.
-    <div style={{ height: '100%', minHeight: 660, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
+    // para a faixa dos gráficos. `minHeight` é a válvula — abaixo dela a página
+    // volta a rolar, em vez de espremer tudo até ficar ilegível. 600 é o piso
+    // que ainda deixa um notebook de 768px de tela caber sem barra.
+    <div style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
         <div>
           <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 25, fontWeight: 700, letterSpacing: '-.03em', color: C.ink, margin: 0, lineHeight: 1.15 }}>
@@ -252,8 +253,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1.05fr 1.3fr 0.95fr', gap: 13 }}>
-        <div className="beam-card" style={beamCardStyle(BEAMS.purple)}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1.15fr 1.25fr 0.9fr', gap: 13 }}>
+        <div className="beam-card funil-card" style={beamCardStyle(BEAMS.purple)}>
           <div style={tituloCard}>Funil de Leads</div>
           <div style={subCard}>Os leads criados no período, seguidos etapa a etapa</div>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>

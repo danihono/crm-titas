@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
 import { useEvents } from '../hooks/useEvents'
 import { buildCalendar } from '../hooks/useCalendar'
@@ -9,6 +10,9 @@ import { C, FONT_DISPLAY } from '../styles/sx'
 const WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
 
 export default function Agenda() {
+  const navigate = useNavigate()
+  const selectContact = useUIStore((s) => s.selectContact)
+  const setContactView = useUIStore((s) => s.setContactView)
   const ui = useUIStore()
   const { docs: events } = useEvents(ui.calYear, ui.calMonth)
 
@@ -74,9 +78,19 @@ export default function Agenda() {
           {dayEvents.map((e) => (
             <div key={e.id} style={{ display: 'flex', gap: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.purple, width: 42, flexShrink: 0, paddingTop: 1 }}>{e.time}</div>
-              <div style={{ flex: 1, borderLeft: `2px solid ${e.color}`, padding: '1px 0 12px 12px' }}>
+              <div style={{ flex: 1, minWidth: 0, borderLeft: `2px solid ${e.color}`, padding: '1px 0 12px 12px' }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{e.title}</div>
                 <div style={{ fontSize: 11.5, color: C.sub, marginTop: 2 }}>{e.subtitle}</div>
+                {/* O compromisso sabe de qual conversa saiu — daqui dá para voltar
+                    a ela. Só nos que têm vínculo: os antigos guardam só o nome. */}
+                {e.contactId && (
+                  <button
+                    onClick={() => { selectContact(e.contactId!); setContactView('chat'); navigate('/contatos') }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, background: 'transparent', border: 'none', padding: 0, color: C.purple, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    <MaterialIcon name="forum" size={15} /> Abrir conversa
+                  </button>
+                )}
               </div>
             </div>
           ))}

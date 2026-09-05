@@ -18,6 +18,11 @@ import InboxTabs, { filterByInbox } from '../components/conversation/InboxTabs'
 import AtendimentoBar from '../components/conversation/AtendimentoBar'
 import QuickReplyPicker, { matchQuickReplies, quickReplyQuery } from '../components/conversation/QuickReplyPicker'
 import CustomFieldsCard from '../components/conversation/CustomFieldsCard'
+import ContactAgenda from '../components/conversation/ContactAgenda'
+import ActivityModal from '../components/modals/ActivityModal'
+import { useActivities, useActTypes } from '../hooks/useActivities'
+import { agendaDoContato } from '../lib/contactAgenda'
+import type { TarefaSugerida } from '../hooks/useTaskSuggestion'
 import { useAuth } from '../contexts/AuthContext'
 import { avPalette, fileTypeMap } from '../lib/theme'
 import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
@@ -118,6 +123,13 @@ function Atendimento() {
   const { docs: members } = useMembers()
   const { docs: sectors } = useSectors()
   const { docs: tags } = useTags()
+  // Agenda e atividades DESTE contato — a coleção inteira já vem carregada, o
+  // recorte é por contato e sai puro em lib/contactAgenda.ts.
+  const { docs: activities } = useActivities()
+  const { docs: actTypes } = useActTypes()
+  // Modal de nova atividade da conversa: estado local, e não o do uiStore, porque
+  // este já nasce amarrado ao contato aberto (e às vezes preenchido pela IA).
+  const [novaAtividade, setNovaAtividade] = useState<{ sugestao?: TarefaSugerida } | null>(null)
   const { docs: quickReplies } = useQuickReplies()
   const { docs: customFields } = useCustomFields()
   const { docs: variables } = useVariables()
@@ -717,6 +729,13 @@ function Atendimento() {
             <div style={{ display: 'flex', flexShrink: 0, background: C.surface, borderBottom: `1px solid ${C.fieldBorder}` }}>
               <Tab label="Mensagens" icon="chat" on={ui.contactView === 'chat'} onClick={() => ui.setContactView('chat')} />
               <Tab label="Informações" icon="badge" on={ui.contactView === 'info'} onClick={() => ui.setContactView('info')} />
+              <Tab
+                label="Agenda"
+                icon="event_available"
+                on={ui.contactView === 'agenda'}
+                onClick={() => ui.setContactView('agenda')}
+                badge={agendaDoContato(activities, active).abertas.length}
+              />
               <Tab label="Arquivos" icon="folder" on={ui.contactView === 'files'} onClick={() => ui.setContactView('files')} />
             </div>
 
@@ -895,6 +914,17 @@ function Atendimento() {
             )}
 
             {/* FILES */}
+            {ui.contactView === 'agenda' && (
+              <ContactAgenda
+                contact={active}
+                activities={activities}
+                types={actTypes}
+                messages={messages}
+                canWrite={!readOnly}
+                onNova={(sugestao) => setNovaAtividade({ sugestao })}
+              />
+            )}
+
             {ui.contactView === 'files' && (
               <div style={{ flex: 1, overflowY: 'auto', padding: '26px 30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -955,6 +985,24 @@ function Atendimento() {
           schedule={editingSchedule}
           onClose={closeScheduleModal}
           onSaved={(day) => { setEditingSchedule(null); ui.selectDay(day); ui.closeSchedModal() }}
+        />
+      )}
+      {novaAtividade && active && (
+        <ActivityModal
+          types={actTypes}
+          contactOptions={[]}
+          contatoFixo={{ id: active.id, nome: active.company || active.name }}
+          inicial={novaAtividade.sugestao && {
+            type: novaAtividade.sugestao.type,
+            title: novaAtividade.sugestao.title,
+            date: novaAtividade.sugestao.date,
+            time: novaAtividade.sugestao.time,
+          }}
+          nota={novaAtividade.sugestao?.motivo
+            ? `Sugestão do Titã IA: ${novaAtividade.sugestao.motivo} Confira antes de salvar.`
+            : undefined}
+          onClose={() => setNovaAtividade(null)}
+          onSaved={() => setNovaAtividade(null)}
         />
       )}
       {ui.showWhatsappModal && <WhatsappConnectModal onClose={ui.closeWhatsappModal} />}
@@ -1259,10 +1307,13 @@ function RowAction({ icon, color, bg, onClick }: { icon: string; color: string; 
   )
 }
 
-function Tab({ label, icon, on, onClick }: { label: string; icon: string; on: boolean; onClick: () => void }) {
+function Tab({ label, icon, on, onClick, badge = 0 }: { label: string; icon: string; on: boolean; onClick: () => void; badge?: number }) {
   return (
     <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, borderBottom: '2px solid ' + (on ? C.purple : 'transparent'), color: on ? C.purple : C.muted, background: 'transparent' }}>
       <MaterialIcon name={icon} size={17} /> {label}
+      {badge > 0 && (
+        <span style={{ fontSize: 10, fontWeight: 800, color: C.purple, background: C.tintPurple, borderRadius: 20, padding: '1px 6px' }}>{badge}</span>
+      )}
     </button>
   )
 }

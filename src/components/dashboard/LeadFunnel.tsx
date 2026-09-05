@@ -102,7 +102,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                     cursor: 'default',
                   }}
                 >
-                  <div style={{ width: 132, flexShrink: 0, paddingRight: 10, textAlign: 'right' }}>
+                  <div className="funil-etapa" style={{ width: 132, flexShrink: 0, paddingRight: 10, textAlign: 'right' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: on ? C.ink : C.sub, lineHeight: 1.25 }}>
                       {s.label}
                     </div>
@@ -122,7 +122,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                     />
                   </div>
 
-                  <div style={{ width: 74, flexShrink: 0, paddingLeft: 10 }}>
+                  <div className="funil-num" style={{ width: 74, flexShrink: 0, paddingLeft: 10 }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, letterSpacing: '-.02em' }}>
                       {s.count}
                     </div>
@@ -170,9 +170,14 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                             : 'polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)',
                         }}
                       />
+                      {/* `nowrap` + corte: em card estreito (o painel cabe numa
+                          tela só, então as colunas encolhem) esta linha embolava
+                          por cima do tempo da etapa. Sobra a conversão, que é o
+                          número que a pessoa vem ler aqui. */}
                       <div style={{
                         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
                         justifyContent: 'center', gap: 6, fontSize: 11.5, color: C.sub,
+                        whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 6px',
                       }}>
                         {/* Sem seta: a silhueta já desce, e o ícone só repetiria isso — com
                             o risco de virar a palavra "south" se a fonte de ícones falhar. */}
@@ -182,11 +187,13 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                           </b>
                         )}
                         {s.parou !== null && s.parou > 0 && (
-                          <span style={{ color: C.faint }}>· {s.parou} pararam aqui</span>
+                          <span className="funil-parou" style={{ color: C.faint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            · {s.parou} pararam aqui
+                          </span>
                         )}
                       </div>
                     </div>
-                    <div style={{ width: 74, flexShrink: 0, paddingLeft: 10, fontSize: 10.5, color: C.faint }}>
+                    <div className="funil-tempo" style={{ width: 74, flexShrink: 0, paddingLeft: 10, fontSize: 10.5, color: C.faint }}>
                       {s.horas !== null && tempo(s.horas)}
                     </div>
                   </div>

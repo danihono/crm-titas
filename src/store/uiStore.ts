@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { dateKeyOf } from '../lib/format'
 
-export type ContactView = 'chat' | 'info' | 'files'
+export type ContactView = 'chat' | 'info' | 'files' | 'agenda'
 export type ActFilter = 'todas' | 'pendente' | 'atrasada' | 'concluida'
 export type PipelineView = 'kanban' | 'fluxos'
 /** Aba da tela de Contatos: a caixa de atendimento ou o cadastro. */

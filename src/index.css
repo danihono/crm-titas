@@ -294,6 +294,27 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   opacity: 1;
 }
 
+/* ── Funil de leads em card estreito ───────────────────────────────────────
+   O painel cabe numa tela só, então as colunas de gráfico encolhem junto com a
+   janela. As laterais do funil são de largura fixa: abaixo de ~340px elas comem
+   a faixa inteira e a BARRA — que é o gráfico — some. A consulta é do CONTÊINER,
+   e não da janela: o que decide é a largura do card, não a do monitor. */
+.funil-card { container-type: inline-size; }
+
+/* Some por etapa, do detalhe para o essencial. O "N pararam aqui" divide espaço
+   com a conversão no meio da faixa e é o primeiro a sair; a % fica sempre. */
+@container (max-width: 420px) {
+  .funil-parou { display: none !important; }
+}
+/* Aperto de verdade: as laterais encolhem e o tempo por etapa sai, senão a
+   BARRA — que é o gráfico — fica com zero de largura. O balão do hover continua
+   trazendo tudo o que sumiu daqui. */
+@container (max-width: 300px) {
+  .funil-etapa { width: 88px !important; padding-right: 8px !important; }
+  .funil-num { width: 42px !important; padding-left: 8px !important; }
+  .funil-tempo { display: none !important; }
+}
+
 /* Card simples do painel (KPI/alerta): sem feixe animado, só a elevação. */
 .stat-card {
   box-shadow: var(--c-shadow-card);

@@ -44,6 +44,8 @@ export interface NewActivityForm {
   type: string
   title: string
   contact: string
+  /** Vínculo com a conversa. Vazio quando a atividade nasce solta em Atividades. */
+  contactId?: string
   date: string
   time: string
 }
@@ -59,6 +61,8 @@ export async function saveActivity(form: NewActivityForm, types: ActType[]): Pro
     type: form.type,
     title: form.title.trim(),
     contact: form.contact,
+    // Só grava a chave quando há vínculo: `undefined` no set do Firestore é erro.
+    ...(form.contactId ? { contactId: form.contactId } : {}),
     dueAt: Timestamp.fromDate(due),
     done: false,
     createdAt: serverTimestamp(),
@@ -75,6 +79,9 @@ export async function saveActivity(form: NewActivityForm, types: ActType[]): Pro
     color: t?.evColor ?? BRAND.purpleSoft,
     subtitle: form.contact + ' · ' + (t?.label ?? 'Atividade'),
     activityId: actRef.id,
+    // O evento carrega o mesmo vínculo: é ele que aparece na Agenda, e sem isto
+    // o compromisso saberia o nome do cliente mas não de qual conversa veio.
+    ...(form.contactId ? { contactId: form.contactId } : {}),
     createdAt: serverTimestamp(),
   })
 

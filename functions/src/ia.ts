@@ -231,3 +231,123 @@ export async function montarFluxo(apiKey: string, descricao: string): Promise<Fl
   // maxOutputTokens chega como JSON pela metade.
   return sanitizeFlow(JSON.parse(text))
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   SUGESTÃO DE PRÓXIMO PASSO A PARTIR DA CONVERSA
+
+   Lê as últimas mensagens de um atendimento e propõe UMA tarefa: tipo, título e
+   quando. Não cria nada — quem cria é a pessoa, no modal já preenchido. A IA
+   aqui adivinha o que fazer a seguir; deixar que ela grave sozinha na agenda de
+   alguém seria confiar demais num palpite.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/** Teto de mensagens que entram no prompt. Conversa longa não melhora o palpite. */
+export const MAX_MENSAGENS_SUGESTAO = 30
+
+export interface TarefaSugerida {
+  /** id de um ActType existente, escolhido entre os que o cliente mandou. */
+  type: string
+  title: string
+  /** 'YYYY-MM-DD' */
+  date: string
+  /** 'HH:MM' */
+  time: string
+  /** Uma linha dizendo em que trecho da conversa a sugestão se apoia. */
+  motivo: string
+}
+
+export const TAREFA_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['type', 'title', 'date', 'time', 'motivo'],
+  properties: {
+    type: { type: 'string', description: 'O id do tipo de atividade, copiado exatamente de um dos tipos oferecidos.' },
+    title: { type: 'string', description: 'O que fazer, curto e concreto, em português do Brasil. Ex.: "Enviar proposta revisada".' },
+    date: { type: 'string', description: 'Dia no formato YYYY-MM-DD. Se a conversa combinou uma data, use ELA.' },
+    time: { type: 'string', description: 'Hora no formato HH:MM, 24h. Horário comercial quando a conversa não disser.' },
+    motivo: { type: 'string', description: 'Uma frase curta dizendo em que ponto da conversa a sugestão se apoia.' },
+  },
+}
+
+export const TAREFA_SYSTEM = [
+  'Você lê o atendimento de um CRM brasileiro e propõe O PRÓXIMO PASSO do atendente.',
+  'Devolva UMA tarefa só: a mais útil e mais concreta.',
+  'O título diz a AÇÃO do atendente ("Ligar para confirmar o endereço"), nunca um resumo da conversa.',
+  'Se o cliente combinou dia ou hora, use exatamente o que foi combinado.',
+  'Sem combinação explícita, escolha o próximo dia útil em horário comercial.',
+  'O campo type tem de ser, exatamente, o id de um dos tipos oferecidos.',
+  'Nunca invente fato que não está na conversa; o motivo cita o que foi dito.',
+].join(' ')
+
+const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
+const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/**
+ * O schema garante a FORMA, não o conteúdo: o modelo ainda devolve tipo que não
+ * existe e "amanhã de tarde" no lugar de uma data. Saneia antes de a sugestão
+ * chegar à tela — é aqui que o palpite vira algo que o formulário aceita.
+ */
+export function sanitizeTarefa(raw: unknown, tiposValidos: string[], hoje: string): TarefaSugerida {
+  const d = (raw ?? {}) as Record<string, unknown>
+  const texto = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+
+  const type = texto(d.type, 60)
+  const date = texto(d.date, 10)
+  const time = texto(d.time, 5)
+
+  return {
+    type: tiposValidos.includes(type) ? type : (tiposValidos[0] ?? 'task'),
+    title: texto(d.title, MAX_TITLE_CHARS) || 'Dar retorno ao cliente',
+    // Data fora do formato vira HOJE: é palpite errado virando campo editável,
+    // não uma data inventada entrando na agenda de alguém.
+    date: DATA_RE.test(date) ? date : hoje,
+    time: HORA_RE.test(time) ? time : '09:00',
+    motivo: texto(d.motivo, 200),
+  }
+}
+
+export interface EntradaSugestao {
+  /** Da mais antiga para a mais recente, já cortadas pelo chamador. */
+  mensagens: { de: 'cliente' | 'atendente'; texto: string }[]
+  tipos: { id: string; label: string }[]
+  cliente: string
+  /** 'YYYY-MM-DD' de hoje, no fuso de quem está usando — o servidor não sabe. */
+  hoje: string
+}
+
+/** Propõe a próxima tarefa a partir da conversa. Devolve já saneada. */
+export async function sugerirTarefa(apiKey: string, entrada: EntradaSugestao): Promise<TarefaSugerida> {
+  const ai = new GoogleGenAI({ apiKey })
+
+  const conversa = entrada.mensagens
+    .slice(-MAX_MENSAGENS_SUGESTAO)
+    .map((m) => `${m.de === 'cliente' ? 'CLIENTE' : 'ATENDENTE'}: ${m.texto}`)
+    .join('\n')
+
+  const prompt = [
+    `Cliente: ${entrada.cliente}`,
+    `Hoje é ${entrada.hoje}.`,
+    'Tipos de atividade disponíveis (use o id):',
+    entrada.tipos.map((t) => `- ${t.id} = ${t.label}`).join('\n'),
+    '',
+    'Conversa:',
+    conversa,
+  ].join('\n')
+
+  const res = await ai.models.generateContent({
+    model: MODEL,
+    contents: prompt,
+    config: {
+      systemInstruction: TAREFA_SYSTEM,
+      maxOutputTokens: 1_000,
+      responseMimeType: 'application/json',
+      responseJsonSchema: TAREFA_SCHEMA,
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+    },
+  })
+
+  const text = (res.text ?? '').trim()
+  if (!text) throw new RespostaVazia(String(res.candidates?.[0]?.finishReason ?? ''))
+
+  return sanitizeTarefa(JSON.parse(text), entrada.tipos.map((t) => t.id), entrada.hoje)
+}

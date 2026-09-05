@@ -336,7 +336,17 @@ export interface Activity {
   /** id de um ActType */
   type: string
   title: string
+  /** Nome do cliente, como aparece na lista. Continua sendo o que se lê na tela. */
   contact: string
+  /**
+   * Contato a que esta atividade pertence — o vínculo com a CONVERSA.
+   *
+   * Opcional porque tudo o que foi criado antes deste campo só tem o nome em
+   * `contact`. Quem cruza os dois (a aba Agenda da conversa) casa por id quando
+   * existe e cai no nome quando não existe, senão a tela nasceria vazia para
+   * quem já usa o sistema.
+   */
+  contactId?: string
   dueAt: Date
   done: boolean
   createdAt?: Date
@@ -395,6 +405,8 @@ export interface EventDoc {
   subtitle: string
   activityId?: string
   scheduledMessageId?: string
+  /** Contato do compromisso — mesma história do Activity.contactId. */
+  contactId?: string
   createdAt?: Date
 }
 
