@@ -47,7 +47,7 @@ export default function StatCard({
   label, value, sub, icon, accent = 'purple', series, linkLabel, onLink, featured, info, extra,
 }: StatCardProps) {
   const a = ACCENT[accent]
-  const spark = series && series.length > 1 ? sparkline(series) : null
+  const spark = series && series.length > 1 ? sparkline(series, 240, 34) : null
   const mostraGrafico = !!spark?.hasData
 
   // No card em destaque o fundo é escuro nos DOIS temas, então texto e acento
@@ -62,7 +62,7 @@ export default function StatCard({
     display: 'flex',
     flexDirection: 'column',
     borderRadius: 18,
-    padding: '16px 18px 14px',
+    padding: '13px 15px 11px',
     overflow: 'hidden',
     background: featured ? C.featured : C.surface,
     border: `1px solid ${featured ? C.featuredBorder : C.line}`,
@@ -70,35 +70,45 @@ export default function StatCard({
 
   return (
     <div className="stat-card" style={shell}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', color: dim, textTransform: 'uppercase' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <span
+          title={label}
+          style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: '.09em', color: dim,
+            textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden',
+            textOverflow: 'ellipsis', minWidth: 0,
+            // Sem folga vertical o `overflow:hidden` come o acento das
+            // maiúsculas — "NEGÓCIOS" virava "NEGOCIOS".
+            lineHeight: 1.6,
+          }}
+        >
           {label}
         </span>
         {info && <MaterialIcon name="info" size={13} color={dim} title={info} style={{ cursor: 'help' }} />}
         <div style={{ flex: 1 }} />
         <MaterialIcon
           name={icon}
-          size={18}
+          size={16}
           color={fg}
-          style={{ background: tint, width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={{ background: tint, width: 28, height: 28, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 25, fontWeight: 700, letterSpacing: '-.03em', color: ink, lineHeight: 1.05 }}>{value}</span>
+        <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.03em', color: ink, lineHeight: 1.05 }}>{value}</span>
         {spark?.changePct !== null && spark?.changePct !== undefined && (
           <DeltaChip pct={spark.changePct} featured={featured} />
         )}
       </div>
 
       {sub && (
-        <div style={{ fontSize: 11.5, color: dim, marginTop: 5, lineHeight: 1.4 }}>{sub}</div>
+        <div style={{ fontSize: 11, color: dim, marginTop: 4, lineHeight: 1.35, minHeight: 30, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sub}</div>
       )}
 
       {extra}
 
       {mostraGrafico && (
-        <svg viewBox="0 0 240 44" preserveAspectRatio="none" style={{ width: '100%', height: 40, display: 'block', marginTop: 12 }}>
+        <svg viewBox="0 0 240 34" preserveAspectRatio="none" style={{ width: '100%', height: 32, display: 'block', marginTop: 9 }}>
           <defs>
             <linearGradient id={`sparkFill-${label.replace(/\W/g, '')}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor={fg} stopOpacity="0.26" />
@@ -115,8 +125,8 @@ export default function StatCard({
         <button
           onClick={onLink}
           style={{
-            marginTop: mostraGrafico ? 8 : 'auto',
-            paddingTop: 10,
+            marginTop: mostraGrafico ? 6 : 'auto',
+            paddingTop: 8,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
