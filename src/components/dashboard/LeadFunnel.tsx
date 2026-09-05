@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { C } from '../../styles/sx'
+import { useIsDark } from '../../store/themeStore'
 import type { LeadFunnel as Dados } from '../../lib/dashboardData'
 
 /**
@@ -12,16 +13,27 @@ import type { LeadFunnel as Dados } from '../../lib/dashboardData'
  */
 const RAMPA = ['#ad94c4', '#9778b5', '#7f59a4', '#664586', '#51366a']
 
+/**
+ * A mesma rampa para o tema escuro, refeita — não invertida.
+ *
+ * A de cima desce para roxos escuros porque foi medida sobre superfície branca.
+ * Sobre o card escuro os dois últimos degraus encostam no fundo e as etapas do
+ * fim do funil somem. Aqui a rampa sobe: a ordem continua legível porque o que
+ * a carrega é a luminância monotônica, não o sentido dela.
+ */
+const RAMPA_ESCURA = ['#5c4278', '#74538f', '#8e6aa9', '#a986c2', '#c4a3ea']
+
 /** Altura de cada faixa. Igual em todas de propósito — ver o comentário do desenho. */
 const FAIXA = 40
 /** Vão entre faixas, onde entram o ombro do funil e o rótulo de conversão. */
 const VAO = 34
 
-function corDaEtapa(i: number, n: number): string {
-  if (n <= 1) return RAMPA[RAMPA.length - 1]
+function corDaEtapa(i: number, n: number, dark: boolean): string {
+  const rampa = dark ? RAMPA_ESCURA : RAMPA
+  if (n <= 1) return rampa[rampa.length - 1]
   // Estica a rampa para o número de etapas do quadro, sem repetir passo.
-  const pos = Math.round((i / (n - 1)) * (RAMPA.length - 1))
-  return RAMPA[pos]
+  const pos = Math.round((i / (n - 1)) * (rampa.length - 1))
+  return rampa[pos]
 }
 
 /** "2 h", "3 d" ou "18 min" — a unidade que cabe, sem casa decimal sobrando. */
@@ -42,6 +54,7 @@ function tempo(horas: number): string {
  */
 export default function LeadFunnel({ dados }: { dados: Dados }) {
   const { stages, perdidos, total, fimAFim } = dados
+  const dark = useIsDark()
   const [hover, setHover] = useState<number | null>(null)
   // Entrada: a silhueta cresce do centro. Recomeça a cada troca de período, que é quando os
   // números mudam — sem isso o gráfico trocaria de forma num salto seco.
@@ -76,7 +89,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
             const w = largura(s.count)
             const wNext = i < stages.length - 1 ? largura(stages[i + 1].count) : w
             const on = hover === i
-            const cor = corDaEtapa(i, stages.length)
+            const cor = corDaEtapa(i, stages.length, dark)
             return (
               <div key={s.id}>
                 {/* A faixa. O rótulo fica FORA, à esquerda e à direita, para não depender da
@@ -125,7 +138,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                         ...(i === 0
                           ? { bottom: -8, transform: 'translate(-50%,100%)' }
                           : { top: -8, transform: 'translate(-50%,-100%)' }),
-                        background: C.ink, color: '#fff', borderRadius: 10, padding: '8px 11px',
+                        background: C.inverse, color: C.onInverse, borderRadius: 10, padding: '8px 11px',
                         fontSize: 11.5, whiteSpace: 'nowrap', lineHeight: 1.5,
                         boxShadow: '0 10px 24px rgba(20,14,40,0.28)',
                       }}

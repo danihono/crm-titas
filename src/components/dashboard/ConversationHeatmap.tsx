@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { shade } from '../../lib/color'
-import { C } from '../../styles/sx'
+import { BRAND, C } from '../../styles/sx'
+import { useIsDark } from '../../store/themeStore'
 import { DIAS, type Heatmap } from '../../lib/dashboardData'
 
 /** Horas mostradas. Fora dessa faixa o movimento é resíduo e só espremia a grade. */
@@ -14,13 +15,21 @@ const H1 = 22
  * Zero fica com a cor da SUPERFÍCIE, não com o passo mais claro: senão "nenhuma conversa" e
  * "uma conversa" viram quase a mesma célula.
  */
-function corDaCelula(n: number, peak: number): string {
+function corDaCelula(n: number, peak: number, dark: boolean): string {
   if (n <= 0) return C.field
   const t = n / peak
   // 4 degraus discretos: a diferença entre células fica legível, o que um gradiente
   // contínuo não entrega num quadradinho de 14px.
-  const passo = t > 0.75 ? -0.22 : t > 0.5 ? -0.02 : t > 0.25 ? 0.154 : 0.28
-  return shade(C.purple, passo)
+  //
+  // A rampa INVERTE no tema escuro: "mais movimento = mais escuro" só funciona
+  // sobre papel branco. Sobre o card escuro, o pico tem de ser o degrau mais
+  // claro, senão a célula de maior volume é a que some.
+  const passo = dark
+    ? (t > 0.75 ? 0.5 : t > 0.5 ? 0.28 : t > 0.25 ? 0.06 : -0.2)
+    : (t > 0.75 ? -0.22 : t > 0.5 ? -0.02 : t > 0.25 ? 0.154 : 0.28)
+  // BRAND, e não C: `shade` faz parse do hex, e 'var(--c-purple)' cairia calado
+  // em #000000 pelo fallback de safeColor — a grade inteira ficaria preta.
+  return shade(BRAND.purple, passo)
 }
 
 /**
@@ -28,6 +37,7 @@ function corDaCelula(n: number, peak: number): string {
  * aperta, para dimensionar a escala de atendimento.
  */
 export default function ConversationHeatmap({ data }: { data: Heatmap }) {
+  const dark = useIsDark()
   const [hover, setHover] = useState<{ dia: number; hora: number } | null>(null)
   const horas = Array.from({ length: H1 - H0 + 1 }, (_, i) => H0 + i)
 
@@ -70,7 +80,7 @@ export default function ConversationHeatmap({ data }: { data: Heatmap }) {
                       title={`${DIAS[dia]} ${String(hora).padStart(2, '0')}h · ${n} conversa(s)`}
                       style={{
                         flex: 1, minWidth: 14, height: 14, borderRadius: 3,
-                        background: corDaCelula(n, data.peak),
+                        background: corDaCelula(n, data.peak, dark),
                         // Anel na cor da superfície: destaca a célula sob o cursor sem
                         // empurrar a grade nem mudar a cor que codifica o valor.
                         boxShadow: on ? `0 0 0 2px ${C.ink}` : undefined,
@@ -89,7 +99,7 @@ export default function ConversationHeatmap({ data }: { data: Heatmap }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 10.5, color: C.faint }}>menos</span>
           {[0.2, 0.4, 0.6, 0.9].map((t) => (
-            <span key={t} style={{ width: 13, height: 13, borderRadius: 3, background: corDaCelula(t * data.peak, data.peak) }} />
+            <span key={t} style={{ width: 13, height: 13, borderRadius: 3, background: corDaCelula(t * data.peak, data.peak, dark) }} />
           ))}
           <span style={{ fontSize: 10.5, color: C.faint }}>mais</span>
         </div>

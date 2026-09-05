@@ -2,15 +2,21 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BorderBeam } from '@/components/ui/border-beam'
 import { useAllDeals, useBoards, LEADS_BOARD_ID } from '../hooks/useDeals'
+import { useUIStore } from '../store/uiStore'
 import { useActivities, useActTypes } from '../hooks/useActivities'
 import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
 import { useEvents } from '../hooks/useEvents'
 import { useConversations } from '../hooks/useConversations'
-import { buildLeadFunnel, buildHeatmap } from '../lib/dashboardData'
+import { buildLeadFunnel, buildHeatmap, aReceberPorSemana, vencidasPorSemana } from '../lib/dashboardData'
+import { semanas, porSemana } from '../lib/sparkline'
+import StatCard from '../components/dashboard/StatCard'
+import { C, FONT_DISPLAY } from '../styles/sx'
 import LeadFunnel from '../components/dashboard/LeadFunnel'
 import ConversationHeatmap from '../components/dashboard/ConversationHeatmap'
 import { revenueChart } from '../hooks/useRevenueChart'
-import { fmtK, fmtMoney, dateKeyOf, dueInfo, relativeLabel } from '../lib/format'
+import { fmtK, fmtMoney, dateKeyOf, dueInfo, relativeLabel, greeting } from '../lib/format'
+import { useAuth } from '../contexts/AuthContext'
+import { useSelfProfile } from '../hooks/useProfile'
 import { srcMap } from '../lib/theme'
 import MaterialIcon from '../components/common/MaterialIcon'
 
@@ -30,10 +36,13 @@ type Beam = (typeof BEAMS)[keyof typeof BEAMS]
 
 /** Estilo do card animado: sombra/hover ficam na classe .beam-card (index.css). */
 const beamCardStyle = (beam: Beam, extra?: CSSProperties): CSSProperties =>
-  ({ background: '#fff', border: '1px solid #ececf3', position: 'relative', overflow: 'hidden', '--beam-glow': beam.glow, ...extra }) as CSSProperties
+  ({ background: C.surface, border: `1px solid ${C.line}`, position: 'relative', overflow: 'hidden', '--beam-glow': beam.glow, ...extra }) as CSSProperties
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const setActiveBoard = useUIStore((s) => s.setActiveBoard)
+  const { user } = useAuth()
+  const profile = useSelfProfile()
   const now = new Date()
   const { docs: deals } = useAllDeals()
   const { docs: boards } = useBoards()
@@ -97,7 +106,7 @@ export default function Dashboard() {
     })
   const donutGradient = sourceList.length
     ? `conic-gradient(${sourceList.map((s) => `${s.color} ${s.stop[0]}% ${s.stop[1]}%`).join(',')})`
-    : 'conic-gradient(#ece9f2 0 100%)'
+    : `conic-gradient(${C.line} 0 100%)`
 
   // KPIs reais
   const pipelineTotal = deals.reduce((s, d) => s + (d.value || 0), 0)
@@ -113,22 +122,98 @@ export default function Dashboard() {
   const pendingToday = activities.filter((a) => !a.done && dateKeyOf(a.dueAt) === todayKey)
   const nextPending = pendingToday[0] ?? activities.filter((a) => !a.done).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())[0]
 
+  // ── Séries dos mini gráficos ────────────────────────────────────────────
+  // 12 semanas, e só onde existe histórico DE VERDADE. Onde o modelo não guarda
+  // quando a coisa aconteceu, o card fica sem gráfico (ver lib/dashboardData.ts).
+  const faixas = useMemo(() => semanas(12, now), [todayKey])
+  const serieNovoPipeline = useMemo(
+    () => porSemana(deals, (d) => d.createdAt, faixas, (d) => d.value || 0),
+    [deals, faixas],
+  )
+  const serieNegocios = useMemo(() => porSemana(deals, (d) => d.createdAt, faixas), [deals, faixas])
+  // `reachedAt` só é gravado na PRIMEIRA chegada à etapa, que é exatamente a
+  // semântica de "entrou no funil nesta semana".
+  const serieLeads = useMemo(
+    () => (primeiraEtapa ? porSemana(leadCards, (d) => d.reachedAt?.[primeiraEtapa], faixas) : []),
+    [leadCards, primeiraEtapa, faixas],
+  )
+  const serieAReceber = useMemo(() => aReceberPorSemana(invoices, faixas), [invoices, faixas])
+  const serieVencidas = useMemo(() => vencidasPorSemana(invoices, faixas), [invoices, faixas])
+
   const alerts = [
-    { icon: 'error', color: '#c14d77', bg: 'rgba(217,138,171,0.16)', beam: BEAMS.rose, title: vencidas.length ? `${vencidas.length} nota(s) vencida(s)` : 'Nenhuma nota vencida', sub: vencidas.length ? `R$ ${fmtMoney(vencidoSum)} em atraso` : 'faturamento em dia' },
-    { icon: 'event', color: '#b3801f', bg: 'rgba(216,169,96,0.18)', beam: BEAMS.amber, title: todayEvents[0]?.title ?? 'Sem compromissos hoje', sub: todayEvents[0] ? `Hoje às ${todayEvents[0].time}` : 'agenda livre' },
-    { icon: 'task_alt', color: '#7a52a0', bg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, title: nextPending?.title ?? 'Sem tarefas pendentes', sub: nextPending ? dueInfo(nextPending.dueAt, nextPending.done).text : 'tudo em dia' },
-    { icon: 'person_add', color: '#2f9e6f', bg: 'rgba(95,201,166,0.16)', beam: BEAMS.green, title: `${leadsNovos} novos leads`, sub: 'aguardando primeiro contato' },
+    {
+      icon: 'error', accent: 'rose' as const,
+      label: 'Notas vencidas',
+      value: String(vencidas.length),
+      sub: vencidas.length ? `R$ ${fmtMoney(vencidoSum)} em atraso` : 'Faturamento em dia.',
+      series: serieVencidas,
+      link: 'Ver faturamento', go: () => navigate('/faturamento'),
+      info: 'Notas não pagas cujo vencimento já passou. A linha remonta o fim de cada uma das últimas 12 semanas.',
+    },
+    {
+      icon: 'event', accent: 'amber' as const,
+      label: 'Compromisso de hoje',
+      value: todayEvents.length ? todayEvents[0].time : '—',
+      sub: todayEvents[0]?.title ?? 'Agenda livre hoje.',
+      // Sem gráfico: useEvents carrega UM mês de calendário, e metade dele é
+      // futuro. "Densidade de agenda" não é tendência.
+      link: 'Ver agenda', go: () => navigate('/agenda'),
+    },
+    {
+      icon: 'task_alt', accent: 'purple' as const,
+      label: 'Próxima tarefa',
+      value: String(pendingToday.length),
+      sub: nextPending ? `${nextPending.title} · ${dueInfo(nextPending.dueAt, nextPending.done).text}` : 'Nada pendente para hoje.',
+      // Sem gráfico, e isto não é escolha de desenho: toggleActivity grava só
+      // `done`. Não existe `doneAt`, então quantas tarefas estavam pendentes
+      // numa semana passada é informação que o banco não tem.
+      link: 'Ver atividades', go: () => navigate('/atividades'),
+    },
+    {
+      icon: 'person_add', accent: 'green' as const,
+      label: 'Novos leads',
+      value: String(leadsNovos),
+      sub: 'Aguardando primeiro contato.',
+      series: serieLeads,
+      link: 'Ver funil', go: () => { setActiveBoard(LEADS_BOARD_ID); navigate('/pipeline') },
+      info: 'Leads parados na etapa de entrada do quadro LEADS. A linha conta quantos entraram por semana.',
+    },
   ]
   const alertCount = vencidas.length + todayEvents.length + pendingToday.length
 
   const kpis = [
-    { icon: 'payments', value: `R$ ${fmtK(pipelineTotal)}`, label: 'Pipeline ativo', c: '#2f9e6f', cbg: 'rgba(95,201,166,0.16)', beam: BEAMS.green, glow: 'radial-gradient(circle,rgba(95,201,166,0.14),transparent 70%)' },
-    { icon: 'handshake', value: String(deals.length), label: 'Negócios ativos', c: '#7a52a0', cbg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, glow: 'radial-gradient(circle,rgba(150,110,200,0.14),transparent 70%)' },
-    { icon: 'request_quote', value: `R$ ${fmtMoney(ticket)}`, label: 'Ticket médio', c: '#b3801f', cbg: 'rgba(216,169,96,0.18)', beam: BEAMS.amber, glow: 'radial-gradient(circle,rgba(216,169,96,0.16),transparent 70%)' },
-    { icon: 'hourglass_top', value: `R$ ${fmtK(aReceber)}`, label: 'A receber', c: '#4f7fc0', cbg: 'rgba(111,155,207,0.16)', beam: BEAMS.blue, glow: 'radial-gradient(circle,rgba(111,155,207,0.14),transparent 70%)' },
-    { icon: 'person_add', value: String(leadsNovos), label: 'Novos leads', c: '#7a52a0', cbg: 'rgba(150,110,200,0.14)', beam: BEAMS.purple, glow: 'radial-gradient(circle,rgba(150,110,200,0.14),transparent 70%)' },
+    {
+      icon: 'payments', accent: 'green' as const, featured: true,
+      label: 'Pipeline ativo', value: `R$ ${fmtK(pipelineTotal)}`,
+      sub: 'Soma de hoje. A linha é o pipeline novo por semana.',
+      series: serieNovoPipeline,
+      link: 'Ver pipeline', go: () => navigate('/pipeline'),
+      info: 'O número é a soma de todos os negócios abertos agora; a linha, o valor criado em cada uma das últimas 12 semanas.',
+    },
+    {
+      icon: 'handshake', accent: 'purple' as const,
+      label: 'Negócios ativos', value: String(deals.length),
+      sub: 'Criados por semana.',
+      series: serieNegocios,
+      link: 'Ver quadro', go: () => navigate('/pipeline'),
+    },
+    {
+      icon: 'request_quote', accent: 'amber' as const,
+      label: 'Ticket médio', value: `R$ ${fmtMoney(ticket)}`,
+      sub: `Média entre ${deals.length} negócio(s) aberto(s).`,
+      // Sem gráfico: é razão de duas séries sem passado. `updateDeal` sobrescreve
+      // o valor do negócio sem versionar, então "ticket médio em maio" não existe.
+      link: 'Ver pipeline', go: () => navigate('/pipeline'),
+    },
+    {
+      icon: 'hourglass_top', accent: 'blue' as const,
+      label: 'A receber', value: `R$ ${fmtK(aReceber)}`,
+      sub: 'Em aberto e ainda no prazo.',
+      series: serieAReceber,
+      link: 'Ver notas', go: () => navigate('/faturamento'),
+      info: 'Saldo em aberto e dentro do prazo no fim de cada semana. Nota paga sem data de baixa conta como paga desde sempre.',
+    },
   ]
-
 
   // Feed real (atividades recentes)
   const feed = activities.slice(0, 5)
@@ -137,54 +222,76 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '28px 30px 40px' }}>
-      {/* Alertas */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 13 }}>
-        <MaterialIcon name="notifications_active" size={22} color="#c14d77" />
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Alertas do dia</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#c14d77', background: 'rgba(217,138,171,0.16)', borderRadius: 20, padding: '2px 9px' }}>{alertCount}</span>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: '#9c95a8', textTransform: 'capitalize' }}>{dateLabel}</span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 13, marginBottom: 24 }}>
-        {alerts.map((al, i) => (
-          <div key={i} className="beam-card" style={beamCardStyle(al.beam, { display: 'flex', gap: 12, alignItems: 'center', borderLeft: `3px solid ${al.color}`, borderRadius: 14, padding: '13px 15px' })}>
-            <MaterialIcon name={al.icon} size={20} color={al.color} style={{ background: al.bg, width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{al.title}</div>
-              <div style={{ fontSize: 11.5, color: '#6e6780', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{al.sub}</div>
-            </div>
-            <BorderBeam className="beam-layer" colorFrom={al.beam.from} colorTo={al.beam.to} duration={10} delay={i * 2.5} />
+      {/* Saudação — o título desta tela, no formato da interface de referência. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 22 }}>
+        <div>
+          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 700, letterSpacing: '-.03em', color: C.ink, margin: 0, lineHeight: 1.15 }}>
+            {greeting(profile.displayName || user?.displayName || user?.email || '').split(' · ')[0]}
+          </h1>
+          <div style={{ fontSize: 13, color: C.sub, marginTop: 5 }}>
+            {alertCount > 0
+              ? `Você tem ${alertCount} ${alertCount === 1 ? 'item' : 'itens'} pedindo atenção hoje.`
+              : 'Nada pendente para hoje.'}
           </div>
-        ))}
+        </div>
+        <span style={{ fontSize: 12.5, color: C.muted, textTransform: 'capitalize', paddingTop: 6 }}>{dateLabel}</span>
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 16 }}>
-        {kpis.map((k, i) => (
-          <div key={i} className="beam-card" style={beamCardStyle(k.beam, { borderRadius: 18, padding: '20px 20px 18px' })}>
-            <div style={{ position: 'absolute', top: -30, right: -30, width: 110, height: 110, borderRadius: '50%', background: k.glow }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <MaterialIcon name={k.icon} size={22} color={k.c} style={{ background: k.cbg, width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.02em', color: '#1d1726', lineHeight: 1 }}>{k.value}</div>
-            <div style={{ fontSize: 12.5, color: '#6e6780', marginTop: 6 }}>{k.label}</div>
-            <BorderBeam className="beam-layer" colorFrom={k.beam.from} colorTo={k.beam.to} duration={9} delay={i * 1.8} />
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 26 }}>
+        {kpis.map((k) => (
+          <StatCard
+            key={k.label}
+            label={k.label}
+            value={k.value}
+            sub={k.sub}
+            icon={k.icon}
+            accent={k.accent}
+            series={k.series}
+            featured={k.featured}
+            info={k.info}
+            linkLabel={k.link}
+            onLink={k.go}
+          />
+        ))}
+      </div>
+
+      {/* Alertas */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 13 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Alertas do dia</span>
+        {alertCount > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.rose, background: C.tintRose, borderRadius: 20, padding: '2px 9px' }}>{alertCount}</span>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 26 }}>
+        {alerts.map((al) => (
+          <StatCard
+            key={al.label}
+            label={al.label}
+            value={al.value}
+            sub={al.sub}
+            icon={al.icon}
+            accent={al.accent}
+            series={al.series}
+            info={al.info}
+            linkLabel={al.link}
+            onLink={al.go}
+          />
         ))}
       </div>
 
       {/* Jornada + mapa de calor: os dois únicos gráficos que cruzam módulos. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Visão do sistema</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Visão do sistema</div>
         <div style={{ flex: 1 }} />
         {[30, 90, 365].map((d) => (
           <button
             key={d}
             onClick={() => setDias(d)}
             style={{
-              border: '1px solid ' + (dias === d ? '#7a52a0' : '#e6e3ee'),
-              background: dias === d ? 'rgba(150,110,200,0.12)' : '#fff',
-              color: dias === d ? '#7a52a0' : '#6e6780',
+              border: '1px solid ' + (dias === d ? C.purple : C.fieldBorder),
+              background: dias === d ? C.tintPurple : C.surface,
+              color: dias === d ? C.purple : C.sub,
               borderRadius: 10, padding: '7px 13px', fontSize: 12.5, fontWeight: 700,
               cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
             }}
@@ -196,8 +303,8 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: 16, marginBottom: 16 }}>
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Funil de Leads</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 18 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 2 }}>Funil de Leads</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 18 }}>
             Os leads criados no período, seguidos etapa a etapa
           </div>
           <LeadFunnel dados={funil} />
@@ -205,8 +312,8 @@ export default function Dashboard() {
         </div>
 
         <div className="beam-card" style={beamCardStyle(BEAMS.blue, { borderRadius: 20, padding: '22px 24px' })}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Quando o cliente procura</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 2 }}>Quando o cliente procura</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
             Conversas abertas por dia da semana e hora
           </div>
           <ConversationHeatmap data={heat} />
@@ -219,20 +326,20 @@ export default function Dashboard() {
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Receita recebida</div>
-              <div style={{ fontSize: 12, color: '#9c95a8', marginTop: 2 }}>Notas pagas · últimos 12 meses</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Receita recebida</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Notas pagas · últimos 12 meses</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726', letterSpacing: '-.02em' }}>R$ {fmtK(rev.total)}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-.02em' }}>R$ {fmtK(rev.total)}</div>
               {rev.changePct !== null && (
-                <div style={{ fontSize: 11.5, color: rev.changePct >= 0 ? '#2f9e6f' : '#c14d77', fontWeight: 700 }}>
+                <div style={{ fontSize: 11.5, color: rev.changePct >= 0 ? C.green : C.rose, fontWeight: 700 }}>
                   {rev.changePct >= 0 ? '▲' : '▼'} {Math.abs(rev.changePct).toFixed(1).replace('.', ',')}% vs mês anterior
                 </div>
               )}
             </div>
           </div>
           {!rev.hasData && (
-            <div style={{ padding: '46px 0 40px', textAlign: 'center', color: '#a39bb0', fontSize: 13, lineHeight: 1.5 }}>
+            <div style={{ padding: '46px 0 40px', textAlign: 'center', color: C.faint, fontSize: 13, lineHeight: 1.5 }}>
               Nenhuma nota paga nos últimos 12 meses.<br />
               <span style={{ fontSize: 12 }}>A curva aparece assim que a primeira nota for marcada como paga.</span>
             </div>
@@ -246,7 +353,7 @@ export default function Dashboard() {
               </linearGradient>
               <linearGradient id="revStroke" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0" stopColor="#8e6fc0" />
-                <stop offset="1" stopColor="#7a52a0" />
+                <stop offset="1" stopColor={C.purple} />
               </linearGradient>
             </defs>
             <line x1="0" y1="42" x2="560" y2="42" stroke="rgba(28,20,50,0.06)" />
@@ -254,9 +361,9 @@ export default function Dashboard() {
             <line x1="0" y1="130" x2="560" y2="130" stroke="rgba(28,20,50,0.06)" />
             <path d={rev.area} fill="url(#revFill)" />
             <path d={rev.line} fill="none" stroke="url(#revStroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx={rev.lastX} cy={rev.lastY} r="5" fill="#7a52a0" stroke="#ffffff" strokeWidth="2.5" />
+            <circle cx={rev.lastX} cy={rev.lastY} r="5" fill={C.purple} stroke={C.surface} strokeWidth="2.5" />
           </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: '#a39bb0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: C.faint }}>
             {rev.months.map((m, i) => <span key={`${m}-${i}`}>{m}</span>)}
           </div>
           </>}
@@ -264,13 +371,13 @@ export default function Dashboard() {
         </div>
 
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726', marginBottom: 2 }}>Origem dos leads</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 14 }}>Todos os leads cadastrados</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 2 }}>Origem dos leads</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Todos os leads cadastrados</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px 0 16px' }}>
             <div style={{ width: 138, height: 138, borderRadius: '50%', background: donutGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 92, height: 92, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#1d1726' }}>{leadCards.length}</div>
-                <div style={{ fontSize: 10.5, color: '#9c95a8' }}>{leadCards.length === 1 ? 'lead' : 'leads'}</div>
+              <div style={{ width: 92, height: 92, borderRadius: '50%', background: C.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>{leadCards.length}</div>
+                <div style={{ fontSize: 10.5, color: C.muted }}>{leadCards.length === 1 ? 'lead' : 'leads'}</div>
               </div>
             </div>
           </div>
@@ -278,12 +385,12 @@ export default function Dashboard() {
             {sourceList.map((s) => (
               <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color }} />
-                <span style={{ flex: 1, color: '#4a4458' }}>{s.name}</span>
-                <span style={{ fontWeight: 700, color: '#1d1726' }}>{s.pct}%</span>
+                <span style={{ flex: 1, color: C.strong }}>{s.name}</span>
+                <span style={{ fontWeight: 700, color: C.ink }}>{s.pct}%</span>
               </div>
             ))}
             {sourceList.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#a39bb0', fontSize: 12.5, lineHeight: 1.5 }}>
+              <div style={{ textAlign: 'center', color: C.faint, fontSize: 12.5, lineHeight: 1.5 }}>
                 Nenhum lead cadastrado ainda.
               </div>
             )}
@@ -299,24 +406,24 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
         <div className="beam-card" style={beamCardStyle(BEAMS.purple, { borderRadius: 20, padding: '22px 24px' })}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Atividade recente</div>
-            <span onClick={() => navigate('/atividades')} style={{ fontSize: 12, color: '#7a52a0', cursor: 'pointer', fontWeight: 700 }}>Ver tudo</span>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Atividade recente</div>
+            <span onClick={() => navigate('/atividades')} style={{ fontSize: 12, color: C.purple, cursor: 'pointer', fontWeight: 700 }}>Ver tudo</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {feed.map((a) => {
               const t = typeMap[a.type]
               return (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 0', borderBottom: '1px solid rgba(28,20,50,0.06)' }}>
-                  <MaterialIcon name={t?.icon ?? 'event'} size={19} color={t?.color ?? '#7a52a0'} style={{ background: t?.bg ?? 'rgba(150,110,200,0.14)', width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
+                  <MaterialIcon name={t?.icon ?? 'event'} size={19} color={t?.color ?? C.purple} style={{ background: t?.bg ?? C.tintPurpleStrong, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: '#2a2435', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
-                    <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{a.contact}</div>
+                    <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                    <div style={{ fontSize: 11.5, color: C.muted }}>{a.contact}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: '#a39bb0', flexShrink: 0 }}>{a.createdAt ? relativeLabel(a.createdAt) : ''}</div>
+                  <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{a.createdAt ? relativeLabel(a.createdAt) : ''}</div>
                 </div>
               )
             })}
-            {feed.length === 0 && <div style={{ fontSize: 13, color: '#a39bb0', padding: '10px 0' }}>Sem atividades ainda.</div>}
+            {feed.length === 0 && <div style={{ fontSize: 13, color: C.faint, padding: '10px 0' }}>Sem atividades ainda.</div>}
           </div>
           <BorderBeam className="beam-layer" colorFrom={BEAMS.purple.from} colorTo={BEAMS.purple.to} duration={14} delay={10.5} />
         </div>
