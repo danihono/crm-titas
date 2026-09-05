@@ -2,33 +2,210 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS DE TEMA
+
+   O app é estilizado com objetos de estilo INLINE, não com classes. Estilo
+   inline lê variável CSS normalmente (`color: 'var(--c-ink)'`), e é por isso
+   que o tema claro/escuro cabe aqui, num arquivo só, em vez de virar 1000
+   condicionais espalhadas pelas telas.
+
+   Os valores do CLARO são exatamente os hexes que o código já usava — trocar
+   de tema não pode mexer no que já estava bom. O bloco escuro só redeclara o
+   que muda; acento e cromagem herdam.
+
+   `color-scheme` não é enfeite: `<select>`, `input[type=date]` e a barra de
+   rolagem são desenhados pelo SISTEMA, e sem ele o menu do select sai branco
+   no escuro. Ver src/components/layout/Layout.tsx (select de equipe) e os
+   campos de data de InvoiceModal/ActivityModal.
+
+   Quem precisa do hex de verdade (matemática de cor, canvas, SVG exportado)
+   usa `BRAND` em src/styles/sx.ts, NUNCA `C`. Um `shade('var(--c-purple)')`
+   cai em preto silenciosamente.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light;
+
+  /* Tipografia — San Francisco onde ela existe (Apple), o equivalente do
+     sistema no resto. A SF não pode ser servida pela web: a licença da Apple
+     só a libera como fonte DO SISTEMA. Esta é a mesma pilha que a Apple, o
+     GitHub e o próprio app da referência usam. */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+             'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Título é a MESMA família com tracking negativo — é assim que a Apple faz
+     display. Trocar de família no título é o que dava o ar de folheto. */
+  --font-display: var(--font-ui);
+
+  /* superfícies */
+  --c-void: #0a080c;
+  --c-page: #f5f3f8;
+  --c-surface: #ffffff;
+  --c-raised: #f3f1f7;
+  --c-surface-alt: #faf9fc;
+  --c-field: #f7f5fa;
+  --c-column: #edebf3;
+  --c-inverse: #1d1726;
+  --c-on-inverse: #ffffff;
+
+  /* texto */
+  --c-ink: #1d1726;
+  --c-sub: #6e6780;
+  --c-muted: #9c95a8;
+  --c-faint: #a39bb0;
+  --c-strong: #4a4458;
+  --c-on-accent: #f4eefa;
+
+  /* bordas */
+  --c-line: #ececf3;
+  --c-line-soft: #eeebf3;
+  --c-line-hair: #f4f2f8;
+  --c-field-border: #e6e3ee;
+  --c-divider: #e0dcea;
+
+  /* cromagem (menu lateral e topo) — escura nos DOIS temas: é a identidade
+     atual e é o que a interface de referência também faz. */
+  --c-chrome-sidebar: linear-gradient(180deg, #0d0a11, #0a070d);
+  --c-chrome-topbar: linear-gradient(180deg, #0d0a11, #0b080f);
+  --c-chrome-ink: #f1ecf5;
+  --c-chrome-dim: #8e8499;
+  --c-chrome-label: #5f5668;
+  --c-chrome-hairline: rgba(176, 148, 210, 0.08);
+  --c-chrome-fill: rgba(255, 255, 255, 0.04);
+  --c-chrome-border: rgba(176, 148, 210, 0.12);
+  --c-chrome-pop: #17121e;
+  /* item selecionado do menu: pílula roxa clara + barra à esquerda */
+  --c-chrome-sel: rgba(154, 111, 184, 0.18);
+  --c-chrome-sel-ink: #e9dcf5;
+  --c-chrome-sel-bar: #b692d6;
+
+  /* acentos */
+  --c-purple: #7a52a0;
+  --c-purple-deep: #553578;
+  --c-purple-soft: #9a6fb8;
+  --c-purple-grad: linear-gradient(140deg, #7a52a0, #553578);
+  --c-avatar-grad: linear-gradient(150deg, #b692d6, #6f4d92);
+  --c-green: #2f9e6f;
+  --c-green-deep: #1f8a4c;
+  --c-wa-green: #34c759;
+  --c-amber: #b3801f;
+  --c-amber-deep: #8a5f12;
+  --c-rose: #c14d77;
+  --c-rose-deep: #b73d6d;
+  --c-blue: #4f7fc0;
+
+  /* tintas translúcidas (badge, chip, selecionado) */
+  --c-tint-purple: rgba(150, 110, 200, 0.12);
+  --c-tint-purple-strong: rgba(150, 110, 200, 0.14);
+  --c-tint-purple-weak: rgba(150, 110, 200, 0.08);
+  --c-tint-green: rgba(95, 201, 166, 0.16);
+  --c-tint-amber: rgba(216, 169, 96, 0.18);
+  --c-tint-rose: rgba(217, 138, 171, 0.16);
+  --c-tint-blue: rgba(111, 155, 207, 0.16);
+  --c-tint-neutral: rgba(28, 20, 50, 0.06);
+  --c-sel: rgba(150, 110, 200, 0.12);
+  --c-sel-border: rgba(150, 110, 200, 0.28);
+
+  /* sombras e véus */
+  --c-shadow-sm: 0 1px 2px rgba(28, 20, 50, 0.04);
+  --c-shadow-card: 0 1px 2px rgba(28, 20, 50, 0.04), 0 8px 22px rgba(28, 20, 50, 0.05);
+  --c-shadow-pop: 0 10px 28px rgba(28, 20, 50, 0.14);
+  --c-shadow-modal: 0 30px 80px rgba(20, 14, 40, 0.3);
+  --c-shadow-purple: 0 6px 16px rgba(110, 65, 150, 0.25);
+  --c-overlay: rgba(20, 14, 30, 0.5);
+  --c-scrollbar: rgba(120, 90, 160, 0.28);
+  --c-scrollbar-hover: rgba(120, 90, 160, 0.45);
+  --c-beam-glow: rgba(139, 92, 246, 0.22);
+}
+
+/* No escuro a cromagem fica MAIS escura que o conteúdo
+   (#0a070d menu < #131017 fundo < #191320 card): a separação vem da camada,
+   não de borda. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-page: #131017;
+  --c-surface: #191320;
+  --c-raised: #241d2f;
+  --c-surface-alt: #1f1928;
+  --c-field: #221b2b;
+  --c-column: #1c1624;
+  --c-inverse: #efeaf5;
+  --c-on-inverse: #1d1726;
+
+  --c-ink: #efeaf5;
+  --c-sub: #b3a9c1;
+  --c-muted: #8f85a0;
+  --c-faint: #7d7389;
+  --c-strong: #ded6e8;
+
+  --c-line: #2b2436;
+  --c-line-soft: #251e30;
+  --c-line-hair: #241d2f;
+  --c-field-border: #332a41;
+  --c-divider: #2e2639;
+
+  /* Acento sobe de tom: #7a52a0 sobre #191320 não tem contraste de texto. */
+  --c-purple: #b18ad2;
+  --c-purple-deep: #8a63b3;
+  --c-purple-soft: #c4a3ea;
+  --c-green: #5fc9a6;
+  --c-green-deep: #4fbf88;
+  --c-amber: #d8a960;
+  --c-amber-deep: #e2be74;
+  --c-rose: #dd8aa9;
+  --c-rose-deep: #e07b9f;
+  --c-blue: #8fb4dd;
+
+  /* 12% de roxo sobre #191320 é indistinguível do card: as tintas engordam. */
+  --c-tint-purple: rgba(177, 138, 210, 0.18);
+  --c-tint-purple-strong: rgba(177, 138, 210, 0.22);
+  --c-tint-purple-weak: rgba(177, 138, 210, 0.12);
+  --c-tint-green: rgba(95, 201, 166, 0.22);
+  --c-tint-amber: rgba(216, 169, 96, 0.24);
+  --c-tint-rose: rgba(217, 138, 171, 0.24);
+  --c-tint-blue: rgba(143, 180, 221, 0.22);
+  --c-tint-neutral: rgba(255, 255, 255, 0.09);
+  --c-sel: rgba(177, 138, 210, 0.18);
+  --c-sel-border: rgba(177, 138, 210, 0.34);
+
+  --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --c-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.45);
+  --c-shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --c-shadow-modal: 0 30px 80px rgba(0, 0, 0, 0.72);
+  --c-shadow-purple: 0 6px 16px rgba(110, 65, 150, 0.45);
+  --c-overlay: rgba(6, 4, 10, 0.68);
+  --c-scrollbar: rgba(170, 140, 215, 0.32);
+  --c-scrollbar-hover: rgba(170, 140, 215, 0.5);
+  --c-beam-glow: rgba(177, 138, 210, 0.35);
+}
+
 /* Estilos globais — portados do <helmet>/<style> do protótipo (legacy/CRM Titãs.dc.html:16-27) */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 #root { height: 100%; }
 body {
-  background: #0a080c;
-  font-family: 'Manrope', sans-serif;
+  background: var(--c-void);
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
-  color: #1d1726;
+  color: var(--c-ink);
   overflow: hidden;
 }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 90, 160, 0.28);
+  background: var(--c-scrollbar);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 90, 160, 0.45);
+  background: var(--c-scrollbar-hover);
   background-clip: padding-box;
 }
 
 input, textarea, select, button { font-family: inherit; }
-input::placeholder, textarea::placeholder { color: #a39bb0; }
+input::placeholder, textarea::placeholder { color: var(--c-faint); }
 
 @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
@@ -42,7 +219,9 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
    aurora as herda), recolorindo o efeito para a paleta roxa da Titãs sem tocar
    no componente canônico em src/components/ui/aurora-background.tsx.
    --transparent é forçado para um roxo translúcido para que as "fendas" do
-   gradiente também fiquem roxas em vez de transparentes. */
+   gradiente também fiquem roxas em vez de transparentes.
+
+   O login é escuro nos dois temas, de propósito: é a marca. */
 .login-aurora {
   --blue-500: #8b5cf6;   /* violeta vivo  */
   --indigo-300: #a855f7; /* roxo          */
@@ -51,129 +230,6 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   --blue-400: #6d28d9;   /* violeta fundo */
   --transparent: rgba(122, 82, 160, 0); /* fende em roxo, não em vazio */
   background-color: #07050b !important;  /* base preta (sobrepõe dark:bg-zinc-900) */
-}
-
-/* ── Anel roxo giratório — indicador da aba ativa da sidebar ───────────────
-   4 camadas: glow difuso atrás, contêiner de clip, conic-gradient girando
-   (dominante roxo + 2 hotspots brancos estreitos com franjas rosa/azul) e
-   placa interna com inset de 2px que deixa só a borda do anel visível. */
-@keyframes nav-ring-spin {
-  from { transform: translate(-50%, -50%) rotate(0turn); }
-  to   { transform: translate(-50%, -50%) rotate(1turn); }
-}
-
-/* Gradiente cônico roxo compartilhado (sidebar + botões). ~90% tons de roxo
-   (violeta escuro → roxo vivo → lavanda), 2 hotspots brancos estreitos e
-   franjas mínimas rosa/azul. Padrão repetido 2x nos 360°. */
-:root {
-  --purple-ring-grad: conic-gradient(
-    from 0deg,
-    #2a1245 0%, #8b5cf6 18%, #e9d8ff 30%,
-    #ffc0cb 33.5%, #ffffff 35%, #ffffff 38%, #c3d3ff 39.5%,
-    #8b5cf6 43%, #2a1245 50%,
-    #8b5cf6 68%, #e9d8ff 80%,
-    #ffc0cb 83.5%, #ffffff 85%, #ffffff 88%, #c3d3ff 89.5%,
-    #8b5cf6 93%, #2a1245 100%
-  );
-}
-
-.nav-ring {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  pointer-events: none;
-  transition: top .55s cubic-bezier(0.34, 1.2, 0.64, 1), height .3s ease;
-}
-.nav-ring__glow {
-  position: absolute;
-  inset: -8px;
-  border-radius: 18px;
-  background: #a855f7;
-  filter: blur(16px);
-  opacity: 0.15;
-}
-.nav-ring__clip {
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.nav-ring__spin {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 220%;
-  aspect-ratio: 1 / 1;
-  animation: nav-ring-spin 4.5s linear infinite;
-  background: var(--purple-ring-grad);
-}
-.nav-ring__plate {
-  position: absolute;
-  inset: 2px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #261c33, #100b16 70%);
-}
-
-/* ── Anel roxo giratório como BORDA de botão (componente <RingButton>) ──────
-   O wrapper .ring-btn envolve qualquer botão; o anel gira atrás e "vaza"
-   ~1.6px em volta, virando uma borda viva. O fundo do próprio botão é a placa
-   central. --rr controla o raio. Só anima no hover para não sobrecarregar a
-   tela; o glow acende junto. */
-.ring-btn {
-  --rr: 11px;
-  position: relative;
-  display: inline-flex;
-  border-radius: var(--rr);
-  isolation: isolate;
-}
-.ring-btn > * {
-  position: relative;
-  z-index: 1;
-}
-.ring-btn__glow {
-  position: absolute;
-  inset: -5px;
-  border-radius: calc(var(--rr) + 5px);
-  background: #a855f7;
-  filter: blur(11px);
-  opacity: 0;
-  z-index: 0;
-  pointer-events: none;
-  transition: opacity .35s ease;
-}
-.ring-btn__anim {
-  position: absolute;
-  inset: -1.6px;
-  border-radius: calc(var(--rr) + 1.6px);
-  overflow: hidden;
-  z-index: 0;
-  pointer-events: none;
-  transition: opacity .35s ease;
-}
-.ring-btn__anim::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 260%;
-  aspect-ratio: 1 / 1;
-  transform: translate(-50%, -50%);
-  background: var(--purple-ring-grad);
-  animation: nav-ring-spin 4.5s linear infinite;
-}
-/* Em repouso o botão fica limpo: o anel e o glow só acendem no hover. Girando o
-   tempo todo em cada botão roxo — e são quase todos — o efeito virava ruído, em
-   especial nas telas de formulário (Configurações). `.is-active` mantém o anel
-   permanente onde ele carrega sentido: a aba/chip selecionado. */
-.ring-btn__anim { opacity: 0; }
-.ring-btn__glow { opacity: 0; }
-.ring-btn:hover .ring-btn__anim { opacity: 1; }
-.ring-btn:hover .ring-btn__glow { opacity: 0.45; }
-.ring-btn.is-active .ring-btn__anim { opacity: 1; }
-.ring-btn.is-active .ring-btn__glow { opacity: 0.4; }
-
-@media (prefers-reduced-motion: reduce) {
-  .ring-btn__anim::before { animation: none; }
 }
 
 /* Ícones Material Symbols (classe .ms) */
@@ -186,21 +242,40 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
   user-select: none;
 }
 
+/* ── Botões ────────────────────────────────────────────────────────────────
+   O anel roxo giratório (.nav-ring / .ring-btn) foi removido: virou ruído e
+   não combina com a sobriedade do resto. No lugar dele, o botão levanta de
+   leve no hover — e "selecionado" agora é sempre a mesma pílula roxa clara
+   (var(--c-sel)), no menu, nas abas e nos chips. */
+.btn-lift {
+  transition: transform .18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .18s ease, filter .18s ease;
+}
+.btn-lift:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+.btn-lift:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-lift { transition: none; }
+  .btn-lift:hover:not(:disabled) { transform: none; }
+}
+
 /* ── Cards do dashboard com <BorderBeam> (src/components/ui/border-beam.tsx) ──
    .beam-card centraliza a sombra base (antes inline) para que o :hover consiga
    sobrescrevê-la: hover levanta o card e adiciona um glow na cor do accent do
    card via --beam-glow (roxo por padrão). O feixe fica sutil em repouso e
    acende no hover (.beam-layer é o className passado ao <BorderBeam>). */
 .beam-card {
-  box-shadow: 0 1px 2px rgba(28, 20, 50, 0.04), 0 8px 22px rgba(28, 20, 50, 0.05);
+  box-shadow: var(--c-shadow-card);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
 }
 .beam-card:hover {
   transform: translateY(-4px);
-  box-shadow:
-    0 2px 4px rgba(28, 20, 50, 0.05),
-    0 16px 38px rgba(28, 20, 50, 0.1),
-    0 10px 32px var(--beam-glow, rgba(139, 92, 246, 0.22));
+  box-shadow: var(--c-shadow-pop), 0 10px 32px var(--beam-glow, var(--c-beam-glow));
 }
 .beam-card .beam-layer {
   opacity: 0.55;
@@ -208,6 +283,20 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
 }
 .beam-card:hover .beam-layer {
   opacity: 1;
+}
+
+/* Card simples do painel (KPI/alerta): sem feixe animado, só a elevação. */
+.stat-card {
+  box-shadow: var(--c-shadow-card);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--c-shadow-pop);
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam-card, .stat-card { transition: none; }
+  .beam-card:hover, .stat-card:hover { transform: none; }
 }
 
 /* ---------------------------------------------------------------- Impressão
@@ -221,6 +310,35 @@ input::placeholder, textarea::placeholder { color: #a39bb0; }
 .print-doc { display: none; }
 
 @media print {
+  /* Papel é sempre CLARO, mesmo com o app em modo escuro. Redeclarar os tokens
+     aqui é o cinto de segurança: se algum componente compartilhado vazar para
+     dentro do .print-doc, ele ainda imprime legível. */
+  :root, :root[data-theme='dark'] {
+    color-scheme: light;
+    --c-page: #ffffff;
+    --c-surface: #ffffff;
+    --c-raised: #f3f1f7;
+    --c-surface-alt: #faf9fc;
+    --c-field: #f7f5fa;
+    --c-inverse: #1d1726;
+    --c-on-inverse: #ffffff;
+    --c-ink: #1d1726;
+    --c-sub: #6e6780;
+    --c-muted: #9c95a8;
+    --c-faint: #a39bb0;
+    --c-strong: #4a4458;
+    --c-line: #ececf3;
+    --c-line-soft: #eeebf3;
+    --c-line-hair: #f4f2f8;
+    --c-field-border: #e6e3ee;
+    --c-purple: #7a52a0;
+    --c-purple-deep: #553578;
+    --c-green: #2f9e6f;
+    --c-amber: #b3801f;
+    --c-rose: #c14d77;
+    --c-blue: #4f7fc0;
+  }
+
   html, body {
     overflow: visible !important;
     height: auto !important;

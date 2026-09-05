@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { ouvirSistema } from './store/themeStore'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { OwnerRoute, CrmRoute } from './components/layout/RouteGuards'
 import Layout from './components/layout/Layout'
@@ -59,6 +61,11 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
+  // O tema já foi pintado pelo script do index.html; aqui só passamos a seguir o
+  // sistema operacional quando a preferência é 'system' (a pessoa troca o tema
+  // do macOS/Windows com o CRM aberto).
+  useEffect(() => ouvirSistema(), [])
+
   return (
     <AuthProvider>
       <RouterProvider router={router} />

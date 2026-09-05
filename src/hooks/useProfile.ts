@@ -5,6 +5,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'fi
 import { auth, db, storage } from '../lib/firebase'
 import { selfRef } from '../lib/paths'
 import { prefsFromDoc } from '../lib/converters'
+import { useThemeStore } from '../store/themeStore'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserPrefs } from '../types'
 
@@ -32,7 +33,7 @@ const EMPTY: SelfProfile = {
   phone: '',
   closingMessage: '',
   closingEnabled: false,
-  prefs: { notifyDesktop: true, notifySound: true },
+  prefs: { notifyDesktop: true, notifySound: true, theme: 'system' },
 }
 
 /**
@@ -50,6 +51,11 @@ export function useSelfProfile(): SelfProfile {
     }
     return onSnapshot(doc(db, 'users', user.uid), (snap) => {
       const d = snap.data() ?? {}
+      const prefs = prefsFromDoc(d.prefs)
+      // Dispositivo novo (sem escolha gravada localmente) herda o tema da conta.
+      // Onde já existe escolha local, ela manda — senão duas abas com preferências
+      // diferentes ficariam se sobrescrevendo a cada snapshot.
+      useThemeStore.getState().adotarDoPerfil(prefs.theme)
       setProfile({
         displayName: d.displayName ?? '',
         role: d.role ?? '',
@@ -59,7 +65,7 @@ export function useSelfProfile(): SelfProfile {
         phone: d.phone ?? '',
         closingMessage: d.closingMessage ?? '',
         closingEnabled: !!d.closingEnabled,
-        prefs: prefsFromDoc(d.prefs),
+        prefs,
       })
     })
   }, [user?.uid])

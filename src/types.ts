@@ -2,6 +2,7 @@
 // Espelham o modelo Firestore users/{uid}/... do plano.
 
 export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
+export type ThemeMode = 'light' | 'dark' | 'system'
 export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
@@ -469,6 +470,12 @@ export interface KnowledgeDoc {
 export interface UserPrefs {
   notifyDesktop: boolean
   notifySound: boolean
+  /**
+   * Tema da interface. Espelho do que o dispositivo já gravou no localStorage
+   * (src/store/themeStore.ts) — serve para o tema seguir a pessoa quando ela
+   * entra de outro computador, não para mandar no que já está pintado.
+   */
+  theme: ThemeMode
 }
 
 export type CampaignStatus = 'rascunho' | 'enviando' | 'pausada' | 'concluida'

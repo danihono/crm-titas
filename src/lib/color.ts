@@ -34,3 +34,34 @@ export function colorGradient(color: string, angle = 150): string {
 export function colorShadow(color: string): string {
   return `0 8px 20px ${safeColor(color, '#000000')}4d`
 }
+
+/** Alfa como sufixo hex de 8 dígitos — o mesmo truque de `t.color + '1f'`. */
+export function withAlpha(hex: string, alpha: number): string {
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+  return safeColor(hex, '#000000') + a.toString(16).padStart(2, '0')
+}
+
+/** Trio (texto, fundo, borda) de um chip pintado com cor escolhida pelo usuário. */
+export interface ChipColors {
+  fg: string
+  bg: string
+  border: string
+}
+
+/**
+ * Cor de banco (Tag.color, Column.color, ActType.color…) legível na superfície
+ * do tema atual.
+ *
+ * No CLARO devolve exatamente o que o código já fazia — a cor crua com os
+ * sufixos '1f'/'3a' —, byte a byte, para o tema claro não mudar de aparência.
+ *
+ * No ESCURO clareia a cor: os hexes gravados foram escolhidos olhando fundo
+ * branco, e tom médio sobre #191320 fica ilegível. E a tinta engorda, porque
+ * 12% de qualquer cor sobre o card escuro é indistinguível do próprio card.
+ */
+export function chipColors(hex: string, dark: boolean): ChipColors {
+  const c = safeColor(hex, '#7a52a0')
+  if (!dark) return { fg: c, bg: c + '1f', border: c + '3a' }
+  const claro = shade(c, 0.42)
+  return { fg: claro, bg: withAlpha(claro, 0.2), border: withAlpha(claro, 0.34) }
+}

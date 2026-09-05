@@ -7,7 +7,7 @@ import type {
   Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
   BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
   Campaign, CampaignStatus, CampaignTarget, CampaignTargetStatus,
-  Variable, MediaAsset, KnowledgeDoc, UserPrefs,
+  Variable, MediaAsset, KnowledgeDoc, UserPrefs, ThemeMode,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -338,7 +338,11 @@ export function prefsFromDoc(v: unknown): UserPrefs {
   const d = (v ?? {}) as Record<string, unknown>
   // Avisar por padrão: quem não quer desliga, e o contrário (silêncio calado) faz
   // parecer que o CRM não está recebendo mensagem.
-  return { notifyDesktop: d.notifyDesktop !== false, notifySound: d.notifySound !== false }
+  // Padrão do tema é 'system': quem nunca escolheu acompanha o sistema
+  // operacional, que é o comportamento que a pessoa já espera de um app.
+  const t = d.theme
+  const theme: ThemeMode = t === 'light' || t === 'dark' || t === 'system' ? t : 'system'
+  return { notifyDesktop: d.notifyDesktop !== false, notifySound: d.notifySound !== false, theme }
 }
 
 function toCampaignStatus(v: unknown): CampaignStatus {
