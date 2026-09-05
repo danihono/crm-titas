@@ -120,7 +120,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
         background: C.surface,
         border: `1px solid ${C.fieldBorder}`,
         borderRadius: 16,
-        boxShadow: '0 10px 34px rgba(28,20,50,0.18)',
+        boxShadow: 'var(--c-shadow-pop)',
         overflow: 'hidden',
       }}
     >

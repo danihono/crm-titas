@@ -251,7 +251,7 @@ export default function KanbanBoard() {
             <MaterialIcon name="tune" size={18} /> Filtros{filtersActive > 0 && ` (${filtersActive})`}
           </button>
           {showFilters && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, boxShadow: '0 10px 28px rgba(28,20,50,0.14)', padding: 14, zIndex: 20 }}>
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, boxShadow: 'var(--c-shadow-pop)', padding: 14, zIndex: 20 }}>
               <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Buscar por empresa/contato</label>
               <input
                 value={filterText}

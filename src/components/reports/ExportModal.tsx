@@ -122,7 +122,7 @@ export default function ExportModal({ onClose, onExport }: {
         <button
           onClick={() => run('xlsx')}
           disabled={!anySelected || busy !== null}
-          style={{ ...sx.btnGhost, opacity: anySelected && !busy ? 1 : 0.5, color: '#1f7a4c', borderColor: '#bfe3cd' }}
+          style={{ ...sx.btnGhost, opacity: anySelected && !busy ? 1 : 0.5, color: C.greenDeep, borderColor: `${C.green}55` }}
         >
           <MaterialIcon name="table_view" size={18} />
           {busy === 'xlsx' ? 'Gerando…' : 'Excel'}

@@ -169,14 +169,14 @@ export default function AtendimentoBar({
       {contact.optOut && (
         <span
           title="Pediu para não receber campanhas (respondeu SAIR/PARE)"
-          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#a03257', background: C.tintRose, borderRadius: 999, padding: '4px 10px' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: C.roseDeep, background: C.tintRose, borderRadius: 999, padding: '4px 10px' }}
         >
           <MaterialIcon name="do_not_disturb_on" size={14} /> Sem campanhas
           {canWrite && (
             <button
               onClick={() => run(() => setContactOptOut(contact.id, false))}
               title="Voltar a incluir em campanhas"
-              style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', color: '#a03257', padding: 0, marginLeft: 2 }}
+              style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', color: C.roseDeep, padding: 0, marginLeft: 2 }}
             >
               <MaterialIcon name="undo" size={14} />
             </button>

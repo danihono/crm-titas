@@ -9,7 +9,7 @@ import type { ScheduledMessageStatus } from '../../types'
 const STATUS: Record<ScheduledMessageStatus, [string, string, string]> = {
   pending: ['Agendada', '#8a5f12', 'rgba(216,169,96,0.18)'],
   sent: ['Enviada', '#1f8a4c', 'rgba(52,199,89,0.14)'],
-  failed: ['Falhou', '#a03257', 'rgba(217,138,171,0.16)'],
+  failed: ['Falhou', C.roseDeep, 'rgba(217,138,171,0.16)'],
   canceled: ['Cancelada', C.sub, '#eeebf3'],
 }
 

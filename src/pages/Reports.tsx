@@ -303,7 +303,7 @@ function Breakdown({ title, rows, fmtDuration, empty }: {
       <div style={{ padding: '18px 22px', borderBottom: '1px solid ' + C.lineSoft, fontSize: 15, fontWeight: 700, color: C.ink }}>
         {title}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: `1px solid ${C.lineHair}` }}>
         <span>NOME</span><span>CONVERSAS</span><span>FINALIZADAS</span><span>1ª RESPOSTA</span><span>ATÉ FINALIZAR</span>
       </div>
       {rows.filter((r) => r.total > 0).map((r) => (

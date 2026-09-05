@@ -68,7 +68,7 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(52,199,89,0.1)', border: '1px solid rgba(52,199,89,0.2)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
         <MaterialIcon name="event_available" size={18} color={C.greenDeep} />
-        <span style={{ fontSize: 12, color: '#1f6e3e' }}>Sera enviada automaticamente pelo WhatsApp no horario escolhido e tambem aparecera na sua <b>Agenda</b>.</span>
+        <span style={{ fontSize: 12, color: C.greenDeep }}>Sera enviada automaticamente pelo WhatsApp no horario escolhido e tambem aparecera na sua <b>Agenda</b>.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

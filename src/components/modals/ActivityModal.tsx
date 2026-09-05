@@ -68,7 +68,7 @@ export default function ActivityModal({ types, contactOptions, onClose, onSaved 
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.tintPurpleWeak, border: '1px solid rgba(150,110,200,0.18)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
         <MaterialIcon name="event_available" size={18} color={C.purple} />
-        <span style={{ fontSize: 12, color: '#5a4a6e' }}>A atividade também será criada na sua <b>Agenda</b> no dia e hora escolhidos.</span>
+        <span style={{ fontSize: 12, color: C.sub }}>A atividade também será criada na sua <b>Agenda</b> no dia e hora escolhidos.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

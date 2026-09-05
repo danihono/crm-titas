@@ -108,7 +108,7 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
         <div style={{ fontSize: 14, fontWeight: 600, color: a.done ? C.faint : C.ink, textDecoration: a.done ? 'line-through' : 'none' }}>{a.title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 12, color: C.sub }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MaterialIcon name="business" size={14} />{a.contact}</span>
-          <span style={{ color: '#cfc8dd' }}>·</span>
+          <span style={{ color: C.faint }}>·</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: di.overdue ? C.rose : C.sub }}><MaterialIcon name="schedule" size={14} />{di.text}</span>
         </div>
       </div>

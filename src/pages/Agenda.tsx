@@ -57,7 +57,7 @@ export default function Agenda() {
                 }}>{c.day}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
                   {evs.map((e) => (
-                    <div key={e.id} style={{ fontSize: 9.5, color: '#3a3346', background: 'rgba(28,20,50,0.05)', borderLeft: `2px solid ${e.color}`, borderRadius: 4, padding: '2px 5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+                    <div key={e.id} style={{ fontSize: 9.5, color: C.ink, background: C.tintNeutral, borderLeft: `2px solid ${e.color}`, borderRadius: 4, padding: '2px 5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
                   ))}
                 </div>
               </div>

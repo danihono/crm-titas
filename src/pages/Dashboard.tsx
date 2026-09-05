@@ -356,9 +356,9 @@ export default function Dashboard() {
                 <stop offset="1" stopColor={C.purple} />
               </linearGradient>
             </defs>
-            <line x1="0" y1="42" x2="560" y2="42" stroke="rgba(28,20,50,0.06)" />
-            <line x1="0" y1="86" x2="560" y2="86" stroke="rgba(28,20,50,0.06)" />
-            <line x1="0" y1="130" x2="560" y2="130" stroke="rgba(28,20,50,0.06)" />
+            <line x1="0" y1="42" x2="560" y2="42" stroke={C.tintNeutral} />
+            <line x1="0" y1="86" x2="560" y2="86" stroke={C.tintNeutral} />
+            <line x1="0" y1="130" x2="560" y2="130" stroke={C.tintNeutral} />
             <path d={rev.area} fill="url(#revFill)" />
             <path d={rev.line} fill="none" stroke="url(#revStroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx={rev.lastX} cy={rev.lastY} r="5" fill={C.purple} stroke={C.surface} strokeWidth="2.5" />
@@ -413,7 +413,7 @@ export default function Dashboard() {
             {feed.map((a) => {
               const t = typeMap[a.type]
               return (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 0', borderBottom: '1px solid rgba(28,20,50,0.06)' }}>
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 0', borderBottom: `1px solid ${C.lineHair}` }}>
                   <MaterialIcon name={t?.icon ?? 'event'} size={19} color={t?.color ?? C.purple} style={{ background: t?.bg ?? C.tintPurpleStrong, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>

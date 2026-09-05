@@ -11,7 +11,7 @@ export default function ProtectedRoute() {
         style={{
           height: '100vh',
           width: '100vw',
-          background: '#0a080c',
+          background: 'var(--c-void)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

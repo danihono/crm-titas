@@ -108,7 +108,7 @@ export default function Campaigns() {
 
 function Note({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'rgba(217,138,171,0.12)', border: '1px solid rgba(217,138,171,0.3)', borderRadius: 12, padding: '11px 14px', marginBottom: 14, fontSize: 12.5, color: '#a03257', fontWeight: 600 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: C.tintRose, border: `1px solid ${C.rose}55`, borderRadius: 12, padding: '11px 14px', marginBottom: 14, fontSize: 12.5, color: C.roseDeep, fontWeight: 600 }}>
       <MaterialIcon name={icon} size={18} color={C.rose} /> {children}
     </div>
   )
@@ -151,7 +151,7 @@ function CampaignCard({ campaign: c, canEdit }: { campaign: Campaign; canEdit: b
         )}
       </div>
 
-      <div style={{ height: 7, borderRadius: 999, background: '#f0eef5', marginTop: 16, overflow: 'hidden' }}>
+      <div style={{ height: 7, borderRadius: 999, background: C.raised, marginTop: 16, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg,#7a52a0,#b692d6)', transition: 'width .3s ease' }} />
       </div>
 

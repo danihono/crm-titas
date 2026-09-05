@@ -227,7 +227,7 @@ export default function Invoices() {
           <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', padding: '10px 22px' }}>{error}</div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: `1px solid ${C.lineHair}` }}>
           <SortHead k="num" label="NOTA" active={sortKey} dir={sortDir} onClick={toggleSort} />
           <SortHead k="client" label="CLIENTE" active={sortKey} dir={sortDir} onClick={toggleSort} />
           <SortHead k="value" label="VALOR" active={sortKey} dir={sortDir} onClick={toggleSort} />
