@@ -1,16 +1,19 @@
-import { useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { useUIStore } from '../../store/uiStore'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useSelfProfile } from '../../hooks/useProfile'
-import { useMessageNotifications, requestNotificationPermission } from '../../hooks/useMessageNotifications'
+import { useMessageNotifications } from '../../hooks/useMessageNotifications'
 import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
 import { useInvoices } from '../../hooks/useInvoices'
-import { greeting, fmtMoney } from '../../lib/format'
+import { useThemeStore } from '../../store/themeStore'
+import { settingsNav } from '../../lib/theme'
+import { C } from '../../styles/sx'
+import { useUIStore } from '../../store/uiStore'
+import { fmtMoney, initialsOf } from '../../lib/format'
+import Avatar from '../common/Avatar'
 import MaterialIcon from '../common/MaterialIcon'
-import RingButton from '../common/RingButton'
 
 interface SearchResult {
   key: string
@@ -20,39 +23,49 @@ interface SearchResult {
   go: () => void
 }
 
-const TITLES: Record<string, string> = {
-  '/': 'Visão geral',
-  '/pipeline': 'Pipeline de vendas',
-  '/contatos': 'Conversas',
-  '/atividades': 'Atividades',
-  '/faturamento': 'Faturamento',
-  '/agenda': 'Agenda',
-  '/agente': 'Agente de IA',
-}
-
+/**
+ * Topo enxuto: busca à esquerda; claro/escuro, configurações e perfil à direita.
+ *
+ * Saíram daqui o sino (o contador de não lidas foi para o item Contatos do menu,
+ * junto com o pedido de permissão de notificação) e o botão "Titã IA", que era
+ * atalho para uma tela que o menu lateral já lista. O botão de recolher menu foi
+ * para dentro da própria barra lateral.
+ */
 export default function Topbar() {
-  const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const collapsed = useUIStore((s) => s.sidebarCollapsed)
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
-  const title = TITLES[pathname] || 'Visão geral'
-  const name = user?.displayName || user?.email || ''
+  const { user, logout } = useAuth()
 
   const selectContact = useUIStore((s) => s.selectContact)
   const setActiveBoard = useUIStore((s) => s.setActiveBoard)
   const { docs: contacts } = useContacts()
-  const { prefs } = useSelfProfile()
+  const profile = useSelfProfile()
+  const { prefs } = profile
   const { docs: deals } = useAllDeals()
   const { docs: activities } = useActivities()
   const { docs: invoices } = useInvoices()
 
+  const resolved = useThemeStore((s) => s.resolved)
+  const setMode = useThemeStore((s) => s.setMode)
+
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const name = profile.displayName || user?.displayName || user?.email || 'Usuário'
 
   // Vive no Topbar, e não na página de Conversas, para o aviso valer em qualquer tela.
   useMessageNotifications(contacts, prefs)
-  const unreadTotal = contacts.reduce((n, c) => n + (c.unreadCount ?? 0), 0)
+
+  // Fecha o menu do perfil ao clicar fora.
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menu])
 
   const results = useMemo<SearchResult[]>(() => {
     const q = query.trim().toLowerCase()
@@ -91,57 +104,31 @@ export default function Topbar() {
   return (
     <header
       style={{
-        height: 70,
+        height: 66,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
-        gap: 18,
-        padding: '0 30px',
-        background: 'linear-gradient(180deg,#0d0a11,#0b080f)',
-        boxShadow: '0 1px 0 rgba(176,148,210,0.08),0 6px 22px rgba(8,5,12,0.25)',
+        gap: 10,
+        padding: '0 24px',
+        background: C.darkB,
+        boxShadow: `0 1px 0 ${C.chromeHairline}, 0 6px 22px rgba(8,5,12,0.25)`,
         zIndex: 3,
       }}
     >
-      <button
-        onClick={toggleSidebar}
-        style={{
-          width: 40,
-          height: 40,
-          flexShrink: 0,
-          borderRadius: 11,
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(176,148,210,0.12)',
-          color: '#b9aec6',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <MaterialIcon name={collapsed ? 'menu' : 'menu_open'} size={22} />
-      </button>
-
-      <div>
-        <div style={{ fontSize: 12, color: '#8a7d97' }}>{greeting(name)}</div>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 25, fontWeight: 600, lineHeight: 1.05, color: '#f1ecf5' }}>{title}</div>
-      </div>
-
-      <div style={{ flex: 1 }} />
-
-      <div style={{ position: 'relative', width: 280 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(176,148,210,0.12)', borderRadius: 11, padding: '9px 14px' }}>
-          <MaterialIcon name="search" size={19} color="#7d7388" />
+      <div style={{ position: 'relative', width: 420, maxWidth: '46%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: '9px 14px' }}>
+          <MaterialIcon name="search" size={19} color={C.chromeDim} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder="Buscar negócios, contatos..."
+            placeholder="Buscar contato, negócio, atividade, nota..."
             style={{ background: 'transparent', border: 'none', outline: 'none', color: '#e8e2ee', fontSize: 13, width: '100%' }}
           />
         </div>
         {showResults && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, maxHeight: 340, overflowY: 'auto', background: '#17121e', border: '1px solid rgba(176,148,210,0.2)', borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
+          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, maxHeight: 340, overflowY: 'auto', background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
             {results.map((r) => (
               <button
                 key={r.key}
@@ -165,30 +152,100 @@ export default function Topbar() {
         )}
       </div>
 
-      <button
-        onClick={() => {
-          // O clique é o único momento em que o navegador aceita o pedido de permissão.
-          void requestNotificationPermission()
-          navigate('/contatos')
-        }}
-        title={unreadTotal ? `${unreadTotal} mensagem(ns) não lida(s)` : 'Conversas e notificações'}
-        style={{ position: 'relative', width: 42, height: 42, borderRadius: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(176,148,210,0.12)', color: '#b9aec6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <MaterialIcon name={unreadTotal ? 'notifications_active' : 'notifications'} size={21} />
-        {unreadTotal > 0 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#34c759', color: '#08210f', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(52,199,89,0.5)' }}>
-            {unreadTotal > 99 ? '99+' : unreadTotal}
-          </span>
-        )}
+      <div style={{ flex: 1 }} />
+
+      {/* Claro / escuro. Dois botões em vez de um alternador porque o estado fica
+          visível: dá para ver em qual tema se está sem precisar deduzir do ícone. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: 3 }}>
+        <ThemeBtn icon="light_mode" label="Tema claro" on={resolved === 'light'} onClick={() => setMode('light')} />
+        <ThemeBtn icon="dark_mode" label="Tema escuro" on={resolved === 'dark'} onClick={() => setMode('dark')} />
+      </div>
+
+      <button onClick={() => navigate(settingsNav.path)} title="Configurações" style={chromeBtn}>
+        <MaterialIcon name="settings" size={20} />
       </button>
 
-      <RingButton
-        radius={11}
-        onClick={() => navigate('/agente')}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '0 16px', height: 42, color: '#f4eefa', fontWeight: 600, fontSize: 13, cursor: 'pointer', boxShadow: '0 6px 18px rgba(110,65,150,0.35)' }}
-      >
-        <MaterialIcon name="auto_awesome" size={19} /> Titã IA
-      </RingButton>
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          onClick={() => setMenu((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', borderRadius: 11, padding: '4px 6px 4px 10px', cursor: 'pointer' }}
+        >
+          <span style={{ textAlign: 'right', minWidth: 0, maxWidth: 170 }}>
+            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: C.chromeInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+            {profile.role && (
+              <span style={{ display: 'block', fontSize: 11, color: C.chromeDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.role}</span>
+            )}
+          </span>
+          <Avatar photoUrl={profile.photoUrl || undefined} initials={initialsOf(name) || '?'} size={34} bg="#6f4d92" fontSize={12.5} />
+          <MaterialIcon name={menu ? 'expand_less' : 'expand_more'} size={18} color={C.chromeDim} />
+        </button>
+
+        {menu && (
+          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 208, background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
+            <MenuItem icon="person" label="Meu perfil" onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
+            <MenuItem icon="settings" label="Configurações" onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
+            <div style={{ height: 1, background: C.chromeBorder, margin: '5px 4px' }} />
+            <MenuItem icon="logout" label="Sair" danger onClick={() => { setMenu(false); void logout() }} />
+          </div>
+        )}
+      </div>
     </header>
+  )
+}
+
+const chromeBtn: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  flexShrink: 0,
+  borderRadius: 11,
+  background: C.chromeFill,
+  border: `1px solid ${C.chromeBorder}`,
+  color: '#b9aec6',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+
+function ThemeBtn({ icon, label, on, onClick }: { icon: string; label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-pressed={on}
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 9,
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        // Mesmo padrão de "selecionado" do menu: pílula roxa clara.
+        background: on ? 'var(--c-chrome-sel)' : 'transparent',
+        color: on ? 'var(--c-chrome-sel-ink)' : '#8a7d97',
+        transition: 'background .16s ease, color .16s ease',
+      }}
+    >
+      <MaterialIcon name={icon} size={18} />
+    </button>
+  )
+}
+
+function MenuItem({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+        background: 'transparent', border: 'none', borderRadius: 9, padding: '9px 10px',
+        cursor: 'pointer', fontSize: 13, fontWeight: 500, color: danger ? '#e59ab5' : '#ece6f4',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(176,148,210,0.1)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+    >
+      <MaterialIcon name={icon} size={18} color={danger ? '#e59ab5' : '#b096d4'} /> {label}
+    </button>
   )
 }

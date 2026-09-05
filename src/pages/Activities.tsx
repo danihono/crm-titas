@@ -33,7 +33,7 @@ export default function Activities() {
   const contactOptions = Array.from(new Set(contacts.map((c) => c.company)))
 
   return (
-    <div style={{ padding: '24px 30px 40px' }}>
+    <div style={{ padding: '18px 30px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 20 }}>
         {FILTERS.map((f) => {
           const on = ui.actFilter === f.id

@@ -2,9 +2,9 @@ import { forwardRef } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties } from 'react'
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  /** Raio da borda do botão (px) — o anel acompanha esse raio. */
+  /** Raio da borda do botão (px). */
   radius?: number
-  /** Anel sempre girando (para abas/chips selecionados). */
+  /** Estado selecionado — hoje só some com o hover; a cor vem do call site. */
   active?: boolean
   /** Ocupa 100% da largura do contêiner. */
   block?: boolean
@@ -13,28 +13,33 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 /**
- * Envolve um botão com o anel roxo giratório (mesmo efeito da aba ativa da
- * sidebar) como borda animada. Em repouso o botão fica limpo — o anel acende no
- * hover; com `active` fica sempre girando. Repassa props/estilo ao <button>.
+ * Botão do sistema.
+ *
+ * Antes envolvia o botão num anel roxo giratório (o mesmo efeito da aba ativa
+ * do menu). O anel saiu: em 24 botões ele virou ruído, e "selecionado" agora é
+ * a pílula roxa clara — um padrão só, no menu, nas abas e nos chips.
+ *
+ * O componente continua existindo com a MESMA API porque os 24 call sites
+ * passam estilo próprio por cima; trocar todos por <button> daria um diff
+ * enorme para o mesmo resultado. O que sobrou do efeito é a elevação discreta
+ * no hover (.btn-lift, em src/index.css).
  */
 const RingButton = forwardRef<HTMLButtonElement, Props>(function RingButton(
-  { radius = 11, active = false, block = false, wrapStyle, style, className, children, ...rest },
+  { radius = 11, active: _active, block = false, wrapStyle, style, className, children, ...rest },
   ref,
 ) {
   return (
     <span
-      className={`ring-btn${active ? ' is-active' : ''}`}
       style={{
-        ['--rr' as string]: `${radius}px`,
-        ...(block ? { display: 'flex', width: '100%' } : null),
+        display: block ? 'flex' : 'inline-flex',
+        borderRadius: radius,
+        ...(block ? { width: '100%' } : null),
         ...wrapStyle,
       }}
     >
-      <span className="ring-btn__glow" aria-hidden />
-      <span className="ring-btn__anim" aria-hidden />
       <button
         ref={ref}
-        className={className}
+        className={className ? `btn-lift ${className}` : 'btn-lift'}
         style={{ borderRadius: radius, ...(block ? { width: '100%' } : null), ...style }}
         {...rest}
       >

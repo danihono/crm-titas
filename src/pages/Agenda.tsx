@@ -19,7 +19,7 @@ export default function Agenda() {
   const selectedDate = new Date(`${ui.selectedDayKey}T00:00:00`)
 
   return (
-    <div style={{ padding: '24px 30px 40px', display: 'flex', gap: 18 }}>
+    <div style={{ padding: '18px 30px 40px', display: 'flex', gap: 18 }}>
       {/* Calendário */}
       <div style={{ flex: 1, background: '#ffffff', border: '1px solid #ececf3', borderRadius: 20, padding: '22px 24px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>

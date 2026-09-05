@@ -73,7 +73,7 @@ export default function Settings() {
   }, {})
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '28px 30px 40px' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '18px 30px 40px' }}>
       <nav style={{ ...sx.card, borderRadius: 20, width: 232, flexShrink: 0, padding: '14px 10px', position: 'sticky', top: 0 }}>
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} style={{ marginBottom: 12 }}>

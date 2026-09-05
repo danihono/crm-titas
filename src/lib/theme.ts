@@ -89,15 +89,32 @@ export const defaultAgentConfig: AgentConfig = {
   sources: { pipeline: true, contatos: true, atividades: true, conversas: true, faturamento: false },
 }
 
+/**
+ * Menu lateral, agrupado por assunto — a lista corrida de 10 itens não dizia
+ * onde uma coisa estava, só que existia.
+ *
+ * `group` vazio = item solto no topo, sem cabeçalho (o Dashboard).
+ * Configurações NÃO está aqui: é fixo no rodapé da barra (ver settingsNav).
+ */
 export const navDefs = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: '/' },
-  { id: 'pipeline', label: 'Pipeline', icon: 'view_kanban', path: '/pipeline' },
-  { id: 'contatos', label: 'Contatos', icon: 'forum', path: '/contatos' },
-  { id: 'atividades', label: 'Atividades', icon: 'task_alt', path: '/atividades' },
-  { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda' },
-  { id: 'agente', label: 'Agente de IA', icon: 'auto_awesome', path: '/agente' },
-  { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas' },
-  { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios' },
-  { id: 'configuracoes', label: 'Configurações', icon: 'settings', path: '/configuracoes' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: '/', group: '' },
+
+  { id: 'pipeline', label: 'Pipeline', icon: 'view_kanban', path: '/pipeline', group: 'OPERAÇÃO' },
+  { id: 'contatos', label: 'Contatos', icon: 'forum', path: '/contatos', group: 'OPERAÇÃO' },
+  { id: 'atividades', label: 'Atividades', icon: 'task_alt', path: '/atividades', group: 'OPERAÇÃO' },
+  { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda', group: 'OPERAÇÃO' },
+
+  { id: 'agente', label: 'Agente de IA', icon: 'auto_awesome', path: '/agente', group: 'CRESCIMENTO' },
+  { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas', group: 'CRESCIMENTO' },
+
+  { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento', group: 'GESTÃO' },
+  { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios', group: 'GESTÃO' },
 ] as const
+
+/** Fixo no pé do menu, separado do resto — como na interface de referência. */
+export const settingsNav = {
+  id: 'configuracoes',
+  label: 'Configurações',
+  icon: 'settings',
+  path: '/configuracoes',
+} as const

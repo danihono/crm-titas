@@ -149,7 +149,7 @@ export default function Invoices() {
   }
 
   return (
-    <div style={{ padding: '28px 30px 40px' }}>
+    <div style={{ padding: '18px 30px 40px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 22 }}>
         <SummaryCard icon="paid" color={C.green} label="Faturado (pago)" value={faturado} />
         <SummaryCard icon="hourglass_top" color={C.amber} label="A receber" value={aReceber} />
