@@ -18,6 +18,28 @@ const INK = '#1d1726'
 const MUTED = '#9c95a8'
 const SUB = '#6e6780'
 
+/**
+ * Paleta do gráfico, como PROP com padrão claro — e não var(--c-*).
+ *
+ * Estes gráficos servem três destinos: a tela, o PDF e o PNG que vai para dentro
+ * do XLSX. Os dois últimos são papel e imagem isolada, onde o CSS da página não
+ * chega e uma variável resolveria para nada. Por isso o padrão é o valor claro,
+ * literal, e só o call site DE TELA (pages/Reports.tsx) passa a paleta escura.
+ * Padrão seguro: quem esquecer de passar imprime certo.
+ */
+export interface ChartPalette {
+  magnitude: string
+  surface: string
+  grid: string
+  ink: string
+  muted: string
+}
+
+export const CHART_LIGHT: ChartPalette = { magnitude: MAGNITUDE, surface: SURFACE, grid: GRID, ink: INK, muted: MUTED }
+export const CHART_DARK: ChartPalette = {
+  magnitude: '#b18ad2', surface: '#191320', grid: '#332a41', ink: '#efeaf5', muted: '#8f85a0',
+}
+
 // Literal, e não var(): estes rótulos também saem daqui para o PNG do XLSX
 // (lib/svgToPng.ts), onde CSS da página não chega.
 const LABEL = { fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontWeight: 700 }
@@ -41,7 +63,8 @@ function barPath(x0: number, y: number, x1: number, h: number, r = 4): string {
  * Conversas por dia. Série única — sem legenda de propósito: uma caixa com um único
  * quadradinho só repete o título e come espaço.
  */
-export function TrendArea({ points, width = 720, height = 190, svgRef }: {
+export function TrendArea({ points, width = 720, height = 190, svgRef, palette = CHART_LIGHT }: {
+  palette?: ChartPalette
   points: DayPoint[]
   width?: number
   height?: number
@@ -80,18 +103,18 @@ export function TrendArea({ points, width = 720, height = 190, svgRef }: {
       aria-label={`Conversas por dia, máximo de ${max}`}>
       {[0, 0.5, 1].map((t) => (
         <line key={t} x1={padL} x2={padL + plotW} y1={padT + plotH * t} y2={padT + plotH * t}
-          stroke={GRID} strokeWidth={1} />
+          stroke={palette.grid} strokeWidth={1} />
       ))}
-      <text x={padL - 8} y={padT + 4} textAnchor="end" fontSize={10} fill={MUTED} style={LABEL}>{max}</text>
-      <text x={padL - 8} y={padT + plotH + 4} textAnchor="end" fontSize={10} fill={MUTED} style={LABEL}>0</text>
+      <text x={padL - 8} y={padT + 4} textAnchor="end" fontSize={10} fill={palette.muted} style={LABEL}>{max}</text>
+      <text x={padL - 8} y={padT + plotH + 4} textAnchor="end" fontSize={10} fill={palette.muted} style={LABEL}>0</text>
 
-      <path d={area} fill={MAGNITUDE} opacity={0.1} />
-      <path d={line} fill="none" stroke={MAGNITUDE} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill={palette.magnitude} opacity={0.1} />
+      <path d={line} fill="none" stroke={palette.magnitude} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
       {labelled.map((i) => (
         <g key={i}>
-          <circle cx={xOf(i)} cy={yOf(points[i].total)} r={4.5} fill={MAGNITUDE} stroke={SURFACE} strokeWidth={2} />
-          <text x={xOf(i)} y={yOf(points[i].total) - 10} textAnchor="middle" fontSize={11} fill={INK} style={LABEL}>
+          <circle cx={xOf(i)} cy={yOf(points[i].total)} r={4.5} fill={palette.magnitude} stroke={palette.surface} strokeWidth={2} />
+          <text x={xOf(i)} y={yOf(points[i].total) - 10} textAnchor="middle" fontSize={11} fill={palette.ink} style={LABEL}>
             {points[i].total}
           </text>
         </g>
@@ -99,7 +122,7 @@ export function TrendArea({ points, width = 720, height = 190, svgRef }: {
 
       {tickIdx.map((i) => (
         <text key={i} x={xOf(i)} y={height - 8} textAnchor={i === 0 ? 'start' : i === lastIdx ? 'end' : 'middle'}
-          fontSize={10} fill={MUTED} style={LABEL}>
+          fontSize={10} fill={palette.muted} style={LABEL}>
           {points[i].label}
         </text>
       ))}

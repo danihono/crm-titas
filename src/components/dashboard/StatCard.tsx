@@ -64,8 +64,8 @@ export default function StatCard({
     borderRadius: 18,
     padding: '16px 18px 14px',
     overflow: 'hidden',
-    background: featured ? 'linear-gradient(155deg,#2f1f45,#1a1024)' : C.surface,
-    border: featured ? '1px solid rgba(180,140,220,0.22)' : `1px solid ${C.line}`,
+    background: featured ? C.featured : C.surface,
+    border: `1px solid ${featured ? C.featuredBorder : C.line}`,
   }
 
   return (
@@ -141,7 +141,10 @@ export default function StatCard({
 /** ▲/▼ com o mesmo formato e as mesmas cores da variação do gráfico de receita. */
 function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
   const sobe = pct >= 0
-  const cor = sobe ? C.green : C.rose
+  // O card em destaque é escuro NOS DOIS temas, então o par de cores dele é
+  // fixo e claro: C.green/C.rose são calibrados para superfície clara e ficam
+  // apagados ali.
+  const cor = featured ? (sobe ? '#6fd7ae' : '#f0a0bd') : sobe ? C.green : C.rose
   return (
     <span
       style={{

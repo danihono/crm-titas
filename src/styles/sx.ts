@@ -67,6 +67,8 @@ export const C = {
   field: 'var(--c-field)',
   column: 'var(--c-column)',
   chatBg: 'var(--c-chat-bg)',
+  featured: 'var(--c-featured)',
+  featuredBorder: 'var(--c-featured-border)',
   /** Fundo escuro no claro, claro no escuro — botão "Novo quadro", tooltip. */
   inverse: 'var(--c-inverse)',
 

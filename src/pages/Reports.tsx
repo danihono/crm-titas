@@ -11,7 +11,8 @@ import { exportReportXlsx, ALL_SECTIONS, type ReportSections } from '../lib/xlsx
 import { svgElementToPng } from '../lib/svgToPng'
 import ExportModal from '../components/reports/ExportModal'
 import ReportDocument from '../components/reports/ReportDocument'
-import { TrendArea } from '../components/reports/Charts'
+import { TrendArea, CHART_DARK } from '../components/reports/Charts'
+import { useIsDark } from '../store/themeStore'
 
 type ReportTab = 'geral' | 'agora' | 'atendentes' | 'setores' | 'etiquetas'
 
@@ -30,6 +31,9 @@ const RANGES = [
 ]
 
 export default function Reports() {
+  // Só o gráfico DE TELA muda de paleta: o do documento de impressão (e o PNG
+  // que ele gera para o XLSX) fica no padrão claro.
+  const dark = useIsDark()
   const [tab, setTab] = useState<ReportTab>('geral')
   const [days, setDays] = useState(7)
 
@@ -151,7 +155,7 @@ export default function Reports() {
               <div style={{ fontSize: 12, color: C.sub, marginTop: 2, marginBottom: 10 }}>
                 Volume diário de atendimentos iniciados no período.
               </div>
-              <TrendArea points={model.byDay} width={860} />
+              <TrendArea points={model.byDay} width={860} palette={dark ? CHART_DARK : undefined} />
             </div>
 
             {conversations.length === 0 && (

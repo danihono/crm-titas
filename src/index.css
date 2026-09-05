@@ -46,6 +46,10 @@
   --c-column: #edebf3;
   /* papel de parede da conversa (o WhatsApp tem um; este é o nosso) */
   --c-chat-bg: #ece7f1;
+  /* card em destaque do painel: escuro nos dois temas, mas no escuro precisa
+     ficar MAIS CLARO que a superfície, senão ele deixa de se destacar. */
+  --c-featured: linear-gradient(155deg, #2f1f45, #1a1024);
+  --c-featured-border: rgba(180, 140, 220, 0.22);
   --c-inverse: #1d1726;
   --c-on-inverse: #ffffff;
 
@@ -132,6 +136,8 @@
   --c-field: #221b2b;
   --c-column: #1c1624;
   --c-chat-bg: #100c16;
+  --c-featured: linear-gradient(155deg, #452f66, #2a1a3e);
+  --c-featured-border: rgba(196, 163, 234, 0.34);
   --c-inverse: #efeaf5;
   --c-on-inverse: #1d1726;
 
@@ -317,7 +323,9 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
      aqui é o cinto de segurança: se algum componente compartilhado vazar para
      dentro do .print-doc, ele ainda imprime legível. */
   :root, :root[data-theme='dark'] {
-    color-scheme: light;
+    /* !important porque o script de boot escreve color-scheme no ATRIBUTO style
+       do <html>, e só um !important de folha de estilo vence estilo inline. */
+    color-scheme: light !important;
     --c-page: #ffffff;
     --c-surface: #ffffff;
     --c-raised: #f3f1f7;
