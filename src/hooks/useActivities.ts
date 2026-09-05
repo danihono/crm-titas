@@ -8,7 +8,7 @@ import { dateKeyOf, dueInfo } from '../lib/format'
 import { parseDateTime } from './useEvents'
 import { useCollection } from './useCollection'
 import type { Activity, ActType, ActivityStatus } from '../types'
-import { C } from '../styles/sx'
+import { BRAND } from '../styles/sx'
 
 export function useActivities() {
   return useCollection<Activity>(
@@ -70,7 +70,9 @@ export async function saveActivity(form: NewActivityForm, types: ActType[]): Pro
     date: Timestamp.fromDate(due),
     dateKey: dateKeyOf(due),
     time: form.time,
-    color: t?.evColor ?? C.purpleSoft,
+    // BRAND, não C: esta cor é GRAVADA no doc do evento. Um 'var(--c-…)'
+    // no banco não é cor — quebra o safeColor e vai junto para o Excel.
+    color: t?.evColor ?? BRAND.purpleSoft,
     subtitle: form.contact + ' · ' + (t?.label ?? 'Atividade'),
     activityId: actRef.id,
     createdAt: serverTimestamp(),

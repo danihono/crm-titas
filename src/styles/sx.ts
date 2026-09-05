@@ -29,6 +29,7 @@ export const BRAND = {
   fieldBorder: '#e6e3ee',
   purple: '#7a52a0',
   purpleDeep: '#553578',
+  purpleSoft: '#9a6fb8',
   green: '#2f9e6f',
   amber: '#b3801f',
   rose: '#c14d77',

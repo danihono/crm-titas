@@ -5,7 +5,7 @@ import { eventFromDoc } from '../lib/converters'
 import { dateKeyOf, timeHHMM } from '../lib/format'
 import { useCollection } from './useCollection'
 import type { EventDoc } from '../types'
-import { C } from '../styles/sx'
+import { BRAND } from '../styles/sx'
 
 /** Eventos de um mes especifico (range em date). */
 export function useEvents(year: number, month: number) {
@@ -83,7 +83,8 @@ export async function saveScheduledMessage(contactId: string, contactName: strin
     date: Timestamp.fromDate(dueAt),
     dateKey: dateKeyOf(dueAt),
     time,
-    color: C.green,
+    // Gravada no banco: hex literal, nunca token (ver useActivities).
+    color: BRAND.green,
     subtitle: contactName + ' - mensagem WhatsApp agendada',
     scheduledMessageId: scheduledRef.id,
     createdAt: serverTimestamp(),
@@ -131,7 +132,8 @@ export async function updateScheduledMessage(scheduleId: string, contactName: st
     date: Timestamp.fromDate(dueAt),
     dateKey: dateKeyOf(dueAt),
     time,
-    color: C.green,
+    // Gravada no banco: hex literal, nunca token (ver useActivities).
+    color: BRAND.green,
     subtitle: contactName + ' - mensagem WhatsApp agendada',
     scheduledMessageId: scheduleId,
     ...(createEvent ? { createdAt: serverTimestamp() } : {}),
