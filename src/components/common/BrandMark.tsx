@@ -18,7 +18,7 @@ export default function BrandMark({ size = 40, gradientId = 'titas-mark' }: {
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="16" fill={`url(#${gradientId})`} />
-      <text x="32" y="44" fontFamily="Georgia, 'Cormorant Garamond', serif" fontSize="40"
+      <text x="32" y="44" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" fontSize="40"
         fontWeight="600" textAnchor="middle" fill="#ffffff">T</text>
     </svg>
   )

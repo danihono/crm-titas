@@ -89,10 +89,10 @@ export default function Settings() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     padding: '10px 12px', border: 'none', borderRadius: 11, cursor: 'pointer',
-                    textAlign: 'left', fontSize: 13, fontFamily: "'Manrope',sans-serif",
+                    textAlign: 'left', fontSize: 13,
                     fontWeight: on ? 700 : 500,
                     color: on ? C.purple : C.sub,
-                    background: on ? 'rgba(150,110,200,0.12)' : 'transparent',
+                    background: on ? C.tintPurple : 'transparent',
                   }}
                 >
                   <MaterialIcon name={s.icon} size={18} />

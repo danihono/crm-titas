@@ -2,6 +2,7 @@ import { tagMap } from '../../lib/theme'
 import { fmtBRL } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
 import type { Deal } from '../../types'
+import { C } from '../../styles/sx'
 
 interface Props {
   deal: Deal
@@ -28,7 +29,7 @@ export default function Card({ deal, avBg, valColor, readOnly, onDragStart, onOp
         e.dataTransfer.effectAllowed = 'move'
       }}
       style={{
-        background: '#ffffff',
+        background: C.surface,
         border: '1px solid #e8e5f0',
         borderRadius: 13,
         padding: 14,
@@ -40,8 +41,8 @@ export default function Card({ deal, avBg, valColor, readOnly, onDragStart, onOp
         <span style={{ fontSize: 10.5, fontWeight: 700, color: tagColor, background: tagBg, borderRadius: 6, padding: '2px 8px' }}>{deal.tag}</span>
         <MaterialIcon name="drag_indicator" size={16} color="#c4bfd0" />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726', marginBottom: 3 }}>{deal.company}</div>
-      <div style={{ fontSize: 12, color: '#6e6780', marginBottom: 12 }}>{deal.contact}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 3 }}>{deal.company}</div>
+      <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>{deal.contact}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: valColor }}>{fmtBRL(deal.value)}</div>
         <div style={{ width: 26, height: 26, borderRadius: '50%', background: avBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>{deal.initials}</div>

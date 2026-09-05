@@ -58,7 +58,7 @@ export default function QuickReplyPicker({ replies, onPick, onClose }: {
   if (replies.length === 0) return null
 
   return (
-    <div style={{ position: 'absolute', left: 18, right: 18, bottom: 74, zIndex: 7, background: '#fff', border: '1px solid #e6e3ee', borderRadius: 14, padding: 6, boxShadow: '0 18px 44px rgba(20,14,40,0.2)', maxHeight: 260, overflowY: 'auto' }}>
+    <div style={{ position: 'absolute', left: 18, right: 18, bottom: 74, zIndex: 7, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: 6, boxShadow: '0 18px 44px rgba(20,14,40,0.2)', maxHeight: 260, overflowY: 'auto' }}>
       {replies.map((r, i) => (
         <button
           key={r.id}
@@ -67,8 +67,7 @@ export default function QuickReplyPicker({ replies, onPick, onClose }: {
           style={{
             display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
             border: 'none', borderRadius: 10, padding: '9px 10px', cursor: 'pointer',
-            fontFamily: "'Manrope',sans-serif",
-            background: i === index ? 'rgba(150,110,200,0.12)' : 'transparent',
+            background: i === index ? C.tintPurple : 'transparent',
           }}
         >
           <MaterialIcon name="quickreply" size={17} color={C.purple} />

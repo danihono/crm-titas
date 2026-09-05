@@ -56,7 +56,7 @@ export function toRfEdges(edges: FlowEdge[]): Edge[] {
     label: e.label || undefined,
     markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 18, height: 18 },
     style: { stroke: EDGE_COLOR, strokeWidth: 1.7 },
-    labelStyle: { fill: C.sub, fontSize: 11.5, fontWeight: 700, fontFamily: "'Manrope',sans-serif" },
+    labelStyle: { fill: C.sub, fontSize: 11.5, fontWeight: 700 },
     labelBgStyle: { fill: '#ffffff', stroke: '#e6e3ee' },
     labelBgPadding: [7, 4] as [number, number],
     labelBgBorderRadius: 7,

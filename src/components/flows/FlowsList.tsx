@@ -5,7 +5,7 @@ import Placeholder from '../common/Placeholder'
 import { useTenantStore } from '../../store/tenantStore'
 import { deleteFlow, renameFlow } from '../../hooks/useFlows'
 import { relativeLabel } from '../../lib/format'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import type { Flow } from '../../types'
 
 export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWithAI }: {
@@ -42,8 +42,8 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
     <div style={{ height: '100%', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '24px 30px 0', marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#1d1726' }}>Fluxos</div>
-          <div style={{ fontSize: 12.5, color: '#6e6780' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Fluxos</div>
+          <div style={{ fontSize: 12.5, color: C.sub }}>
             Desenhe seus processos num quadro livre — ou peça para a IA montar.
           </div>
         </div>
@@ -51,7 +51,7 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
         {!readOnly && (
           <>
             <button onClick={onCreateWithAI} style={{ ...sx.btnGhost }}>
-              <MaterialIcon name="auto_awesome" size={18} color="#7a52a0" /> Criar com IA
+              <MaterialIcon name="auto_awesome" size={18} color={C.purple} /> Criar com IA
             </button>
             <RingButton radius={11} onClick={handleCreate} disabled={busy} style={{ ...sx.btnPrimary, opacity: busy ? 0.6 : 1 }}>
               <MaterialIcon name="add" size={18} /> Novo fluxo
@@ -61,7 +61,7 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
       </div>
 
       {loading ? (
-        <div style={{ padding: '0 30px 40px', fontSize: 13, color: '#9c95a8' }}>Carregando...</div>
+        <div style={{ padding: '0 30px 40px', fontSize: 13, color: C.muted }}>Carregando...</div>
       ) : flows.length === 0 ? (
         <Placeholder
           icon="account_tree"
@@ -79,12 +79,12 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
               style={{ ...sx.card, padding: '16px 18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 10 }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: 'rgba(150,110,200,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MaterialIcon name={f.source === 'ia' ? 'auto_awesome' : 'account_tree'} size={20} color="#7a52a0" />
+                <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: C.tintPurple, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialIcon name={f.source === 'ia' ? 'auto_awesome' : 'account_tree'} size={20} color={C.purple} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726', wordBreak: 'break-word' }}>{f.name}</div>
-                  <div style={{ fontSize: 11.5, color: '#9c95a8', marginTop: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, wordBreak: 'break-word' }}>{f.name}</div>
+                  <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>
                     {f.nodes.length} {f.nodes.length === 1 ? 'etapa' : 'etapas'}
                     {f.updatedAt && ` · ${relativeLabel(f.updatedAt)}`}
                   </div>
@@ -92,9 +92,9 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
               </div>
 
               {!readOnly && (
-                <div style={{ display: 'flex', gap: 6, paddingTop: 10, borderTop: '1px solid #f1eff5' }}>
+                <div style={{ display: 'flex', gap: 6, paddingTop: 10, borderTop: `1px solid ${C.lineHair}` }}>
                   <CardAction icon="edit" label="Renomear" onClick={(e) => { e.stopPropagation(); handleRename(f) }} />
-                  <CardAction icon="delete" label="Excluir" color="#b73d6d" onClick={(e) => { e.stopPropagation(); handleDelete(f) }} />
+                  <CardAction icon="delete" label="Excluir" color={C.roseDeep} onClick={(e) => { e.stopPropagation(); handleDelete(f) }} />
                 </div>
               )}
             </div>
@@ -105,7 +105,7 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
   )
 }
 
-function CardAction({ icon, label, color = '#6e6780', onClick }: {
+function CardAction({ icon, label, color = C.sub, onClick }: {
   icon: string
   label: string
   color?: string
@@ -117,7 +117,7 @@ function CardAction({ icon, label, color = '#6e6780', onClick }: {
       style={{
         display: 'flex', alignItems: 'center', gap: 5, flex: 1, justifyContent: 'center',
         background: 'transparent', border: 'none', borderRadius: 8, padding: '6px 0',
-        color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
+        color, fontSize: 12, fontWeight: 700, cursor: 'pointer',
       }}
     >
       <MaterialIcon name={icon} size={16} /> {label}

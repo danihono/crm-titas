@@ -7,15 +7,16 @@ import { setContactOptOut } from '../../hooks/useCampaigns'
 import MaterialIcon from '../common/MaterialIcon'
 import { C } from '../../styles/sx'
 import type { Contact, ConvStatus, Member, Sector, Tag } from '../../types'
+import { chipColors } from '../../lib/color'
+import { useIsDark } from '../../store/themeStore'
 
 const selectStyle: React.CSSProperties = {
-  background: '#f7f5fa',
-  border: '1px solid #e6e3ee',
+  background: C.field,
+  border: `1px solid ${C.fieldBorder}`,
   borderRadius: 9,
   padding: '6px 9px',
   fontSize: 12,
   color: C.ink,
-  fontFamily: "'Manrope',sans-serif",
   cursor: 'pointer',
   outline: 'none',
   maxWidth: 170,
@@ -24,8 +25,7 @@ const selectStyle: React.CSSProperties = {
 function actionStyle(color: string, bg: string): React.CSSProperties {
   return {
     display: 'flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 9,
-    padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-    fontFamily: "'Manrope',sans-serif", color, background: bg,
+    padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color, background: bg,
   }
 }
 
@@ -48,6 +48,7 @@ export default function AtendimentoBar({
   closingMessage: string
   onSend: (text: string) => Promise<void>
 }) {
+  const dark = useIsDark()
   const conv = convOf(contact)
   const [tagsOpen, setTagsOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -85,7 +86,7 @@ export default function AtendimentoBar({
   }
 
   return (
-    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '9px 22px', background: '#faf9fc', borderBottom: '1px solid #e2def0' }}>
+    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '9px 22px', background: C.surfaceAlt, borderBottom: `1px solid ${C.fieldBorder}` }}>
       <StatusChip status={conv.status} />
 
       {canWrite && !finished && !conv.assignedTo && (
@@ -132,7 +133,7 @@ export default function AtendimentoBar({
 
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
         {applied.map((t) => (
-          <span key={t.id} style={{ fontSize: 11.5, fontWeight: 700, color: t.color, background: t.color + '1f', border: '1px solid ' + t.color + '3a', borderRadius: 999, padding: '3px 9px' }}>
+          <span key={t.id} style={{ fontSize: 11.5, fontWeight: 700, color: chipColors(t.color, dark).fg, background: chipColors(t.color, dark).bg, border: `1px solid ${chipColors(t.color, dark).border}`, borderRadius: 999, padding: '3px 9px' }}>
             {t.label}
           </span>
         ))}
@@ -146,14 +147,14 @@ export default function AtendimentoBar({
           </button>
         )}
         {tagsOpen && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 20, background: '#fff', border: '1px solid #e6e3ee', borderRadius: 12, padding: 10, boxShadow: '0 16px 40px rgba(20,14,40,0.18)', minWidth: 190 }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 20, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: 10, boxShadow: '0 16px 40px rgba(20,14,40,0.18)', minWidth: 190 }}>
             {tags.map((t) => {
               const on = conv.tagIds.includes(t.id)
               return (
                 <button
                   key={t.id}
                   onClick={() => run(() => toggleConversationTag(contact, t.id))}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', padding: '7px 6px', fontSize: 12.5, color: C.ink, fontFamily: "'Manrope',sans-serif", fontWeight: on ? 700 : 500 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', padding: '7px 6px', fontSize: 12.5, color: C.ink, fontWeight: on ? 700 : 500 }}
                 >
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.color }} />
                   <span style={{ flex: 1, textAlign: 'left' }}>{t.label}</span>
@@ -168,7 +169,7 @@ export default function AtendimentoBar({
       {contact.optOut && (
         <span
           title="Pediu para não receber campanhas (respondeu SAIR/PARE)"
-          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#a03257', background: 'rgba(217,138,171,0.16)', borderRadius: 999, padding: '4px 10px' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#a03257', background: C.tintRose, borderRadius: 999, padding: '4px 10px' }}
         >
           <MaterialIcon name="do_not_disturb_on" size={14} /> Sem campanhas
           {canWrite && (

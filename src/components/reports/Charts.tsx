@@ -18,7 +18,9 @@ const INK = '#1d1726'
 const MUTED = '#9c95a8'
 const SUB = '#6e6780'
 
-const LABEL = { fontFamily: "'Manrope',sans-serif", fontWeight: 700 }
+// Literal, e não var(): estes rótulos também saem daqui para o PNG do XLSX
+// (lib/svgToPng.ts), onde CSS da página não chega.
+const LABEL = { fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontWeight: 700 }
 
 /** Retângulo com a ponta do dado arredondada e a base quadrada (barra horizontal). */
 function barPath(x0: number, y: number, x1: number, h: number, r = 4): string {

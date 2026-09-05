@@ -183,7 +183,7 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
           ref={listRef}
           style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 30,
-            background: '#fff', border: '1px solid ' + C.fieldBorder, borderRadius: 14,
+            background: C.surface, border: '1px solid ' + C.fieldBorder, borderRadius: 14,
             padding: 6, boxShadow: '0 18px 44px rgba(20,14,40,0.18)',
             maxHeight: 288, overflowY: 'auto',
           }}
@@ -199,7 +199,7 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
             if (row.kind === 'livre') {
               return (
                 <Linha key="livre" i={i} on={on} onEnter={() => setIndex(i)} onClick={() => pick(row)}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(150,110,200,0.12)', flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.tintPurple, flexShrink: 0 }}>
                     <MaterialIcon name="add" size={18} color={C.purple} />
                   </div>
                   <div style={{ minWidth: 0 }}>
@@ -280,8 +280,7 @@ function Linha({ i, on, onEnter, onClick, children }: {
       style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
         border: 'none', borderRadius: 10, padding: '8px 10px', cursor: 'pointer',
-        fontFamily: "'Manrope',sans-serif",
-        background: on ? 'rgba(150,110,200,0.12)' : 'transparent',
+        background: on ? C.tintPurple : 'transparent',
       }}
     >
       {children}

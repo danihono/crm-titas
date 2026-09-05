@@ -36,7 +36,7 @@ export default function VariablesSection({ canEdit }: { canEdit: boolean }) {
       {BUILT_IN.map(([k, desc]) => (
         <Row key={k}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <code style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: 'rgba(150,110,200,0.12)', borderRadius: 7, padding: '2px 8px' }}>
+            <code style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: C.tintPurple, borderRadius: 7, padding: '2px 8px' }}>
               {`{{${k}}}`}
             </code>
             <span style={{ fontSize: 12.5, color: C.sub }}>{desc}</span>
@@ -52,7 +52,7 @@ export default function VariablesSection({ canEdit }: { canEdit: boolean }) {
           actions={canEdit ? <IconAction icon="delete" title="Excluir" color={C.rose} onClick={() => deleteVariable(v.id)} /> : undefined}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <code style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: 'rgba(150,110,200,0.12)', borderRadius: 7, padding: '2px 8px' }}>
+            <code style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: C.tintPurple, borderRadius: 7, padding: '2px 8px' }}>
               {`{{${v.key}}}`}
             </code>
             <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{v.value}</span>

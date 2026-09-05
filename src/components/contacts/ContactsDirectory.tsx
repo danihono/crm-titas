@@ -12,6 +12,8 @@ import RingButton from '../common/RingButton'
 import ContactModal from '../modals/ContactModal'
 import { sx, C } from '../../styles/sx'
 import type { Contact } from '../../types'
+import { chipColors } from '../../lib/color'
+import { useIsDark } from '../../store/themeStore'
 
 type Ordem = 'nome' | 'empresa' | 'recente'
 
@@ -33,6 +35,7 @@ function ultimoContato(c: Contact): Date | undefined {
  * alguém que não tem conversa aberta nenhuma e por isso some das abas do atendimento.
  */
 export default function ContactsDirectory() {
+  const dark = useIsDark()
   const navigate = useNavigate()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
@@ -71,13 +74,13 @@ export default function ContactsDirectory() {
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '22px 30px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid ' + C.fieldBorder, borderRadius: 11, padding: '9px 12px', minWidth: 300 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.surface, border: '1px solid ' + C.fieldBorder, borderRadius: 11, padding: '9px 12px', minWidth: 300 }}>
           <MaterialIcon name="search" size={17} color={C.faint} />
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por nome, empresa, e-mail ou telefone..."
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%', fontFamily: "'Manrope',sans-serif" }}
+            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%' }}
           />
           {busca && (
             <button onClick={() => setBusca('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
@@ -194,7 +197,7 @@ export default function ContactsDirectory() {
                 {etiquetas.map((t) => (
                   <span key={t!.id} style={{
                     fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: '2px 8px',
-                    color: t!.color, background: t!.color + '1f', whiteSpace: 'nowrap',
+                    color: chipColors(t!.color, dark).fg, background: chipColors(t!.color, dark).bg, whiteSpace: 'nowrap',
                   }}>
                     {t!.label}
                   </span>

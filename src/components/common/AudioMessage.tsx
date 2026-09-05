@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import MaterialIcon from './MaterialIcon'
+import { C } from '../../styles/sx'
 
 /**
  * Player de áudio no estilo WhatsApp para mensagens de voz do chat.
@@ -72,7 +73,7 @@ export default function AudioMessage({ src, fromMe, downloadName }: { src: strin
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 210, maxWidth: 300, padding: '8px 10px', borderRadius: 10, marginBottom: 2, border: '1px solid ' + (fromMe ? 'rgba(255,255,255,0.24)' : '#e6e3ee'), background: fromMe ? 'rgba(255,255,255,0.1)' : '#f8f6fb' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 210, maxWidth: 300, padding: '8px 10px', borderRadius: 10, marginBottom: 2, border: '1px solid ' + (fromMe ? 'rgba(255,255,255,0.24)' : C.fieldBorder), background: fromMe ? 'rgba(255,255,255,0.1)' : C.field }}>
       <audio
         ref={ref}
         src={src}

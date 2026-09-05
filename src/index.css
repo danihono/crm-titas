@@ -44,6 +44,8 @@
   --c-surface-alt: #faf9fc;
   --c-field: #f7f5fa;
   --c-column: #edebf3;
+  /* papel de parede da conversa (o WhatsApp tem um; este é o nosso) */
+  --c-chat-bg: #ece7f1;
   --c-inverse: #1d1726;
   --c-on-inverse: #ffffff;
 
@@ -129,6 +131,7 @@
   --c-surface-alt: #1f1928;
   --c-field: #221b2b;
   --c-column: #1c1624;
+  --c-chat-bg: #100c16;
   --c-inverse: #efeaf5;
   --c-on-inverse: #1d1726;
 

@@ -15,12 +15,14 @@ import RingButton from '../common/RingButton'
 import DealModal from '../modals/DealModal'
 import BoardModal from './BoardModal'
 import ColumnModal from './ColumnModal'
-import { colorGradient } from '../../lib/color'
+import { chipColors } from '../../lib/color'
+import { useIsDark } from '../../store/themeStore'
 import { fmtK } from '../../lib/format'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import type { Column as Col, Deal } from '../../types'
 
 export default function KanbanBoard() {
+  const dark = useIsDark()
   const { docs: boards } = useBoards()
   const { docs: allDeals } = useAllDeals()
   const { docs: contacts } = useContacts()
@@ -185,10 +187,11 @@ export default function KanbanBoard() {
     <div style={{ height: '100%', overflowY: 'auto', padding: '24px 30px 40px' }}>
       {/* Seletor de quadros */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: '#9c95a8', marginRight: 4 }}>QUADROS</span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: C.muted, marginRight: 4 }}>QUADROS</span>
         {boards.map((b) => {
           const on = b.id === boardId
           const count = allDeals.filter((d) => d.boardId === b.id).length
+          const chip = chipColors(b.color, dark)
           return (
             <RingButton
               key={b.id}
@@ -198,9 +201,12 @@ export default function KanbanBoard() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                // O quadro selecionado mantém a COR escolhida pelo usuário, mas
+                // como tinta — o gradiente cheio destoava do resto agora que
+                // "selecionado" é sempre pílula clara.
                 ...(on
-                  ? { background: colorGradient(b.color, 140), color: '#f4eefa', border: '1px solid rgba(200,160,230,0.3)', boxShadow: '0 4px 12px rgba(110,65,150,0.22)' }
-                  : { background: '#ffffff', color: '#6e6780', border: '1px solid #e6e3ee' }),
+                  ? { background: chip.bg, color: chip.fg, border: `1px solid ${chip.border}` }
+                  : { background: C.surface, color: C.sub, border: `1px solid ${C.fieldBorder}` }),
               }}
             >
               <MaterialIcon name={b.icon} size={16} />
@@ -222,8 +228,8 @@ export default function KanbanBoard() {
           )
         })}
         {!readOnly && <>
-          <div style={{ width: 1, height: 24, background: '#e0dcea', margin: '0 4px' }} />
-          <RingButton radius={11} onClick={() => setBoardModal('novo')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1d1726', border: '1px solid #1d1726', padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <div style={{ width: 1, height: 24, background: C.divider, margin: '0 4px' }} />
+          <RingButton radius={11} onClick={() => setBoardModal('novo')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.inverse, border: `1px solid ${C.inverse}`, padding: '9px 14px', color: C.onInverse, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <MaterialIcon name="dashboard_customize" size={18} /> Novo quadro
           </RingButton>
         </>}
@@ -232,39 +238,39 @@ export default function KanbanBoard() {
       {/* Stats + ações */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
-            <span style={{ color: '#6e6780' }}>Valor total · </span><span style={{ fontWeight: 700, color: '#1d1726' }}>R$ {fmtK(boardTotal)}</span>
+          <div style={{ background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
+            <span style={{ color: C.sub }}>Valor total · </span><span style={{ fontWeight: 700, color: C.ink }}>R$ {fmtK(boardTotal)}</span>
           </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
-            <span style={{ color: '#6e6780' }}>Negócios · </span><span style={{ fontWeight: 700, color: '#1d1726' }}>{visibleDeals.length}{filtersActive > 0 && ` de ${deals.length}`}</span>
+          <div style={{ background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
+            <span style={{ color: C.sub }}>Negócios · </span><span style={{ fontWeight: 700, color: C.ink }}>{visibleDeals.length}{filtersActive > 0 && ` de ${deals.length}`}</span>
           </div>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setShowFilters((v) => !v)} style={{ ...sx.btnGhost, ...(filtersActive > 0 ? { color: '#7a52a0', borderColor: 'rgba(150,110,200,0.4)', background: 'rgba(150,110,200,0.08)' } : {}) }}>
+          <button onClick={() => setShowFilters((v) => !v)} style={{ ...sx.btnGhost, ...(filtersActive > 0 ? { color: C.purple, borderColor: 'rgba(150,110,200,0.4)', background: C.tintPurpleWeak } : {}) }}>
             <MaterialIcon name="tune" size={18} /> Filtros{filtersActive > 0 && ` (${filtersActive})`}
           </button>
           {showFilters && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 13, boxShadow: '0 10px 28px rgba(28,20,50,0.14)', padding: 14, zIndex: 20 }}>
-              <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Buscar por empresa/contato</label>
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, boxShadow: '0 10px 28px rgba(28,20,50,0.14)', padding: 14, zIndex: 20 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Buscar por empresa/contato</label>
               <input
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 placeholder="Ex.: Atlas, Marina..."
-                style={{ width: '100%', margin: '6px 0 12px', background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 10, padding: '9px 11px', color: '#1d1726', fontSize: 13, outline: 'none' }}
+                style={{ width: '100%', margin: '6px 0 12px', background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '9px 11px', color: C.ink, fontSize: 13, outline: 'none' }}
               />
-              <label style={{ fontSize: 12, color: '#6e6780', fontWeight: 600 }}>Etiqueta</label>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Etiqueta</label>
               <select
                 value={filterTag}
                 onChange={(e) => setFilterTag(e.target.value)}
-                style={{ width: '100%', margin: '6px 0 12px', background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 10, padding: '9px 11px', color: '#1d1726', fontSize: 13, outline: 'none' }}
+                style={{ width: '100%', margin: '6px 0 12px', background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '9px 11px', color: C.ink, fontSize: 13, outline: 'none' }}
               >
                 <option value="">Todas</option>
                 {tags.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <button onClick={() => { setFilterText(''); setFilterTag('') }} disabled={filtersActive === 0} style={{ border: 'none', background: 'transparent', color: filtersActive ? '#b73d6d' : '#c4bfd0', fontSize: 12.5, fontWeight: 700, cursor: filtersActive ? 'pointer' : 'default', padding: '6px 4px' }}>Limpar filtros</button>
-                <button onClick={() => setShowFilters(false)} style={{ border: 'none', background: 'rgba(150,110,200,0.1)', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', borderRadius: 9, padding: '6px 12px' }}>Fechar</button>
+                <button onClick={() => { setFilterText(''); setFilterTag('') }} disabled={filtersActive === 0} style={{ border: 'none', background: 'transparent', color: filtersActive ? C.roseDeep : '#c4bfd0', fontSize: 12.5, fontWeight: 700, cursor: filtersActive ? 'pointer' : 'default', padding: '6px 4px' }}>Limpar filtros</button>
+                <button onClick={() => setShowFilters(false)} style={{ border: 'none', background: C.tintPurple, color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', borderRadius: 9, padding: '6px 12px' }}>Fechar</button>
               </div>
             </div>
           )}
@@ -309,13 +315,13 @@ export default function KanbanBoard() {
                 onChange={(e) => setNewColName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddColumn() }}
                 placeholder="Nova etapa..."
-                style={{ flex: 1, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 12px', color: '#1d1726', fontSize: 13, outline: 'none' }}
+                style={{ flex: 1, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 12px', color: C.ink, fontSize: 13, outline: 'none' }}
               />
               <RingButton radius={11} onClick={handleAddColumn} style={{ width: 42, alignSelf: 'stretch', background: 'linear-gradient(140deg,#7a52a0,#553578)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialIcon name="add" size={20} />
               </RingButton>
             </div>
-            <div style={{ fontSize: 11.5, color: '#9c95a8', lineHeight: 1.5, padding: '0 4px' }}>
+            <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, padding: '0 4px' }}>
               Crie suas próprias etapas e arraste os negócios entre elas. O pipeline é 100% seu.
             </div>
           </div>

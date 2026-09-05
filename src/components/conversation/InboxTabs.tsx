@@ -1,5 +1,6 @@
 import { convOf } from '../../hooks/useConversations'
 import type { Contact, ConvStatus } from '../../types'
+import { C } from '../../styles/sx'
 
 export const INBOX_TABS: { id: ConvStatus; label: string }[] = [
   { id: 'entrada', label: 'Entrada' },
@@ -33,9 +34,9 @@ export default function InboxTabs({ contacts, active, onChange }: {
             style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               border: 'none', borderRadius: 999, padding: '7px 6px', cursor: 'pointer',
-              fontSize: 12, fontWeight: 700, fontFamily: "'Manrope',sans-serif",
-              color: on ? '#ffffff' : '#6e6780',
-              background: on ? 'linear-gradient(140deg,#7a52a0,#553578)' : '#f3f1f7',
+              fontSize: 12, fontWeight: 700,
+              color: on ? C.purple : C.sub,
+              background: on ? C.sel : C.raised,
             }}
           >
             {t.label}
@@ -43,8 +44,8 @@ export default function InboxTabs({ contacts, active, onChange }: {
               <span style={{
                 minWidth: 17, height: 17, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: on ? 'rgba(255,255,255,0.26)' : '#e2def0',
-                color: on ? '#ffffff' : '#6e6780',
+                background: on ? C.tintPurpleStrong : C.fieldBorder,
+                color: on ? C.purple : C.sub,
               }}>
                 {count > 99 ? '99+' : count}
               </span>

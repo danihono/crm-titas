@@ -91,7 +91,7 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{m.name}</span>
                 {!m.active && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.rose, background: 'rgba(217,138,171,0.16)', borderRadius: 20, padding: '2px 9px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.rose, background: C.tintRose, borderRadius: 20, padding: '2px 9px' }}>
                     inativo
                   </span>
                 )}

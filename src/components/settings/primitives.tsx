@@ -36,7 +36,7 @@ export function Row({ color, children, actions }: {
   actions?: ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 2px', borderBottom: '1px solid #f4f2f8' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 2px', borderBottom: `1px solid ${C.lineHair}` }}>
       {color && <span style={{ width: 11, height: 11, borderRadius: '50%', background: color, flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
       {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actions}</div>}

@@ -93,7 +93,7 @@ export default function ColumnModal({ column, dealCount, canDelete, onClose, onS
               <button
                 onClick={() => setConfirming(true)}
                 disabled={busy}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: '#b73d6d', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
               >
                 <MaterialIcon name="delete" size={18} /> Excluir etapa
               </button>

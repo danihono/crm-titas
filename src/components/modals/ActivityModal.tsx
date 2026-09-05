@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import { saveActivity, type NewActivityForm } from '../../hooks/useActivities'
 import { dateKeyOf } from '../../lib/format'
 import type { ActType } from '../../types'
@@ -37,8 +37,8 @@ export default function ActivityModal({ types, contactOptions, onClose, onSaved 
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: '#1d1726' }}>Nova atividade</div>
-        <MaterialIcon name="close" size={23} color="#9c95a8" style={{ cursor: 'pointer' }} onClick={onClose} />
+        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>Nova atividade</div>
+        <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 
       <label style={sx.label}>Tipo de atividade</label>
@@ -66,13 +66,13 @@ export default function ActivityModal({ types, contactOptions, onClose, onSaved 
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(150,110,200,0.08)', border: '1px solid rgba(150,110,200,0.18)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
-        <MaterialIcon name="event_available" size={18} color="#7a52a0" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.tintPurpleWeak, border: '1px solid rgba(150,110,200,0.18)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
+        <MaterialIcon name="event_available" size={18} color={C.purple} />
         <span style={{ fontSize: 12, color: '#5a4a6e' }}>A atividade também será criada na sua <b>Agenda</b> no dia e hora escolhidos.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>Criar atividade</RingButton>
       </div>
     </Modal>

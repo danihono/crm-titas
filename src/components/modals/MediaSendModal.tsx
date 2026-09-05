@@ -3,7 +3,7 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import EmojiPicker from '../common/EmojiPicker'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import { fmtSize } from '../../lib/format'
 import { mediaTypeOf, MAX_UPLOAD_BYTES, type OutgoingMediaType } from '../../hooks/useMessages'
 
@@ -76,16 +76,16 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
   return (
     <Modal width={470} onClose={sending ? () => {} : onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: '#1d1726' }}>Enviar {TYPE_LABEL[mediaType].toLowerCase()}</div>
-        {!sending && <MaterialIcon name="close" size={23} color="#9c95a8" style={{ cursor: 'pointer' }} onClick={onClose} />}
+        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>Enviar {TYPE_LABEL[mediaType].toLowerCase()}</div>
+        {!sending && <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />}
       </div>
-      <div style={{ fontSize: 12.5, color: '#6e6780', marginBottom: 16 }}>
+      <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>
         Para <b>{contactName}</b>.
       </div>
 
-      <div style={{ background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 14, padding: 12, marginBottom: 14 }}>
+      <div style={{ background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: 12, marginBottom: 14 }}>
         {mediaType === 'image' && (
-          <img src={url} alt={file.name} style={{ display: 'block', width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 10, background: '#ece7f1' }} />
+          <img src={url} alt={file.name} style={{ display: 'block', width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 10, background: C.chatBg }} />
         )}
         {mediaType === 'video' && (
           <video src={url} controls preload="metadata" style={{ display: 'block', width: '100%', maxHeight: 260, borderRadius: 10, background: '#0d0a12' }} />
@@ -93,15 +93,15 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
         {mediaType === 'audio' && <audio src={url} controls style={{ display: 'block', width: '100%' }} />}
         {mediaType === 'document' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 2px' }}>
-            <MaterialIcon name="description" size={26} color="#7a52a0" style={{ background: 'rgba(150,110,200,0.12)', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
+            <MaterialIcon name="description" size={26} color={C.purple} style={{ background: C.tintPurple, width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1d1726', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-              <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{file.type || 'arquivo'}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>{file.type || 'arquivo'}</div>
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 11.5, color: tooBig ? '#b73d6d' : '#7a6f86' }}>
-          <MaterialIcon name={TYPE_ICON[mediaType]} size={15} color={tooBig ? '#c14d77' : '#9c95a8'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 11.5, color: tooBig ? C.roseDeep : C.sub }}>
+          <MaterialIcon name={TYPE_ICON[mediaType]} size={15} color={tooBig ? C.rose : C.muted} />
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {file.name} · {fmtSize(file.size)}
           </span>
@@ -110,8 +110,8 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
 
       {tooBig && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '9px 12px', marginBottom: 14 }}>
-          <MaterialIcon name="error_outline" size={17} color="#c14d77" />
-          <div style={{ fontSize: 12, color: '#b73d6d' }}>
+          <MaterialIcon name="error_outline" size={17} color={C.rose} />
+          <div style={{ fontSize: 12, color: C.roseDeep }}>
             Este arquivo tem {fmtSize(file.size)} e o limite é 10 MB. Escolha um menor (ou comprima o vídeo) e tente de novo.
           </div>
         </div>
@@ -119,8 +119,8 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
 
       {error && !tooBig && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '9px 12px', marginBottom: 14 }}>
-          <MaterialIcon name="error_outline" size={17} color="#c14d77" />
-          <div style={{ fontSize: 12, color: '#b73d6d' }}>{error}</div>
+          <MaterialIcon name="error_outline" size={17} color={C.rose} />
+          <div style={{ fontSize: 12, color: C.roseDeep }}>{error}</div>
         </div>
       )}
 
@@ -130,9 +130,9 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
           type="button"
           title="Emojis"
           onClick={() => setShowEmoji((v) => !v)}
-          style={{ width: 38, height: 38, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e6e3ee', borderRadius: 11, background: showEmoji ? 'rgba(150,110,200,0.12)' : '#f7f5fa', cursor: 'pointer' }}
+          style={{ width: 38, height: 38, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${C.fieldBorder}`, borderRadius: 11, background: showEmoji ? C.tintPurple : C.field, cursor: 'pointer' }}
         >
-          <MaterialIcon name="mood" size={19} color="#7a52a0" />
+          <MaterialIcon name="mood" size={19} color={C.purple} />
         </button>
         <input
           ref={captionRef}
@@ -154,7 +154,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
         <button
           onClick={onClose}
           disabled={sending}
-          style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1 }}
+          style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1 }}
         >
           Cancelar
         </button>

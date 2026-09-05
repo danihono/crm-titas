@@ -20,13 +20,17 @@ export async function svgElementToPng(svg: SVGSVGElement, scale = 2): Promise<st
     clone.setAttribute('width', String(w))
     clone.setAttribute('height', String(h))
 
-    // Um SVG carregado como imagem é um documento ISOLADO: não enxerga a @font-face da
-    // página, então a Manrope não estaria disponível e o texto cairia numa substituta
-    // imprevisível. Fixamos uma pilha de fontes de sistema — presente em qualquer
-    // máquina, e visualmente próxima. A tela e o PDF seguem com a Manrope de verdade.
-    clone.setAttribute('style', "font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif")
+    // Um SVG carregado como imagem é um documento ISOLADO: não enxerga o CSS da
+    // página. Isso vale para a fonte E para as variáveis de tema — um
+    // `var(--c-ink)` aqui resolveria para nada e o traço sumiria do gráfico
+    // dentro da planilha. Por isso tudo o que entra neste caminho é literal.
+    //
+    // A pilha é a mesma do app (San Francisco na Apple, equivalente no resto),
+    // mas escrita por extenso: aqui não há :root de onde herdar.
+    const PILHA = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    clone.setAttribute('style', `font-family: ${PILHA}`)
     clone.querySelectorAll('text').forEach((t) => {
-      t.style.fontFamily = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+      t.style.fontFamily = PILHA
     })
 
     const source = new XMLSerializer().serializeToString(clone)

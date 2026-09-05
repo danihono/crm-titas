@@ -14,8 +14,10 @@ import {
   emptyNode, fromRfEdges, fromRfNodes, newId, NODE_KINDS, NODE_W, toRfEdges, toRfNodes,
   type TitasNode,
 } from '../../lib/flow'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import type { Flow, FlowNodeKind } from '../../types'
+import { chipColors } from '../../lib/color'
+import { useIsDark } from '../../store/themeStore'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -32,6 +34,7 @@ export default function FlowEditor({ flow, onBack }: { flow: Flow; onBack: () =>
 }
 
 function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
+  const dark = useIsDark()
   const readOnly = useTenantStore((s) => s.readOnly)
   const { screenToFlowPosition, updateNodeData, deleteElements } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
@@ -135,7 +138,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Barra de ferramentas */}
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', background: '#ffffff', borderBottom: '1px solid #e6e3ee' }}>
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', background: C.surface, borderBottom: `1px solid ${C.fieldBorder}` }}>
         <button onClick={onBack} style={{ ...sx.btnGhost, padding: '8px 12px' }}>
           <MaterialIcon name="arrow_back" size={17} /> Fluxos
         </button>
@@ -145,9 +148,9 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
           onChange={(e) => setName(e.target.value)}
           onBlur={commitName}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-          style={{ width: 260, background: '#f7f5fa', border: '1px solid #e6e3ee', borderRadius: 10, padding: '9px 12px', color: '#1d1726', fontSize: 13.5, fontWeight: 700, outline: 'none', fontFamily: "'Manrope',sans-serif" }}
+          style={{ width: 260, background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '9px 12px', color: C.ink, fontSize: 13.5, fontWeight: 700, outline: 'none' }}
         />
-        <span style={{ fontSize: 11.5, color: saveState === 'error' ? '#b73d6d' : '#9c95a8', fontWeight: 600, minWidth: 86 }}>
+        <span style={{ fontSize: 11.5, color: saveState === 'error' ? C.roseDeep : C.muted, fontWeight: 600, minWidth: 86 }}>
           {saveLabel}
         </span>
         <div style={{ flex: 1 }} />
@@ -165,7 +168,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {/* Canvas */}
-        <div ref={wrapper} style={{ flex: 1, minWidth: 0, background: '#f0edf5' }}>
+        <div ref={wrapper} style={{ flex: 1, minWidth: 0, background: C.panel }}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -189,10 +192,10 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
         </div>
 
         {/* Inspetor */}
-        <div style={{ width: 288, flexShrink: 0, background: '#ffffff', borderLeft: '1px solid #e6e3ee', padding: '20px 20px 30px', overflowY: 'auto' }}>
+        <div style={{ width: 288, flexShrink: 0, background: C.surface, borderLeft: `1px solid ${C.fieldBorder}`, padding: '20px 20px 30px', overflowY: 'auto' }}>
           {selectedNode ? (
             <>
-              <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#a39bb0', fontWeight: 700, marginBottom: 12 }}>ETAPA</div>
+              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>ETAPA</div>
               <label style={sx.label}>Título</label>
               <input
                 value={selectedNode.data.title}
@@ -206,7 +209,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
                 disabled={readOnly}
                 rows={3}
                 onChange={(e) => updateNodeData(selectedNode.id, { subtitle: e.target.value })}
-                style={{ ...sx.input, margin: '6px 0 14px', resize: 'vertical', lineHeight: 1.5, fontFamily: "'Manrope',sans-serif" }}
+                style={{ ...sx.input, margin: '6px 0 14px', resize: 'vertical', lineHeight: 1.5 }}
               />
               <label style={sx.label}>Tipo</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>
@@ -220,10 +223,9 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
                       style={{
                         display: 'flex', alignItems: 'center', gap: 5, borderRadius: 9, padding: '7px 11px',
                         fontSize: 12, fontWeight: 700, cursor: readOnly ? 'default' : 'pointer',
-                        fontFamily: "'Manrope',sans-serif",
-                        border: '1px solid ' + (on ? k.color : '#e6e3ee'),
-                        background: on ? k.color + '18' : '#ffffff',
-                        color: on ? k.color : '#6e6780',
+                        border: '1px solid ' + (on ? k.color : C.fieldBorder),
+                        background: on ? chipColors(k.color, dark).bg : C.surface,
+                        color: on ? k.color : C.sub,
                       }}
                     >
                       <MaterialIcon name={k.icon} size={15} /> {k.label}
@@ -234,7 +236,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
             </>
           ) : selectedEdge ? (
             <>
-              <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#a39bb0', fontWeight: 700, marginBottom: 12 }}>SETA</div>
+              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>SETA</div>
               <label style={sx.label}>Rótulo</label>
               <input
                 value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''}
@@ -243,18 +245,18 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
                 onChange={(e) => setEdgeLabel(selectedEdge.id, e.target.value)}
                 style={{ ...sx.input, margin: '6px 0 14px' }}
               />
-              <div style={{ fontSize: 11.5, color: '#9c95a8', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5 }}>
                 Útil para nomear as saídas de uma decisão.
               </div>
             </>
           ) : (
-            <div style={{ fontSize: 12.5, color: '#9c95a8', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.6 }}>
               <MaterialIcon name="ads_click" size={22} color="#c9c2d6" />
               <div style={{ marginTop: 8 }}>
                 Clique numa etapa ou seta para editar aqui.
               </div>
               {!readOnly && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1eff5' }}>
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.lineHair}` }}>
                   Arraste da bolinha de baixo de uma etapa até a de cima de outra para ligá-las.
                   Duplo clique no título renomeia direto na caixa.
                 </div>

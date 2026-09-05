@@ -8,6 +8,7 @@ import { dateKeyOf, dueInfo } from '../lib/format'
 import { parseDateTime } from './useEvents'
 import { useCollection } from './useCollection'
 import type { Activity, ActType, ActivityStatus } from '../types'
+import { C } from '../styles/sx'
 
 export function useActivities() {
   return useCollection<Activity>(
@@ -69,7 +70,7 @@ export async function saveActivity(form: NewActivityForm, types: ActType[]): Pro
     date: Timestamp.fromDate(due),
     dateKey: dateKeyOf(due),
     time: form.time,
-    color: t?.evColor ?? '#9a6fb8',
+    color: t?.evColor ?? C.purpleSoft,
     subtitle: form.contact + ' · ' + (t?.label ?? 'Atividade'),
     activityId: actRef.id,
     createdAt: serverTimestamp(),

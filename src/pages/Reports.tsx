@@ -86,7 +86,7 @@ export default function Reports() {
 
   return (
     <div>
-      <div style={{ padding: '26px 30px 16px', background: '#ffffff', borderBottom: '1px solid ' + C.fieldBorder }}>
+      <div style={{ padding: '26px 30px 16px', background: C.surface, borderBottom: '1px solid ' + C.fieldBorder }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div>
             <h1 style={{ ...sx.serif, fontSize: 30, fontWeight: 600, color: C.ink, margin: 0 }}>Relatórios</h1>
@@ -105,10 +105,10 @@ export default function Reports() {
                 onClick={() => setDays(r.days)}
                 style={{
                   border: '1px solid ' + (days === r.days ? C.purple : C.fieldBorder),
-                  background: days === r.days ? 'rgba(150,110,200,0.12)' : '#fff',
+                  background: days === r.days ? C.tintPurple : C.surface,
                   color: days === r.days ? C.purple : C.sub,
                   borderRadius: 20, padding: '7px 15px', fontSize: 12.5, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
+                  cursor: 'pointer',
                 }}
               >
                 {r.label}
@@ -246,9 +246,9 @@ export default function Reports() {
 
 const exportBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6,
-  border: '1px solid ' + C.fieldBorder, background: '#fff', color: C.sub,
+  border: '1px solid ' + C.fieldBorder, background: C.surface, color: C.sub,
   borderRadius: 20, padding: '7px 13px', fontSize: 12.5, fontWeight: 700,
-  cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
+  cursor: 'pointer',
 }
 
 function Kpi({ icon, color, label, hint, value }: {
@@ -303,7 +303,7 @@ function Breakdown({ title, rows, fmtDuration, empty }: {
         <span>NOME</span><span>CONVERSAS</span><span>FINALIZADAS</span><span>1ª RESPOSTA</span><span>ATÉ FINALIZAR</span>
       </div>
       {rows.filter((r) => r.total > 0).map((r) => (
-        <div key={r.key} style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '14px 22px', alignItems: 'center', borderBottom: '1px solid #f4f2f8' }}>
+        <div key={r.key} style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '14px 22px', alignItems: 'center', borderBottom: `1px solid ${C.lineHair}` }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: C.ink, fontWeight: 600 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
             {r.label}
@@ -349,12 +349,12 @@ function NowPanel({ contacts }: { contacts: ReturnType<typeof useContacts>['docs
         {live.map((c) => {
           const conv = convOf(c)
           return (
-            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 130px', gap: 14, padding: '13px 22px', alignItems: 'center', borderBottom: '1px solid #f4f2f8' }}>
+            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 130px', gap: 14, padding: '13px 22px', alignItems: 'center', borderBottom: `1px solid ${C.lineHair}` }}>
               <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{c.name}</span>
               <span style={{ fontSize: 12.5, color: conv.assignedName ? C.sub : C.rose }}>
                 {conv.assignedName || 'sem responsável'}
               </span>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: conv.status === 'esperando' ? C.amber : C.green, textAlign: 'center', background: conv.status === 'esperando' ? 'rgba(216,169,96,0.18)' : 'rgba(95,201,166,0.16)', borderRadius: 20, padding: '4px 11px' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: conv.status === 'esperando' ? C.amber : C.green, textAlign: 'center', background: conv.status === 'esperando' ? C.tintAmber : C.tintGreen, borderRadius: 20, padding: '4px 11px' }}>
                 {conv.status === 'esperando' ? 'Esperando' : 'Entrada'}
               </span>
             </div>

@@ -59,13 +59,13 @@ export default function InvoicesDocument({ rows, orgName, recorte }: {
       className="print-doc"
       style={{
         display: 'none', width: DOC_W, margin: '0 auto', background: '#fff',
-        fontFamily: "'Manrope', system-ui, sans-serif", color: INK,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", color: INK,
       }}
     >
       <div className="print-section" style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14, borderBottom: `2px solid ${PURPLE}` }}>
         <BrandMark gradientId="titas-mark-invoices" />
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 22, fontWeight: 700, letterSpacing: '.12em' }}>
+          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: '.12em' }}>
             TITÃS CRM
           </div>
           <div style={{ fontSize: 11, color: SUB }}>{orgName || 'Faturamento'}</div>

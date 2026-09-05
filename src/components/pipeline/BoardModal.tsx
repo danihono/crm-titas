@@ -79,7 +79,7 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
                 style={{
                   width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: 10, cursor: 'pointer',
-                  background: ic === icon ? 'rgba(150,110,200,0.14)' : C.field,
+                  background: ic === icon ? C.tintPurpleStrong : C.field,
                   border: '1px solid ' + (ic === icon ? C.purple : C.fieldBorder),
                 }}
               >
@@ -129,7 +129,7 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
             <button
               onClick={() => setConfirming(true)}
               disabled={busy}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: '#b73d6d', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
             >
               <MaterialIcon name="delete" size={18} /> Excluir quadro
             </button>

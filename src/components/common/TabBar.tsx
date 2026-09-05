@@ -1,4 +1,5 @@
 import MaterialIcon from './MaterialIcon'
+import { C } from '../../styles/sx'
 
 export interface TabDef<T extends string> {
   id: T
@@ -16,7 +17,7 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: {
   onChange: (id: T) => void
 }) {
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '0 30px', background: '#ffffff', borderBottom: '1px solid #e6e3ee' }}>
+    <div style={{ display: 'flex', gap: 4, padding: '0 30px', background: C.surface, borderBottom: `1px solid ${C.fieldBorder}` }}>
       {tabs.map((t) => {
         const on = t.id === active
         return (
@@ -26,9 +27,9 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: {
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '13px 16px',
               border: 'none', background: 'transparent', cursor: 'pointer',
-              fontSize: 13, fontWeight: 700, fontFamily: "'Manrope',sans-serif",
-              borderBottom: '2px solid ' + (on ? '#7a52a0' : 'transparent'),
-              color: on ? '#7a52a0' : '#9c95a8',
+              fontSize: 13, fontWeight: 700,
+              borderBottom: '2px solid ' + (on ? C.purple : 'transparent'),
+              color: on ? C.purple : C.muted,
             }}
           >
             <MaterialIcon name={t.icon} size={18} /> {t.label}

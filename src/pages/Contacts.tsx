@@ -36,6 +36,9 @@ import TabBar, { type TabDef } from '../components/common/TabBar'
 import ContactsDirectory from '../components/contacts/ContactsDirectory'
 import type { ContactsView } from '../store/uiStore'
 import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaRecovery, ConvStatus, Tag } from '../types'
+import { C } from '../styles/sx'
+import { chipColors } from '../lib/color'
+import { useIsDark } from '../store/themeStore'
 
 const CONTACT_TABS: TabDef<ContactsView>[] = [
   { id: 'atendimento', label: 'Atendimento', icon: 'forum' },
@@ -552,35 +555,35 @@ function Atendimento() {
   return (
     <div style={{ display: 'flex', height: '100%' }}>
       {/* Lista de contatos */}
-      <div style={{ width: 320, flexShrink: 0, background: '#ffffff', borderRight: '1px solid #e6e3ee', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid #eeebf3' }}>
+      <div style={{ width: 320, flexShrink: 0, background: C.surface, borderRight: `1px solid ${C.fieldBorder}`, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '18px 18px 14px', borderBottom: `1px solid ${C.lineSoft}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#1d1726' }}>Contatos</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.ink }}>Contatos</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               {waEnabled && (
-                <button onClick={ui.openWhatsappModal} title="Conectar WhatsApp" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#1f8a4c', background: 'rgba(52,199,89,0.12)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={ui.openWhatsappModal} title="Conectar WhatsApp" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.greenDeep, background: 'rgba(52,199,89,0.12)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: WA_DOT[wa.status] ?? '#a39bb0' }} />
                   <MaterialIcon name="chat" size={16} /> WhatsApp
                 </button>
               )}
               {!readOnly && (
-                <button onClick={ui.openContactModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#7a52a0', background: 'rgba(150,110,200,0.1)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={ui.openContactModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.purple, background: C.tintPurple, border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
                   <MaterialIcon name="person_add" size={16} /> Novo
                 </button>
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 10, padding: '8px 11px' }}>
-            <MaterialIcon name="search" size={17} color="#a39bb0" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar contato..." style={{ background: 'transparent', border: 'none', outline: 'none', color: '#1d1726', fontSize: 13, width: '100%' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '8px 11px' }}>
+            <MaterialIcon name="search" size={17} color={C.faint} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar contato..." style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%' }} />
             {search && (
               <button onClick={() => setSearch('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
-                <MaterialIcon name="close" size={15} color="#a39bb0" />
+                <MaterialIcon name="close" size={15} color={C.faint} />
               </button>
             )}
           </div>
           {q ? (
-            <div style={{ fontSize: 11.5, color: '#9c95a8', marginTop: 10 }}>
+            <div style={{ fontSize: 11.5, color: C.muted, marginTop: 10 }}>
               Buscando em todas as abas do atendimento.
             </div>
           ) : (
@@ -599,25 +602,25 @@ function Atendimento() {
               <div
                 key={c.id}
                 onClick={() => ui.selectContact(c.id)}
-                style={{ display: 'flex', flexDirection: 'column', padding: '12px 14px 11px', cursor: 'pointer', borderBottom: '1px solid #f1eff5', background: sel ? 'linear-gradient(90deg,rgba(150,110,200,0.1),transparent)' : 'transparent', boxShadow: sel ? 'inset 3px 0 0 #7a52a0' : undefined }}
+                style={{ display: 'flex', flexDirection: 'column', padding: '12px 14px 11px', cursor: 'pointer', borderBottom: `1px solid ${C.lineHair}`, background: sel ? `linear-gradient(90deg,${C.tintPurple},transparent)` : 'transparent', boxShadow: sel ? 'inset 3px 0 0 #7a52a0' : undefined }}
               >
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar photoUrl={c.photoUrl} initials={c.initials} size={44} bg={avPalette[i % avPalette.length]} fontSize={14} />
-                    {c.online && <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#34c759', border: '2px solid #fff' }} />}
+                    {c.online && <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#34c759', border: `2px solid ${C.surface}` }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: unread ? 800 : 600, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: unread ? 800 : 600, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
                         {scheduled && (
-                          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 800, color: '#8a5f12', background: 'rgba(216,169,96,0.18)', border: '1px solid rgba(216,169,96,0.28)', borderRadius: 999, padding: '2px 6px' }}>
-                            <MaterialIcon name="schedule_send" size={11} color="#b3801f" /> Agendada
+                          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 800, color: C.amberDeep, background: C.tintAmber, border: '1px solid rgba(216,169,96,0.28)', borderRadius: 999, padding: '2px 6px' }}>
+                            <MaterialIcon name="schedule_send" size={11} color={C.amber} /> Agendada
                           </span>
                         )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0, marginLeft: 6 }}>
-                        <span style={{ fontSize: 10.5, color: unread ? '#1f8a4c' : '#a39bb0' }}>{c.lastMessageAt ? chatTimeLabel(c.lastMessageAt) : ''}</span>
+                        <span style={{ fontSize: 10.5, color: unread ? C.greenDeep : C.faint }}>{c.lastMessageAt ? chatTimeLabel(c.lastMessageAt) : ''}</span>
                         {unread > 0 && (
                           <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#34c759', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                             {unread > 99 ? '99+' : unread}
@@ -625,14 +628,14 @@ function Atendimento() {
                         )}
                       </div>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#9c95a8', margin: '1px 0 3px' }}>{c.company}</div>
+                    <div style={{ fontSize: 11.5, color: C.muted, margin: '1px 0 3px' }}>{c.company}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <MaterialIcon name="done_all" size={13} color="#34c759" />
-                      <span style={{ fontSize: 12, color: '#6e6780', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMessage}</span>
+                      <span style={{ fontSize: 12, color: C.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMessage}</span>
                     </div>
                     {scheduled && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, color: '#b3801f' }}>
-                        <MaterialIcon name="schedule_send" size={13} color="#b3801f" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, color: C.amber }}>
+                        <MaterialIcon name="schedule_send" size={13} color={C.amber} />
                         <span style={{ fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agendada {scheduleShort(scheduled)}</span>
                       </div>
                     )}
@@ -640,16 +643,16 @@ function Atendimento() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 7, marginTop: 9, paddingLeft: 56 }}>
-                  <RowAction icon="chat" color="#1f8a4c" bg="rgba(52,199,89,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('chat') }} />
-                  <RowAction icon="person" color="#7a52a0" bg="rgba(150,110,200,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('info') }} />
-                  <RowAction icon="folder" color="#4f7fc0" bg="rgba(111,155,207,0.14)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('files') }} />
-                  {!readOnly && <RowAction icon="schedule_send" color="#b3801f" bg="rgba(216,169,96,0.18)" onClick={(e) => { e.stopPropagation(); scheduled ? openScheduleEdit(scheduled) : openScheduleCreate(c.id) }} />}
+                  <RowAction icon="chat" color={C.greenDeep} bg="rgba(52,199,89,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('chat') }} />
+                  <RowAction icon="person" color={C.purple} bg="rgba(150,110,200,0.12)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('info') }} />
+                  <RowAction icon="folder" color={C.blue} bg="rgba(111,155,207,0.14)" onClick={(e) => { e.stopPropagation(); ui.selectContact(c.id); ui.setContactView('files') }} />
+                  {!readOnly && <RowAction icon="schedule_send" color={C.amber} bg="rgba(216,169,96,0.18)" onClick={(e) => { e.stopPropagation(); scheduled ? openScheduleEdit(scheduled) : openScheduleCreate(c.id) }} />}
                 </div>
               </div>
             )
           })}
           {shownContacts.length === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: '#a39bb0', lineHeight: 1.6 }}>
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: C.faint, lineHeight: 1.6 }}>
               {q
                 ? `Nenhum contato encontrado para "${search}".`
                 : inbox === 'entrada'
@@ -663,25 +666,25 @@ function Atendimento() {
       </div>
 
       {/* Painel direito */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: '#ece7f1' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: C.chatBg }}>
         {active && (
           <>
-            <div style={{ height: 66, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 13, padding: '0 22px', borderBottom: '1px solid #e2def0', background: '#ffffff' }}>
+            <div style={{ height: 66, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 13, padding: '0 22px', borderBottom: `1px solid ${C.fieldBorder}`, background: C.surface }}>
               <Avatar photoUrl={active.photoUrl} initials={active.initials} size={40} bg={avPalette[activeIdx % avPalette.length]} fontSize={13} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{active.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{active.name}</div>
                   {activeSchedule && (
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.32)', borderRadius: 999, padding: '3px 5px 3px 9px' }}>
-                      <button onClick={() => openScheduleEdit(activeSchedule)} disabled={readOnly} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'transparent', color: '#7a5516', fontSize: 11.5, fontWeight: 800, cursor: readOnly ? 'default' : 'pointer', padding: 0 }}>
-                        <MaterialIcon name="schedule_send" size={13} color="#b3801f" /> Agendada {scheduleShort(activeSchedule)}
+                      <button onClick={() => openScheduleEdit(activeSchedule)} disabled={readOnly} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'transparent', color: C.amberDeep, fontSize: 11.5, fontWeight: 800, cursor: readOnly ? 'default' : 'pointer', padding: 0 }}>
+                        <MaterialIcon name="schedule_send" size={13} color={C.amber} /> Agendada {scheduleShort(activeSchedule)}
                       </button>
                       {!readOnly && (
                         <>
-                          <button title="Editar agendamento" onClick={() => openScheduleEdit(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: '#7a5516', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button title="Editar agendamento" onClick={() => openScheduleEdit(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.amberDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialIcon name="edit" size={13} />
                           </button>
-                          <button title="Excluir agendamento" onClick={() => handleDeleteSchedule(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: '#b73d6d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button title="Excluir agendamento" onClick={() => handleDeleteSchedule(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.roseDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialIcon name="delete" size={13} />
                           </button>
                         </>
@@ -689,7 +692,7 @@ function Atendimento() {
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{active.role} · {active.company}</div>
+                <div style={{ fontSize: 11.5, color: C.muted }}>{active.role} · {active.company}</div>
               </div>
             </div>
 
@@ -711,7 +714,7 @@ function Atendimento() {
             />
 
             {/* Tabs */}
-            <div style={{ display: 'flex', flexShrink: 0, background: '#ffffff', borderBottom: '1px solid #e2def0' }}>
+            <div style={{ display: 'flex', flexShrink: 0, background: C.surface, borderBottom: `1px solid ${C.fieldBorder}` }}>
               <Tab label="Mensagens" icon="chat" on={ui.contactView === 'chat'} onClick={() => ui.setContactView('chat')} />
               <Tab label="Informações" icon="badge" on={ui.contactView === 'info'} onClick={() => ui.setContactView('info')} />
               <Tab label="Arquivos" icon="folder" on={ui.contactView === 'files'} onClick={() => ui.setContactView('files')} />
@@ -728,7 +731,7 @@ function Atendimento() {
                     onScroll={(e) => markPosition(e.currentTarget)}
                     style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
-                    <div style={{ alignSelf: 'center', fontSize: 10.5, color: '#6e6780', background: 'rgba(28,20,50,0.06)', borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
+                    <div style={{ alignSelf: 'center', fontSize: 10.5, color: C.sub, background: C.tintNeutral, borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
                     {waEnabled && wa.status === 'connected' && active.whatsapp && (
                       <HistoryBar
                         status={active.historyImport?.status}
@@ -753,7 +756,7 @@ function Atendimento() {
                         {m.id === unreadAnchorId && (
                           <div ref={unreadMarkRef} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 2px' }}>
                             <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
-                            <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: '#1f8a4c', background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
+                            <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: C.greenDeep, background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
                               {openUnread === 1 ? '1 mensagem não lida' : `${openUnread} mensagens não lidas`}
                             </span>
                             <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
@@ -762,9 +765,9 @@ function Atendimento() {
                         <div style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
                           <div style={m.fromMe
                             ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
-                            : { maxWidth: '72%', background: '#ffffff', border: '1px solid #ece8f2', borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
+                            : { maxWidth: '72%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
                             <MessageBody message={m} />
-                            <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : '#a39bb0', textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
+                            <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : C.faint, textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
                               {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
                             </div>
                           </div>
@@ -779,9 +782,9 @@ function Atendimento() {
                     <button
                       onClick={() => scrollToEnd()}
                       title="Ir para o final da conversa"
-                      style={{ position: 'absolute', right: 22, bottom: 16, display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: unreadSeen || openUnread === 0 ? 0 : '0 14px 0 12px', width: unreadSeen || openUnread === 0 ? 40 : undefined, justifyContent: 'center', borderRadius: 999, border: '1px solid #e2def0', background: '#ffffff', color: '#1f8a4c', cursor: 'pointer', boxShadow: '0 6px 18px rgba(28,20,50,0.16)', zIndex: 3 }}
+                      style={{ position: 'absolute', right: 22, bottom: 16, display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: unreadSeen || openUnread === 0 ? 0 : '0 14px 0 12px', width: unreadSeen || openUnread === 0 ? 40 : undefined, justifyContent: 'center', borderRadius: 999, border: `1px solid ${C.fieldBorder}`, background: C.surface, color: C.greenDeep, cursor: 'pointer', boxShadow: '0 6px 18px rgba(28,20,50,0.16)', zIndex: 3 }}
                     >
-                      <MaterialIcon name="keyboard_double_arrow_down" size={21} color="#1f8a4c" />
+                      <MaterialIcon name="keyboard_double_arrow_down" size={21} color={C.greenDeep} />
                       {!unreadSeen && openUnread > 0 && (
                         <span style={{ fontSize: 12, fontWeight: 800 }}>{openUnread > 99 ? '99+' : openUnread}</span>
                       )}
@@ -790,7 +793,7 @@ function Atendimento() {
                 </div>
 
                 {!readOnly && (
-                  <div style={{ position: 'relative', flexShrink: 0, padding: '14px 22px 18px', borderTop: '1px solid #e2def0', background: '#ffffff', display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <div style={{ position: 'relative', flexShrink: 0, padding: '14px 22px 18px', borderTop: `1px solid ${C.fieldBorder}`, background: C.surface, display: 'flex', alignItems: 'center', gap: 9 }}>
                     <ComposerAction btnRef={emojiBtnRef} icon="mood" title="Emojis" on={showEmoji} onClick={() => { setShowAttach(false); setShowEmoji((v) => !v) }} />
                     <ComposerAction btnRef={attachBtnRef} icon="attach_file" title="Anexar arquivo" on={showAttach} onClick={() => { setShowEmoji(false); setShowAttach((v) => !v) }} />
                     <input
@@ -799,7 +802,7 @@ function Atendimento() {
                       onChange={(e) => { setWaInput(e.target.value); setQuickReplyOff(false) }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !quickReplyOptions) handleSend() }}
                       placeholder={quickReplies.length ? 'Digite uma mensagem... (/ para respostas rápidas)' : 'Digite uma mensagem...'}
-                      style={{ flex: 1, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 13, padding: '12px 16px', color: '#1d1726', fontSize: 13.5, outline: 'none' }}
+                      style={{ flex: 1, background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, padding: '12px 16px', color: C.ink, fontSize: 13.5, outline: 'none' }}
                     />
                     <button onClick={handleSend} style={{ width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(40,170,80,0.3)' }}>
                       <MaterialIcon name="send" size={21} color="#fff" />
@@ -837,7 +840,7 @@ function Atendimento() {
             {/* INFO */}
             {ui.contactView === 'info' && (
               <div style={{ flex: 1, overflowY: 'auto', padding: '26px 30px' }}>
-                <div style={{ background: '#ffffff', border: '1px solid #ececf3', borderRadius: 18, padding: 24, maxWidth: 560, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
+                <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 18, padding: 24, maxWidth: 560, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, flexShrink: 0 }}>
                       <Avatar photoUrl={active.photoUrl} initials={active.initials} size={60} bg={avPalette[activeIdx % avPalette.length]} fontSize={21} />
@@ -853,27 +856,27 @@ function Atendimento() {
                       <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
                     </div>
                     <div style={{ flex: 1, marginTop: 4 }}>
-                      <div style={{ fontSize: 19, fontWeight: 800, color: '#1d1726' }}>{active.name}</div>
-                      <div style={{ fontSize: 13, color: '#6e6780' }}>{active.role} · {active.company}</div>
+                      <div style={{ fontSize: 19, fontWeight: 800, color: C.ink }}>{active.name}</div>
+                      <div style={{ fontSize: 13, color: C.sub }}>{active.role} · {active.company}</div>
                     </div>
                     {!readOnly && (
                       <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start' }}>
-                        <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: '#7a52a0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                        <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: C.purple, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                           <MaterialIcon name="edit" size={17} /> Editar
                         </button>
-                        <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: '#8a5f12', fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
+                        <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: C.amberDeep, fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
                           <MaterialIcon name="delete_sweep" size={17} /> Limpar conversa
                         </button>
-                        <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: '#b73d6d', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                        <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                           <MaterialIcon name="delete" size={17} /> Apagar
                         </button>
                       </div>
                     )}
                   </div>
-                  <InfoRow icon="mail" color="#7a52a0" bg="rgba(150,110,200,0.12)" label="E-mail" value={active.email} />
-                  <InfoRow icon="call" color="#4f7fc0" bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
-                  <InfoRow icon="chat" color="#1f8a4c" bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
-                  <InfoRow icon="business" color="#b3801f" bg="rgba(216,169,96,0.18)" label="Empresa" value={active.company} />
+                  <InfoRow icon="mail" color={C.purple} bg="rgba(150,110,200,0.12)" label="E-mail" value={active.email} />
+                  <InfoRow icon="call" color={C.blue} bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
+                  <InfoRow icon="chat" color={C.greenDeep} bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
+                  <InfoRow icon="business" color={C.amber} bg="rgba(216,169,96,0.18)" label="Empresa" value={active.company} />
                   <CustomFieldsCard contact={active} fields={customFields} canEdit={!readOnly} />
                   {waEnabled && wa.status === 'connected' && active.whatsapp && (
                     <div style={{ marginTop: 18 }}>
@@ -895,7 +898,7 @@ function Atendimento() {
             {ui.contactView === 'files' && (
               <div style={{ flex: 1, overflowY: 'auto', padding: '26px 30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1726' }}>Arquivos de {active.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Arquivos de {active.name}</div>
                   {!readOnly && (
                     <RingButton radius={11} onClick={() => fileInput.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '9px 15px', color: '#f4eefa', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(110,65,150,0.22)' }}>
                       <MaterialIcon name="upload_file" size={18} /> Adicionar arquivo
@@ -903,25 +906,25 @@ function Atendimento() {
                   )}
                   <input ref={fileInput} type="file" hidden onChange={onPickFile} />
                 </div>
-                <div style={{ fontSize: 12.5, color: '#9c95a8', marginBottom: 18 }}>Documentos, propostas e contratos armazenados deste cliente.</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 18 }}>Documentos, propostas e contratos armazenados deste cliente.</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 13 }}>
                   {files.map((f) => {
                     const [icon, color, bg] = fileTypeMap[f.type] || fileTypeMap.doc
                     return (
-                      <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 13, background: '#ffffff', border: '1px solid #ececf3', borderRadius: 14, padding: 14, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
+                      <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 13, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: 14, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
                         <MaterialIcon name={icon} size={24} color={color} style={{ background: bg, width: 46, height: 46, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1d1726', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
-                          <div style={{ fontSize: 11.5, color: '#9c95a8' }}>{fmtSize(f.sizeBytes)} · {relativeLabel(f.uploadedAt)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
+                          <div style={{ fontSize: 11.5, color: C.muted }}>{fmtSize(f.sizeBytes)} · {relativeLabel(f.uploadedAt)}</div>
                         </div>
                         {f.downloadURL
-                          ? <a href={f.downloadURL} target="_blank" rel="noreferrer"><MaterialIcon name="download" size={19} color="#7a52a0" style={{ cursor: 'pointer' }} /></a>
-                          : <MaterialIcon name="download" size={19} color="#d8d3e2" />}
+                          ? <a href={f.downloadURL} target="_blank" rel="noreferrer"><MaterialIcon name="download" size={19} color={C.purple} style={{ cursor: 'pointer' }} /></a>
+                          : <MaterialIcon name="download" size={19} color={C.faint} />}
                       </div>
                     )
                   })}
                   {files.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40, color: '#a39bb0', fontSize: 13, border: '1px dashed #d8d3e2', borderRadius: 14 }}>
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14 }}>
                       Nenhum arquivo ainda. Clique em "Adicionar arquivo" para armazenar documentos deste cliente.
                     </div>
                   )}
@@ -978,19 +981,20 @@ function Atendimento() {
  * linha enxuta que a tela sempre teve.
  */
 function ConvMeta({ contact, tags }: { contact: Contact; tags: Tag[] }) {
+  const dark = useIsDark()
   const conv = convOf(contact)
   const applied = tags.filter((t) => conv.tagIds.includes(t.id))
   if (!conv.assignedName && applied.length === 0) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
       {conv.assignedName && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: '#6e6780' }}>
-          <MaterialIcon name="support_agent" size={12} color="#9c95a8" />
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: C.sub }}>
+          <MaterialIcon name="support_agent" size={12} color={C.muted} />
           {conv.assignedName}
         </span>
       )}
       {applied.map((t) => (
-        <span key={t.id} style={{ fontSize: 10, fontWeight: 800, color: t.color, background: t.color + '1f', borderRadius: 999, padding: '2px 7px' }}>
+        <span key={t.id} style={{ fontSize: 10, fontWeight: 800, color: chipColors(t.color, dark).fg, background: chipColors(t.color, dark).bg, borderRadius: 999, padding: '2px 7px' }}>
           {t.label}
         </span>
       ))}
@@ -1006,9 +1010,9 @@ function ComposerAction({ icon, title, on, onClick, btnRef }: { icon: string; ti
       type="button"
       title={title}
       onClick={onClick}
-      style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 12, background: on ? 'rgba(150,110,200,0.16)' : '#f3f1f7', cursor: 'pointer' }}
+      style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 12, background: on ? C.tintPurpleStrong : C.raised, cursor: 'pointer' }}
     >
-      <MaterialIcon name={icon} size={21} color="#7a52a0" />
+      <MaterialIcon name={icon} size={21} color={C.purple} />
     </button>
   )
 }
@@ -1036,15 +1040,15 @@ function AttachMenu({ anchorRef, onClose, onPhoto, onDoc, onAudio }: { anchorRef
   }, [onClose, anchorRef])
 
   const options: { icon: string; label: string; hint: string; color: string; bg: string; onClick: () => void }[] = [
-    { icon: 'photo_library', label: 'Foto ou vídeo', hint: 'Da galeria do computador', color: '#7a52a0', bg: 'rgba(150,110,200,0.12)', onClick: onPhoto },
-    { icon: 'description', label: 'Documento', hint: 'PDF, planilha, contrato', color: '#4f7fc0', bg: 'rgba(111,155,207,0.16)', onClick: onDoc },
-    { icon: 'graphic_eq', label: 'Áudio', hint: 'Arquivo de áudio', color: '#1f8a4c', bg: 'rgba(52,199,89,0.14)', onClick: onAudio },
+    { icon: 'photo_library', label: 'Foto ou vídeo', hint: 'Da galeria do computador', color: C.purple, bg: 'rgba(150,110,200,0.12)', onClick: onPhoto },
+    { icon: 'description', label: 'Documento', hint: 'PDF, planilha, contrato', color: C.blue, bg: 'rgba(111,155,207,0.16)', onClick: onDoc },
+    { icon: 'graphic_eq', label: 'Áudio', hint: 'Arquivo de áudio', color: C.greenDeep, bg: 'rgba(52,199,89,0.14)', onClick: onAudio },
   ]
 
   return (
     <div
       ref={ref}
-      style={{ position: 'absolute', left: 62, bottom: 74, zIndex: 6, width: 250, background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 14, padding: 6, boxShadow: '0 10px 34px rgba(28,20,50,0.18)' }}
+      style={{ position: 'absolute', left: 62, bottom: 74, zIndex: 6, width: 250, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: 6, boxShadow: '0 10px 34px rgba(28,20,50,0.18)' }}
     >
       {options.map((o) => (
         <button
@@ -1052,13 +1056,13 @@ function AttachMenu({ anchorRef, onClose, onPhoto, onDoc, onAudio }: { anchorRef
           type="button"
           onClick={o.onClick}
           style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#f7f5fa')}
+          onMouseEnter={(e) => (e.currentTarget.style.background = C.field)}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
           <MaterialIcon name={o.icon} size={19} color={o.color} style={{ background: o.bg, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1d1726' }}>{o.label}</span>
-            <span style={{ display: 'block', fontSize: 11.5, color: '#9c95a8' }}>{o.hint}</span>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: C.ink }}>{o.label}</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: C.muted }}>{o.hint}</span>
           </span>
         </button>
       ))}
@@ -1091,16 +1095,16 @@ function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: H
       ? `Histórico recuperado${imported ? ` · ${imported} mensagens` : ''}. Você pode buscar mensagens ainda mais antigas.`
       : 'Traz as mensagens antigas desta conversa que o WhatsApp ainda tiver — pode não vir tudo.'
   return (
-    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
-      <MaterialIcon name={loading ? 'sync' : isError ? 'error_outline' : 'history'} size={19} color={isError ? '#c14d77' : '#7a52a0'} />
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
+      <MaterialIcon name={loading ? 'sync' : isError ? 'error_outline' : 'history'} size={19} color={isError ? C.rose : C.purple} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1d1726' }}>{loading ? 'Recuperando histórico…' : 'Histórico antigo do WhatsApp'}</div>
-        <div style={{ fontSize: 11.5, color: isError ? '#b73d6d' : '#7a6f86', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{loading ? 'Recuperando histórico…' : 'Histórico antigo do WhatsApp'}</div>
+        <div style={{ fontSize: 11.5, color: isError ? C.roseDeep : C.sub, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {loading ? (imported ? `${imported} mensagens até agora…` : 'Buscando no WhatsApp…') : subtitle}
         </div>
       </div>
       {!loading && (
-        <button onClick={onFetch} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={onFetch} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           <MaterialIcon name="history" size={16} /> {done ? 'Buscar mais antigas' : 'Recuperar histórico'}
         </button>
       )}
@@ -1131,14 +1135,14 @@ function MediaBar({ broken, recovery, busy, onRetry }: { broken: number; recover
         : `${broken} ${broken === 1 ? 'arquivo desta conversa não foi salvo' : 'arquivos desta conversa não foram salvos'}.`
 
   return (
-    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: '#ffffff', border: '1px solid #e6e3ee', borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
-      <MaterialIcon name={loading ? 'sync' : denied ? 'error_outline' : 'image_not_supported'} size={19} color={denied ? '#c14d77' : '#7a52a0'} />
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
+      <MaterialIcon name={loading ? 'sync' : denied ? 'error_outline' : 'image_not_supported'} size={19} color={denied ? C.rose : C.purple} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1d1726' }}>{loading ? 'Recuperando mídias…' : 'Mídias não baixadas'}</div>
-        <div style={{ fontSize: 11.5, color: denied ? '#b73d6d' : '#7a6f86', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{loading ? 'Recuperando mídias…' : 'Mídias não baixadas'}</div>
+        <div style={{ fontSize: 11.5, color: denied ? C.roseDeep : C.sub, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
       </div>
       {!loading && (
-        <button onClick={onRetry} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(150,110,200,0.1)', border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: '#7a52a0', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={onRetry} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           <MaterialIcon name="download" size={16} /> Recuperar mídias
         </button>
       )}
@@ -1148,18 +1152,18 @@ function MediaBar({ broken, recovery, busy, onRetry }: { broken: number; recover
 
 function ScheduledBanner({ schedule, readOnly, onEdit, onDelete }: { schedule: ScheduledMessage; readOnly: boolean; onEdit: () => void; onDelete: () => void }) {
   return (
-    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 12, padding: '10px 13px', color: '#6b4a12', marginBottom: 2 }}>
-      <MaterialIcon name="schedule_send" size={18} color="#b3801f" />
+    <div style={{ alignSelf: 'stretch', display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 12, padding: '10px 13px', color: C.amberDeep, marginBottom: 2 }}>
+      <MaterialIcon name="schedule_send" size={18} color={C.amber} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#6b4a12' }}>Mensagem agendada para {scheduleLong(schedule)}</div>
-        <div style={{ fontSize: 12.5, color: '#7a5a22', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{schedule.text}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.amberDeep }}>Mensagem agendada para {scheduleLong(schedule)}</div>
+        <div style={{ fontSize: 12.5, color: C.amberDeep, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{schedule.text}</div>
       </div>
       {!readOnly && (
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fffaf0', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 9, padding: '6px 9px', color: '#7a5516', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+          <button onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 5, background: C.tintAmber, border: '1px solid rgba(216,169,96,0.34)', borderRadius: 9, padding: '6px 9px', color: C.amberDeep, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
             <MaterialIcon name="edit" size={14} /> Editar
           </button>
-          <button onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 9, padding: '6px 9px', color: '#b73d6d', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+          <button onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 9, padding: '6px 9px', color: C.roseDeep, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
             <MaterialIcon name="delete" size={14} /> Excluir
           </button>
         </div>
@@ -1177,8 +1181,8 @@ function scheduleLong(s: ScheduledMessage): string {
 }
 
 function MessageBody({ message: m }: { message: Message }) {
-  const textColor = m.fromMe ? '#f5f0fa' : '#2a2435'
-  const muted = m.fromMe ? 'rgba(240,230,250,0.78)' : '#6e6780'
+  const textColor = m.fromMe ? '#f5f0fa' : C.ink
+  const muted = m.fromMe ? 'rgba(240,230,250,0.78)' : C.sub
   const hasRenderableMedia = !!m.mediaType && !!m.mediaUrl && !m.mediaError
   const legacyMediaPlaceholder = !m.mediaType && m.pending && isMediaPlaceholder(m.text)
 
@@ -1199,10 +1203,10 @@ function MessageBody({ message: m }: { message: Message }) {
         <AudioMessage src={m.mediaUrl!} fromMe={m.fromMe} downloadName={m.fileName} />
       )}
       {hasRenderableMedia && m.mediaType !== 'image' && m.mediaType !== 'audio' && m.mediaType !== 'video' && m.mediaType !== 'sticker' && (
-        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: m.fromMe ? '#ffffff' : '#5a3a7e', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid ' + (m.fromMe ? 'rgba(255,255,255,0.24)' : '#e6e3ee'), borderRadius: 10, padding: '8px 10px', marginBottom: m.text ? 7 : 0, background: m.fromMe ? 'rgba(255,255,255,0.1)' : '#f8f6fb' }}>
-          <MaterialIcon name="description" size={18} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: m.fromMe ? '#ffffff' : C.purpleDeep, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid ' + (m.fromMe ? 'rgba(255,255,255,0.24)' : C.fieldBorder), borderRadius: 10, padding: '8px 10px', marginBottom: m.text ? 7 : 0, background: m.fromMe ? 'rgba(255,255,255,0.1)' : C.field }}>
+          <MaterialIcon name="description" size={18} color={m.fromMe ? '#f5f0fa' : C.purple} />
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{m.fileName || mediaLabel(m.mediaType)}</span>
-          <MaterialIcon name="download" size={17} color={m.fromMe ? '#f5f0fa' : '#7a52a0'} />
+          <MaterialIcon name="download" size={17} color={m.fromMe ? '#f5f0fa' : C.purple} />
         </a>
       )}
       {m.mediaError && (
@@ -1257,7 +1261,7 @@ function RowAction({ icon, color, bg, onClick }: { icon: string; color: string; 
 
 function Tab({ label, icon, on, onClick }: { label: string; icon: string; on: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, borderBottom: '2px solid ' + (on ? '#7a52a0' : 'transparent'), color: on ? '#7a52a0' : '#9c95a8', background: 'transparent' }}>
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, borderBottom: '2px solid ' + (on ? C.purple : 'transparent'), color: on ? C.purple : C.muted, background: 'transparent' }}>
       <MaterialIcon name={icon} size={17} /> {label}
     </button>
   )
@@ -1265,11 +1269,11 @@ function Tab({ label, icon, on, onClick }: { label: string; icon: string; on: bo
 
 function InfoRow({ icon, color, bg, label, value }: { icon: string; color: string; bg: string; label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderTop: '1px solid #f1eff5' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderTop: `1px solid ${C.lineHair}` }}>
       <MaterialIcon name={icon} size={20} color={color} style={{ background: bg, width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
       <div>
-        <div style={{ fontSize: 11, color: '#9c95a8', fontWeight: 600 }}>{label}</div>
-        <div style={{ fontSize: 13.5, color: '#1d1726', fontWeight: 500 }}>{value || '—'}</div>
+        <div style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{value || '—'}</div>
       </div>
     </div>
   )

@@ -3,8 +3,11 @@ import { addTag, deleteTag, useTags } from '../../hooks/useSettings'
 import { sx } from '../../styles/sx'
 import { ColorDots, EmptyLine, Field, PrimaryButton, SettingsCard, SETTING_COLORS } from './primitives'
 import MaterialIcon from '../common/MaterialIcon'
+import { chipColors } from '../../lib/color'
+import { useIsDark } from '../../store/themeStore'
 
 export default function TagsSection({ canEdit }: { canEdit: boolean }) {
+  const dark = useIsDark()
   const { docs: tags } = useTags()
   const [label, setLabel] = useState('')
   const [color, setColor] = useState(SETTING_COLORS[0])
@@ -28,8 +31,8 @@ export default function TagsSection({ canEdit }: { canEdit: boolean }) {
             key={t.id}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, borderRadius: 20, padding: '6px 12px',
-              fontSize: 12.5, fontWeight: 700, color: t.color, background: t.color + '1f',
-              border: '1px solid ' + t.color + '3a',
+              fontSize: 12.5, fontWeight: 700, color: chipColors(t.color, dark).fg, background: chipColors(t.color, dark).bg,
+              border: '1px solid ' + chipColors(t.color, dark).border,
             }}
           >
             {t.label}

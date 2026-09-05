@@ -45,7 +45,7 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
       }
     >
       {draft.days.map((day, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 14, alignItems: 'center', padding: '9px 2px', borderBottom: '1px solid #f4f2f8' }}>
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 14, alignItems: 'center', padding: '9px 2px', borderBottom: `1px solid ${C.lineHair}` }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: canEdit ? 'pointer' : 'default' }}>
             <input
               type="checkbox"

@@ -4,7 +4,7 @@ import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { callGerarFluxoIA, type GeneratedFlow } from '../../hooks/useFlows'
 import { kindMeta } from '../../lib/flow'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 
 const EXEMPLOS = [
   'Captação de lead por indicação até o fechamento',
@@ -58,26 +58,26 @@ export default function AiFlowModal({ onClose, onConfirm }: {
           <MaterialIcon name="auto_awesome" size={21} color="#fff" />
         </div>
         <div>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: '#1d1726' }}>Criar fluxo com IA</div>
-          <div style={{ fontSize: 12, color: '#6e6780' }}>Descreva o processo e o Titã IA desenha</div>
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: C.ink }}>Criar fluxo com IA</div>
+          <div style={{ fontSize: 12, color: C.sub }}>Descreva o processo e o Titã IA desenha</div>
         </div>
       </div>
 
       {preview ? (
         <>
-          <div style={{ fontSize: 13.5, color: '#1d1726', fontWeight: 700, marginBottom: 4 }}>{preview.name}</div>
-          <div style={{ fontSize: 12, color: '#9c95a8', marginBottom: 12 }}>
+          <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700, marginBottom: 4 }}>{preview.name}</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
             {preview.nodes.length} etapas · {preview.edges.length} ligações
           </div>
-          <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #ececf3', borderRadius: 12, padding: 12, background: '#faf9fc' }}>
+          <div style={{ maxHeight: 280, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 12, padding: 12, background: C.surfaceAlt }}>
             {preview.nodes.map((n) => {
               const meta = kindMeta(n.kind)
               return (
                 <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 0' }}>
                   <MaterialIcon name={meta.icon} size={16} color={meta.color} style={{ marginTop: 1 }} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1726' }}>{n.title}</div>
-                    {n.subtitle && <div style={{ fontSize: 11.5, color: '#9c95a8', lineHeight: 1.4 }}>{n.subtitle}</div>}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{n.title}</div>
+                    {n.subtitle && <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.4 }}>{n.subtitle}</div>}
                   </div>
                 </div>
               )
@@ -103,7 +103,7 @@ export default function AiFlowModal({ onClose, onConfirm }: {
             rows={4}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Ex.: da chegada do lead pelo WhatsApp até o fechamento, com qualificação, proposta e uma decisão de aprovação de crédito."
-            style={{ ...sx.input, margin: '6px 0 12px', resize: 'vertical', lineHeight: 1.5, fontFamily: "'Manrope',sans-serif" }}
+            style={{ ...sx.input, margin: '6px 0 12px', resize: 'vertical', lineHeight: 1.5 }}
           />
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -111,7 +111,7 @@ export default function AiFlowModal({ onClose, onConfirm }: {
               <button
                 key={ex}
                 onClick={() => setDescricao(ex)}
-                style={{ background: '#ffffff', border: '1px solid #e2dcee', borderRadius: 20, padding: '6px 12px', color: '#7a52a0', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: "'Manrope',sans-serif" }}
+                style={{ background: C.surface, border: '1px solid #e2dcee', borderRadius: 20, padding: '6px 12px', color: C.purple, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
               >
                 {ex}
               </button>
@@ -119,7 +119,7 @@ export default function AiFlowModal({ onClose, onConfirm }: {
           </div>
 
           {error && (
-            <div style={{ fontSize: 12.5, color: '#b73d6d', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
               {error}
             </div>
           )}

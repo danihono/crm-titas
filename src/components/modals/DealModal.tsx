@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import { tagMap } from '../../lib/theme'
 import { fmtMoney, parseValueBR } from '../../lib/format'
 import ClientCombo, { type ClientOption } from '../common/ClientCombo'
@@ -71,10 +71,10 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: '#1d1726' }}>{editing ? 'Editar negócio' : 'Novo negócio'}</div>
-        <MaterialIcon name="close" size={23} color="#9c95a8" style={{ cursor: 'pointer' }} onClick={onClose} />
+        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>{editing ? 'Editar negócio' : 'Novo negócio'}</div>
+        <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
-      <div style={{ fontSize: 12.5, color: '#6e6780', marginBottom: 18 }}>
+      <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 18 }}>
         {editing ? 'Atualize os dados deste negócio.' : 'Cadastre o negócio que entra no pipeline.'}
       </div>
 
@@ -121,7 +121,7 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
       </div>
 
       {error && (
-        <div style={{ fontSize: 12.5, color: '#b73d6d', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
+        <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
           {error}
         </div>
       )}
@@ -131,13 +131,13 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
           <button
             onClick={handleDelete}
             disabled={busy}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '10px 14px', color: '#b73d6d', fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '10px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
           >
             <MaterialIcon name="delete" size={17} /> Excluir
           </button>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={onClose} style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
           {editing ? 'Salvar alterações' : 'Criar negócio'}
         </RingButton>

@@ -3,11 +3,12 @@ import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import MaterialIcon from '../common/MaterialIcon'
 import { useTenantStore } from '../../store/tenantStore'
 import { kindMeta, NODE_W, type TitasNode } from '../../lib/flow'
+import { C } from '../../styles/sx'
 
 const handleStyle = {
   width: 10,
   height: 10,
-  background: '#ffffff',
+  background: C.surface,
   border: '2px solid #b6aec6',
   borderRadius: '50%',
 }
@@ -37,19 +38,18 @@ export default function FlowNodeCard({ id, data, selected }: NodeProps<TitasNode
       onDoubleClick={() => { if (!readOnly) setEditing(true) }}
       style={{
         width: NODE_W,
-        background: '#ffffff',
+        background: C.surface,
         // Lados declarados um a um de propósito: misturar `border` com
         // `borderLeft` faz o React avisar sobre shorthand conflitante.
-        borderTop: '1px solid ' + (selected ? '#9a6fb8' : '#e6e3ee'),
-        borderRight: '1px solid ' + (selected ? '#9a6fb8' : '#e6e3ee'),
-        borderBottom: '1px solid ' + (selected ? '#9a6fb8' : '#e6e3ee'),
+        borderTop: '1px solid ' + (selected ? '#9a6fb8' : C.fieldBorder),
+        borderRight: '1px solid ' + (selected ? '#9a6fb8' : C.fieldBorder),
+        borderBottom: '1px solid ' + (selected ? '#9a6fb8' : C.fieldBorder),
         borderLeft: '4px solid ' + meta.color,
         borderRadius: 14,
         padding: '11px 14px',
         boxShadow: selected
           ? '0 6px 20px rgba(110,65,150,0.22)'
           : '0 1px 2px rgba(28,20,50,0.04),0 6px 16px rgba(28,20,50,0.05)',
-        fontFamily: "'Manrope',sans-serif",
       }}
     >
       <Handle type="target" position={Position.Top} style={handleStyle} />
@@ -73,19 +73,19 @@ export default function FlowNodeCard({ id, data, selected }: NodeProps<TitasNode
             if (e.key === 'Escape') { setDraft(data.title); setEditing(false) }
           }}
           style={{
-            width: '100%', background: '#f7f5fa', border: '1px solid #d9d2e6', borderRadius: 8,
-            padding: '4px 7px', color: '#1d1726', fontSize: 13.5, fontWeight: 700,
-            outline: 'none', fontFamily: "'Manrope',sans-serif",
+            width: '100%', background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 8,
+            padding: '4px 7px', color: C.ink, fontSize: 13.5, fontWeight: 700,
+            outline: 'none',
           }}
         />
       ) : (
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1d1726', lineHeight: 1.3, wordBreak: 'break-word' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.3, wordBreak: 'break-word' }}>
           {data.title || 'Sem título'}
         </div>
       )}
 
       {data.subtitle && (
-        <div style={{ fontSize: 11.5, color: '#9c95a8', lineHeight: 1.4, marginTop: 3, wordBreak: 'break-word' }}>
+        <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.4, marginTop: 3, wordBreak: 'break-word' }}>
           {data.subtitle}
         </div>
       )}

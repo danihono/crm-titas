@@ -9,6 +9,7 @@ import { brandGradient, brandShadow } from '../../lib/clientBrand'
 import { fmtMoney } from '../../lib/format'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import RingButton from '../../components/common/RingButton'
+import { FONT_DISPLAY } from '../../styles/sx'
 
 export default function ClientsList() {
   const { clients, loading } = useClients()
@@ -22,7 +23,7 @@ export default function ClientsList() {
   return (
     <SuperShell title="Clientes" back>
       <div className="flex items-center gap-3 mb-4">
-        <h1 style={{ fontFamily: "'Cormorant Garamond',serif" }} className="text-[28px] font-bold text-[#f3eef6]">Clientes</h1>
+        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[28px] font-bold text-[#f3eef6]">Clientes</h1>
         <span className="text-[12px] text-[#9a6fb8] font-bold bg-[rgba(150,110,200,0.14)] rounded-full px-2.5 py-0.5">{clients.length}</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] rounded-xl px-3 h-10 w-64 max-w-full">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
-import { sx } from '../../styles/sx'
+import { C, sx } from '../../styles/sx'
 import { saveScheduledMessage, updateScheduledMessage } from '../../hooks/useEvents'
 import { dateKeyOf } from '../../lib/format'
 import type { ScheduledMessage } from '../../types'
@@ -38,12 +38,12 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
   return (
     <Modal width={470} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
-        <MaterialIcon name="schedule_send" size={24} color="#1f8a4c" style={{ background: 'rgba(52,199,89,0.14)', width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+        <MaterialIcon name="schedule_send" size={24} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ ...sx.serif, fontSize: 22, fontWeight: 600, color: '#1d1726' }}>{isEdit ? 'Editar agendamento' : 'Agendar mensagem'}</div>
-          <div style={{ fontSize: 12, color: '#6e6780' }}>Para {contactName} - WhatsApp</div>
+          <div style={{ ...sx.serif, fontSize: 22, fontWeight: 600, color: C.ink }}>{isEdit ? 'Editar agendamento' : 'Agendar mensagem'}</div>
+          <div style={{ fontSize: 12, color: C.sub }}>Para {contactName} - WhatsApp</div>
         </div>
-        <MaterialIcon name="close" size={23} color="#9c95a8" style={{ cursor: 'pointer' }} onClick={onClose} />
+        <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 
       <label style={{ ...sx.label, display: 'block', marginTop: 16 }}>Mensagem</label>
@@ -67,12 +67,12 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(52,199,89,0.1)', border: '1px solid rgba(52,199,89,0.2)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
-        <MaterialIcon name="event_available" size={18} color="#1f8a4c" />
+        <MaterialIcon name="event_available" size={18} color={C.greenDeep} />
         <span style={{ fontSize: 12, color: '#1f6e3e' }}>Sera enviada automaticamente pelo WhatsApp no horario escolhido e tambem aparecera na sua <b>Agenda</b>.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={{ background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 11, padding: '10px 18px', color: '#4a4458', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         <button onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: '1px solid rgba(52,199,89,0.4)', borderRadius: 11, padding: '10px 20px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
           <MaterialIcon name={isEdit ? 'save' : 'send'} size={17} /> {isEdit ? 'Salvar alteracoes' : 'Agendar envio'}
         </button>

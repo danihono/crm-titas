@@ -66,6 +66,7 @@ export const C = {
   surfaceAlt: 'var(--c-surface-alt)',
   field: 'var(--c-field)',
   column: 'var(--c-column)',
+  chatBg: 'var(--c-chat-bg)',
   /** Fundo escuro no claro, claro no escuro — botão "Novo quadro", tooltip. */
   inverse: 'var(--c-inverse)',
 

@@ -142,7 +142,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
                 onClick={() => setKind(k.id)}
                 style={{
                   border: '1px solid ' + (kind === k.id ? C.purple : C.fieldBorder),
-                  background: kind === k.id ? 'rgba(150,110,200,0.12)' : '#fff',
+                  background: kind === k.id ? C.tintPurple : C.surface,
                   color: kind === k.id ? C.purple : C.sub,
                   borderRadius: 10, padding: '8px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                 }}
@@ -208,7 +208,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anotações internas sobre esta cobrança" style={{ ...sx.input, margin: '6px 0 18px', resize: 'vertical', fontFamily: 'inherit' }} />
 
       {error && (
-        <div style={{ fontSize: 12.5, color: '#b73d6d', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
+        <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
           {error}
         </div>
       )}
@@ -244,7 +244,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
             <button
               onClick={() => setConfirming('nota')}
               disabled={busy}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: '#b73d6d', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
             >
               <MaterialIcon name="delete" size={18} /> Excluir
             </button>
@@ -252,7 +252,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
               <button
                 onClick={() => setConfirming('serie')}
                 disabled={busy}
-                style={{ border: 'none', background: 'transparent', color: '#b73d6d', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
+                style={{ border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
               >
                 Excluir a série
               </button>

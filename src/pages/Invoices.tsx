@@ -198,7 +198,7 @@ export default function Invoices() {
                 onClick={() => setStatus(s)}
                 style={{
                   border: '1px solid ' + (status === s ? C.purple : C.fieldBorder),
-                  background: status === s ? 'rgba(150,110,200,0.12)' : '#fff',
+                  background: status === s ? C.tintPurple : C.surface,
                   color: status === s ? C.purple : C.sub,
                   borderRadius: 10, padding: '8px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                 }}
@@ -216,7 +216,7 @@ export default function Invoices() {
           {filtering && (
             <button
               onClick={() => { setQ(''); setStatus('todas'); setFrom(''); setTo('') }}
-              style={{ border: 'none', background: 'transparent', color: '#b73d6d', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+              style={{ border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
             >
               Limpar
             </button>
@@ -224,7 +224,7 @@ export default function Invoices() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 12.5, color: '#b73d6d', background: 'rgba(193,77,119,0.08)', padding: '10px 22px' }}>{error}</div>
+          <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', padding: '10px 22px' }}>{error}</div>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: '1px solid #f0eef5' }}>
@@ -245,7 +245,7 @@ export default function Invoices() {
               key={iv.id}
               style={{
                 display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '13px 22px',
-                alignItems: 'center', borderBottom: '1px solid #f4f2f8',
+                alignItems: 'center', borderBottom: `1px solid ${C.lineHair}`,
                 // Vencida ganha um filete à esquerda: no meio de uma lista longa o selo
                 // sozinho passa batido.
                 boxShadow: st === 'Vencida' ? `inset 3px 0 0 ${C.rose}` : undefined,

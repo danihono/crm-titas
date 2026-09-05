@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
-import { useSelfProfile } from '../../hooks/useProfile'
+import { saveSelfPrefs, useSelfProfile } from '../../hooks/useProfile'
 import { useMessageNotifications } from '../../hooks/useMessageNotifications'
 import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
@@ -46,6 +46,14 @@ export default function Topbar() {
 
   const resolved = useThemeStore((s) => s.resolved)
   const setMode = useThemeStore((s) => s.setMode)
+
+  // Aplica na hora e espelha na conta, para o tema seguir a pessoa de um
+  // computador para o outro. A gravação é best-effort: se o Firestore recusar,
+  // o tema já está valendo aqui de qualquer jeito.
+  const trocarTema = (m: 'light' | 'dark') => {
+    setMode(m)
+    saveSelfPrefs({ theme: m }).catch(() => {})
+  }
 
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -157,8 +165,8 @@ export default function Topbar() {
       {/* Claro / escuro. Dois botões em vez de um alternador porque o estado fica
           visível: dá para ver em qual tema se está sem precisar deduzir do ícone. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: 3 }}>
-        <ThemeBtn icon="light_mode" label="Tema claro" on={resolved === 'light'} onClick={() => setMode('light')} />
-        <ThemeBtn icon="dark_mode" label="Tema escuro" on={resolved === 'dark'} onClick={() => setMode('dark')} />
+        <ThemeBtn icon="light_mode" label="Tema claro" on={resolved === 'light'} onClick={() => trocarTema('light')} />
+        <ThemeBtn icon="dark_mode" label="Tema escuro" on={resolved === 'dark'} onClick={() => trocarTema('dark')} />
       </div>
 
       <button onClick={() => navigate(settingsNav.path)} title="Configurações" style={chromeBtn}>

@@ -72,7 +72,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
     <Modal width={460} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <MaterialIcon name="chat" size={22} color="#1f8a4c" style={{ background: 'rgba(52,199,89,0.14)', width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+          <MaterialIcon name="chat" size={22} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
           <div style={{ ...sx.serif, fontSize: 22, fontWeight: 600, color: C.ink }}>Conectar WhatsApp</div>
         </div>
         <MaterialIcon name="close" size={22} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
@@ -91,7 +91,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
           some. Sem esta tarja, o sintoma leva dias para ser notado — e já levou. */}
       {storage.ok === false && (
         <div style={{ marginTop: 10, background: 'rgba(216,169,96,0.12)', border: '1px solid rgba(216,169,96,0.36)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
-          <b style={{ color: '#7a5516' }}>O serviço não consegue salvar arquivos.</b>{' '}
+          <b style={{ color: C.amberDeep }}>O serviço não consegue salvar arquivos.</b>{' '}
           {storage.code === 'not_found'
             ? 'O armazenamento configurado não foi encontrado.'
             : 'Falta permissão de armazenamento para a conta de serviço.'}{' '}

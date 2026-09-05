@@ -101,11 +101,11 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
   const k = model.kpis
 
   const doc = (
-    <div className="print-doc" style={{ fontFamily: "'Manrope',sans-serif", color: INK, background: '#fff', width: DOC_W, margin: '0 auto' }}>
+    <div className="print-doc" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", color: INK, background: '#fff', width: DOC_W, margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 14, borderBottom: `2px solid ${PURPLE}` }}>
         <BrandMark />
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 600, letterSpacing: '.16em', lineHeight: 1 }}>
+          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 24, fontWeight: 600, letterSpacing: '.16em', lineHeight: 1 }}>
             TITÃS
           </div>
           <div style={{ fontSize: 9, letterSpacing: '.36em', color: MUTED, fontWeight: 700, marginTop: 2 }}>C R M</div>

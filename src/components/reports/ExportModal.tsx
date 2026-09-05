@@ -93,8 +93,8 @@ export default function ExportModal({ onClose, onExport }: {
             key={d.id}
             style={{
               display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', cursor: 'pointer',
-              borderTop: i === 0 ? 'none' : '1px solid #f4f2f8',
-              background: sections[d.id] ? 'rgba(150,110,200,0.06)' : '#fff',
+              borderTop: i === 0 ? 'none' : `1px solid ${C.lineHair}`,
+              background: sections[d.id] ? 'rgba(150,110,200,0.06)' : C.surface,
             }}
           >
             <input
@@ -148,5 +148,4 @@ export default function ExportModal({ onClose, onExport }: {
 const linkBtn: React.CSSProperties = {
   border: 'none', background: 'transparent', color: C.purple,
   fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0,
-  fontFamily: "'Manrope',sans-serif",
 }

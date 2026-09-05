@@ -8,7 +8,7 @@ import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import ActivityModal from '../components/modals/ActivityModal'
 import TypeModal from '../components/modals/TypeModal'
-import { sx } from '../styles/sx'
+import { C, sx } from '../styles/sx'
 import type { Activity } from '../types'
 
 const FILTERS: { id: ActFilter; label: string }[] = [
@@ -45,9 +45,10 @@ export default function Activities() {
               onClick={() => ui.setActFilter(f.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                // Selecionado = pílula roxa clara, o mesmo padrão do menu e das abas.
                 ...(on
-                  ? { background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', color: '#f4eefa', boxShadow: '0 4px 12px rgba(110,65,150,0.2)' }
-                  : { background: '#ffffff', border: '1px solid #e6e3ee', color: '#6e6780' }),
+                  ? { background: C.sel, border: `1px solid ${C.selBorder}`, color: C.purple }
+                  : { background: C.surface, border: `1px solid ${C.fieldBorder}`, color: C.sub }),
               }}
             >
               {f.label} <span style={{ opacity: 0.6 }}>{counts[f.id]}</span>
@@ -64,7 +65,7 @@ export default function Activities() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         {list.map((a) => <ActivityRow key={a.id} a={a} type={typeMap[a.type]} />)}
         {list.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#a39bb0', fontSize: 13, border: '1px dashed #d8d3e2', borderRadius: 14, background: '#fff' }}>Nenhuma atividade neste filtro.</div>
+          <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14, background: C.surface }}>Nenhuma atividade neste filtro.</div>
         )}
       </div>
 
@@ -84,13 +85,13 @@ export default function Activities() {
 function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: string; bg: string } }) {
   const readOnly = useTenantStore((s) => s.readOnly)
   const status = statusOf(a)
-  const ic = type ?? { icon: 'event', color: '#7a52a0', bg: 'rgba(150,110,200,0.14)' }
+  const ic = type ?? { icon: 'event', color: C.purple, bg: 'rgba(150,110,200,0.14)' }
   const di = dueInfo(a.dueAt, a.done)
   const accent = a.done ? '#34c759' : di.overdue ? '#d98aab' : '#9a6fb8'
   const [badgeColor, badgeBg, badgeLabel] = activityBadgeMap[status]
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#ffffff', border: '1px solid #ececf3', borderLeft: `3px solid ${accent}`, borderRadius: 14, padding: '15px 18px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 4px 14px rgba(28,20,50,0.04)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: C.surface, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 14, padding: '15px 18px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 4px 14px rgba(28,20,50,0.04)' }}>
       <button
         onClick={() => {
           if (readOnly) return
@@ -104,11 +105,11 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
       </button>
       <MaterialIcon name={ic.icon} size={20} color={ic.color} style={{ background: ic.bg, width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: a.done ? '#a39bb0' : '#1d1726', textDecoration: a.done ? 'line-through' : 'none' }}>{a.title}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 12, color: '#6e6780' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: a.done ? C.faint : C.ink, textDecoration: a.done ? 'line-through' : 'none' }}>{a.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 12, color: C.sub }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MaterialIcon name="business" size={14} />{a.contact}</span>
           <span style={{ color: '#cfc8dd' }}>·</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: di.overdue ? '#c14d77' : '#6e6780' }}><MaterialIcon name="schedule" size={14} />{di.text}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: di.overdue ? C.rose : C.sub }}><MaterialIcon name="schedule" size={14} />{di.text}</span>
         </div>
       </div>
       <span style={{ fontSize: 11, fontWeight: 700, color: badgeColor, background: badgeBg, borderRadius: 20, padding: '4px 12px' }}>{badgeLabel}</span>

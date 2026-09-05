@@ -293,7 +293,7 @@ export default function Dashboard() {
               background: dias === d ? C.tintPurple : C.surface,
               color: dias === d ? C.purple : C.sub,
               borderRadius: 10, padding: '7px 13px', fontSize: 12.5, fontWeight: 700,
-              cursor: 'pointer', fontFamily: "'Manrope',sans-serif",
+              cursor: 'pointer',
             }}
           >
             {d === 365 ? '12 meses' : `${d} dias`}

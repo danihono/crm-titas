@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EMOJI_CATEGORIES, emojiByChar, searchEmojis, type EmojiEntry } from '../../lib/emojis'
 import MaterialIcon from './MaterialIcon'
+import { C } from '../../styles/sx'
 
 /**
  * Seletor de emojis no layout do teclado do iPhone: busca no topo, grade no meio e as abas
@@ -116,35 +117,35 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
         height,
         display: 'flex',
         flexDirection: 'column',
-        background: '#ffffff',
-        border: '1px solid #e6e3ee',
+        background: C.surface,
+        border: `1px solid ${C.fieldBorder}`,
         borderRadius: 16,
         boxShadow: '0 10px 34px rgba(28,20,50,0.18)',
         overflow: 'hidden',
       }}
     >
-      <div style={{ padding: 10, borderBottom: '1px solid #f1eff5' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f3f1f7', border: '1px solid #e6e3ee', borderRadius: 10, padding: '7px 10px' }}>
-          <MaterialIcon name="search" size={16} color="#a39bb0" />
+      <div style={{ padding: 10, borderBottom: `1px solid ${C.lineHair}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '7px 10px' }}>
+          <MaterialIcon name="search" size={16} color={C.faint} />
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar emoji..."
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: '#1d1726', fontSize: 12.5, width: '100%' }}
+            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 12.5, width: '100%' }}
           />
           {query && (
             <button onClick={() => setQuery('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
-              <MaterialIcon name="close" size={14} color="#a39bb0" />
+              <MaterialIcon name="close" size={14} color={C.faint} />
             </button>
           )}
         </div>
       </div>
 
       <div ref={gridRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 10px 10px' }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, color: '#9c95a8', textTransform: 'uppercase', letterSpacing: 0.4, margin: '2px 2px 6px' }}>{title}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '2px 2px 6px' }}>{title}</div>
         {items.length === 0 ? (
-          <div style={{ padding: '28px 10px', textAlign: 'center', fontSize: 12.5, color: '#a39bb0' }}>
+          <div style={{ padding: '28px 10px', textAlign: 'center', fontSize: 12.5, color: C.faint }}>
             {searching ? 'Nenhum emoji encontrado.' : 'Os emojis que você usar aparecem aqui.'}
           </div>
         ) : (
@@ -156,7 +157,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
                 title={it.k.split(' ')[0]}
                 onClick={() => choose(it.e)}
                 style={{ border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', fontFamily: EMOJI_FONT, fontSize: 23, lineHeight: '34px', height: 34, padding: 0 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f1f7')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = C.raised)}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 {it.e}
@@ -166,7 +167,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 8px', borderTop: '1px solid #f1eff5', background: '#faf9fc' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 8px', borderTop: `1px solid ${C.lineHair}`, background: C.surfaceAlt }}>
         <TabButton icon="🕘" label="Usados com frequência" on={!searching && tab === 'recentes'} onClick={() => selectTab('recentes')} />
         {EMOJI_CATEGORIES.map((c) => (
           <TabButton key={c.id} icon={c.icon} label={c.label} on={!searching && tab === c.id} onClick={() => selectTab(c.id)} />
@@ -188,7 +189,7 @@ function TabButton({ icon, label, on, onClick }: { icon: string; label: string; 
         border: 'none',
         borderRadius: 8,
         cursor: 'pointer',
-        background: on ? 'rgba(150,110,200,0.14)' : 'transparent',
+        background: on ? C.tintPurpleStrong : 'transparent',
         fontFamily: EMOJI_FONT,
         fontSize: 16,
         lineHeight: '30px',

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { saveSelfPrefs, useSelfProfile } from '../../hooks/useProfile'
 import { requestNotificationPermission } from '../../hooks/useMessageNotifications'
 import { C } from '../../styles/sx'
+import { useThemeStore, type ThemeMode } from '../../store/themeStore'
 import MaterialIcon from '../common/MaterialIcon'
 import { SettingsCard } from './primitives'
 
@@ -13,8 +14,16 @@ function currentPermission(): Permission {
 }
 
 /** Preferências da conta logada — avisos de mensagem nova. */
+const TEMAS: { id: ThemeMode; label: string; icon: string }[] = [
+  { id: 'light', label: 'Claro', icon: 'light_mode' },
+  { id: 'dark', label: 'Escuro', icon: 'dark_mode' },
+  { id: 'system', label: 'Sistema', icon: 'contrast' },
+]
+
 export default function PrefsSection() {
   const { prefs } = useSelfProfile()
+  const mode = useThemeStore((s) => s.mode)
+  const setMode = useThemeStore((s) => s.setMode)
   const [permission, setPermission] = useState<Permission>(currentPermission)
 
   // A permissão pode ter sido concedida noutra aba; reler ao focar evita o painel
@@ -35,6 +44,34 @@ export default function PrefsSection() {
       title="Preferências pessoais"
       subtitle="Valem só para a sua conta, em qualquer equipe que você atenda."
     >
+      {/* O tema é aplicado na hora e gravado neste dispositivo; o doc da conta
+          guarda uma cópia só para um computador novo já abrir do jeito certo. */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>Tema da interface</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 2, marginBottom: 9 }}>
+          "Sistema" acompanha o que o seu computador estiver usando.
+        </div>
+        <div style={{ display: 'inline-flex', gap: 3, background: C.raised, borderRadius: 12, padding: 3 }}>
+          {TEMAS.map((t) => {
+            const on = mode === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setMode(t.id); void saveSelfPrefs({ theme: t.id }) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 9,
+                  padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  color: on ? C.purple : C.sub,
+                  background: on ? C.sel : 'transparent',
+                }}
+              >
+                <MaterialIcon name={t.icon} size={17} /> {t.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <Toggle
         label="Aviso na área de trabalho"
         hint="Notificação do sistema quando chega mensagem com o CRM em segundo plano."
@@ -59,7 +96,7 @@ export default function PrefsSection() {
             <span style={{ color: C.sub }}>O navegador ainda não autorizou as notificações.</span>
             <button
               onClick={askPermission}
-              style={{ border: 'none', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', color: C.purple, background: 'rgba(150,110,200,0.12)', fontFamily: "'Manrope',sans-serif" }}
+              style={{ border: 'none', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', color: C.purple, background: C.tintPurple }}
             >
               Autorizar
             </button>
@@ -91,7 +128,7 @@ function Toggle({ label, hint, checked, onChange }: {
   onChange: (v: boolean) => void
 }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '11px 2px', borderBottom: '1px solid #f4f2f8', cursor: 'pointer' }}>
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '11px 2px', borderBottom: `1px solid ${C.lineHair}`, cursor: 'pointer' }}>
       <input
         type="checkbox"
         checked={checked}

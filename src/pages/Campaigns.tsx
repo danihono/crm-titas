@@ -14,6 +14,8 @@ import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import Modal from '../components/modals/Modal'
 import type { Campaign, CampaignStatus } from '../types'
+import { chipColors } from '../lib/color'
+import { useIsDark } from '../store/themeStore'
 
 const STATUS_STYLE: Record<CampaignStatus, [string, string, string]> = {
   rascunho: ['Rascunho', C.sub, '#eeebf3'],
@@ -58,8 +60,8 @@ export default function Campaigns() {
       </div>
 
       <div style={{ display: 'flex', gap: 11, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 14, padding: '14px 16px', marginBottom: 20 }}>
-        <MaterialIcon name="warning" size={20} color="#b3801f" />
-        <div style={{ fontSize: 12.5, color: '#7a5516', lineHeight: 1.65 }}>
+        <MaterialIcon name="warning" size={20} color={C.amber} />
+        <div style={{ fontSize: 12.5, color: C.amberDeep, lineHeight: 1.65 }}>
           <b>Sobre o ritmo do disparo.</b> O Titãs fala WhatsApp por uma conexão não-oficial
           (a mesma do WhatsApp Web). Disparo rápido em massa é a forma mais comum de o número
           ser banido, e um número banido leva junto todas as conversas. Por isso o envio é
@@ -107,7 +109,7 @@ export default function Campaigns() {
 function Note({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'rgba(217,138,171,0.12)', border: '1px solid rgba(217,138,171,0.3)', borderRadius: 12, padding: '11px 14px', marginBottom: 14, fontSize: 12.5, color: '#a03257', fontWeight: 600 }}>
-      <MaterialIcon name={icon} size={18} color="#c14d77" /> {children}
+      <MaterialIcon name={icon} size={18} color={C.rose} /> {children}
     </div>
   )
 }
@@ -181,8 +183,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 function btn(color: string, bg: string): React.CSSProperties {
   return {
     display: 'flex', alignItems: 'center', gap: 5, border: 'none', borderRadius: 10,
-    padding: '8px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-    fontFamily: "'Manrope',sans-serif", color, background: bg,
+    padding: '8px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', color, background: bg,
   }
 }
 
@@ -192,6 +193,7 @@ function NewCampaignModal({ contacts, tags, createdBy, onClose }: {
   createdBy: string
   onClose: () => void
 }) {
+  const dark = useIsDark()
   const [name, setName] = useState('')
   const [text, setText] = useState('')
   const [tagIds, setTagIds] = useState<string[]>([])
@@ -250,9 +252,9 @@ function NewCampaignModal({ contacts, tags, createdBy, onClose }: {
                   onClick={() => setTagIds((v) => (on ? v.filter((x) => x !== t.id) : [...v, t.id]))}
                   style={{
                     fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
-                    color: on ? '#fff' : t.color,
-                    background: on ? t.color : t.color + '1f',
-                    border: '1px solid ' + t.color + '4a',
+                    color: on ? '#fff' : chipColors(t.color, dark).fg,
+                    background: on ? t.color : chipColors(t.color, dark).bg,
+                    border: `1px solid ${chipColors(t.color, dark).border}`,
                   }}
                 >
                   {t.label}

@@ -6,13 +6,12 @@ import type { Contact, CustomField } from '../../types'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  background: '#f7f5fa',
-  border: '1px solid #e6e3ee',
+  background: C.field,
+  border: `1px solid ${C.fieldBorder}`,
   borderRadius: 10,
   padding: '9px 11px',
   color: C.ink,
   fontSize: 13,
-  fontFamily: "'Manrope',sans-serif",
   outline: 'none',
 }
 

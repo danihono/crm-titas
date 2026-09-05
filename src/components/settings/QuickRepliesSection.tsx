@@ -33,7 +33,7 @@ export default function QuickRepliesSection({ canEdit }: { canEdit: boolean }) {
           actions={canEdit ? <IconAction icon="delete" title="Excluir" color={C.rose} onClick={() => deleteQuickReply(r.id)} /> : undefined}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: 'rgba(150,110,200,0.12)', borderRadius: 7, padding: '2px 8px' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, background: C.tintPurple, borderRadius: 7, padding: '2px 8px' }}>
               /{r.shortcut}
             </span>
             <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{r.title}</span>
