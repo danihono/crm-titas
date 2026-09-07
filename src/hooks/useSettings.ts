@@ -17,11 +17,12 @@ import type {
 
 // ---------------------------------------------------------------- Setores
 
-export function useSectors() {
+export function useSectors(opts: { enabled?: boolean } = {}) {
+  const enabled = opts.enabled !== false
   return useCollection<Sector>(
-    (uid) => query(collection(db, `users/${uid}/sectors`), orderBy('order')),
+    (uid) => (enabled ? query(collection(db, `users/${uid}/sectors`), orderBy('order')) : null),
     sectorFromDoc,
-    [],
+    [enabled],
   )
 }
 
@@ -40,11 +41,12 @@ export async function deleteSector(id: string): Promise<void> {
 
 // --------------------------------------------------------------- Etiquetas
 
-export function useTags() {
+export function useTags(opts: { enabled?: boolean } = {}) {
+  const enabled = opts.enabled !== false
   return useCollection<Tag>(
-    (uid) => query(collection(db, `users/${uid}/tags`), orderBy('order')),
+    (uid) => (enabled ? query(collection(db, `users/${uid}/tags`), orderBy('order')) : null),
     tagFromDoc,
-    [],
+    [enabled],
   )
 }
 

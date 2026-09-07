@@ -3,6 +3,10 @@
 
 export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** Cor de acento de um card do painel. */
+export type Accent = 'purple' | 'green' | 'amber' | 'rose' | 'blue'
+/** Branco, ou o escuro em destaque (o primeiro card do painel). */
+export type WidgetVariant = 'surface' | 'featured'
 export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
@@ -488,6 +492,32 @@ export interface UserPrefs {
    * entra de outro computador, não para mandar no que já está pintado.
    */
   theme: ThemeMode
+  /**
+   * Como esta pessoa montou o painel. `null` = nunca mexeu, usa o padrão de
+   * fábrica — guardar o padrão explicitamente congelaria o painel de quem nunca
+   * personalizou na versão do dia em que a conta foi criada.
+   */
+  dashboard: DashboardLayout | null
+}
+
+/**
+ * Um bloco do painel. `id` é da INSTÂNCIA e `type` é do catálogo — separados
+ * para que dê para ter dois widgets do mesmo tipo (dois rankings, por exemplo)
+ * com tamanhos e cores diferentes.
+ */
+export interface DashboardWidget {
+  id: string
+  type: string
+  /** Colunas ocupadas na grade de 6. */
+  cols: number
+  /** Faixas ocupadas na grade de 3. */
+  rows: number
+  variant?: WidgetVariant
+  accent?: Accent
+}
+
+export interface DashboardLayout {
+  widgets: DashboardWidget[]
 }
 
 export type CampaignStatus = 'rascunho' | 'enviando' | 'pausada' | 'concluida'

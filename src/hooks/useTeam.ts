@@ -7,11 +7,12 @@ import { useCollection } from './useCollection'
 import type { Invite, Member } from '../types'
 
 /** Atendentes do tenant ativo. */
-export function useMembers() {
+export function useMembers(opts: { enabled?: boolean } = {}) {
+  const enabled = opts.enabled !== false
   return useCollection<Member>(
-    (uid) => query(collection(db, `users/${uid}/members`), orderBy('name')),
+    (uid) => (enabled ? query(collection(db, `users/${uid}/members`), orderBy('name')) : null),
     memberFromDoc,
-    [],
+    [enabled],
   )
 }
 

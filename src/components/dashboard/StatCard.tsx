@@ -61,6 +61,9 @@ export default function StatCard({
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
+    // Preenche a célula da grade: sem isto o card para na altura do conteúdo e a
+    // fileira fica com cards de alturas diferentes.
+    height: '100%',
     borderRadius: 18,
     padding: '13px 15px 11px',
     overflow: 'hidden',
@@ -69,7 +72,7 @@ export default function StatCard({
   }
 
   return (
-    <div className="stat-card" style={shell}>
+    <div className="stat-card widget" style={shell}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span
           title={label}
@@ -157,6 +160,7 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
   const cor = featured ? (sobe ? '#6fd7ae' : '#f0a0bd') : sobe ? C.green : C.rose
   return (
     <span
+      title="Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação."
       style={{
         display: 'inline-flex',
         alignItems: 'center',

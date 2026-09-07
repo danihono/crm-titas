@@ -16,7 +16,6 @@ const SURFACE = '#ffffff'
 const GRID = '#e6e3ee'
 const INK = '#1d1726'
 const MUTED = '#9c95a8'
-const SUB = '#6e6780'
 
 /**
  * Paleta do gráfico, como PROP com padrão claro — e não var(--c-*).
@@ -71,7 +70,7 @@ export function TrendArea({ points, width = 720, height = 190, svgRef, palette =
   /** Exposto para a exportação rasterizar ESTE mesmo gráfico para a planilha. */
   svgRef?: React.Ref<SVGSVGElement>
 }) {
-  if (points.length === 0) return <EmptyPlot width={width} height={height} />
+  if (points.length === 0) return <EmptyPlot width={width} height={height} palette={palette} />
 
   const padL = 34
   const padR = 46
@@ -137,11 +136,12 @@ export function TrendArea({ points, width = 720, height = 190, svgRef, palette =
  * veste a cor do dado — uma etiqueta amarela clara é ilegível como texto, e a identidade
  * fica na marca colorida ao lado, não na palavra.
  */
-export function RankedBars({ rows, width = 720, barH = 18, gap = 14 }: {
+export function RankedBars({ rows, width = 720, barH = 18, gap = 14, palette = CHART_LIGHT }: {
   rows: ReportRow[]
   width?: number
   barH?: number
   gap?: number
+  palette?: ChartPalette
 }) {
   if (rows.length === 0) return null
 
@@ -160,12 +160,12 @@ export function RankedBars({ rows, width = 720, barH = 18, gap = 14 }: {
         return (
           <g key={r.key}>
             <circle cx={5} cy={y + barH / 2} r={4.5} fill={r.color} />
-            <text x={17} y={y + barH / 2 + 4} fontSize={11.5} fill={SUB} style={LABEL}>
+            <text x={17} y={y + barH / 2 + 4} fontSize={11.5} fill={palette.muted} style={LABEL}>
               {r.label.length > 24 ? `${r.label.slice(0, 23)}…` : r.label}
             </text>
-            <rect x={labelW} y={y} width={plotW} height={barH} fill={GRID} opacity={0.35} rx={4} />
-            <path d={barPath(labelW, y, labelW + Math.max(w, 2), barH)} fill={MAGNITUDE} />
-            <text x={labelW + plotW + 8} y={y + barH / 2 + 4} fontSize={11.5} fill={INK} style={LABEL}>
+            <rect x={labelW} y={y} width={plotW} height={barH} fill={palette.grid} opacity={0.35} rx={4} />
+            <path d={barPath(labelW, y, labelW + Math.max(w, 2), barH)} fill={palette.magnitude} />
+            <text x={labelW + plotW + 8} y={y + barH / 2 + 4} fontSize={11.5} fill={palette.ink} style={LABEL}>
               {r.total}
             </text>
           </g>
@@ -180,11 +180,12 @@ export function RankedBars({ rows, width = 720, barH = 18, gap = 14 }: {
  * Os segmentos são separados por 2px na cor da superfície: é o vão que separa, nunca
  * um contorno (contorno adiciona tinta que não é dado).
  */
-export function StatusStack({ fila, atendimento, esperando, width = 720 }: {
+export function StatusStack({ fila, atendimento, esperando, width = 720, palette = CHART_LIGHT }: {
   fila: number
   atendimento: number
   esperando: number
   width?: number
+  palette?: ChartPalette
 }) {
   const segs = [
     { key: 'atendimento', label: 'Em atendimento', value: atendimento, color: '#2f9e6f' },
@@ -195,7 +196,7 @@ export function StatusStack({ fila, atendimento, esperando, width = 720 }: {
   const h = 26
 
   if (total === 0) {
-    return <div style={{ fontSize: 12.5, color: MUTED, padding: '10px 0' }}>Nenhuma conversa aberta no momento.</div>
+    return <div style={{ fontSize: 12.5, color: palette.muted, padding: '10px 0' }}>Nenhuma conversa aberta no momento.</div>
   }
 
   let x = 0
@@ -229,10 +230,10 @@ export function StatusStack({ fila, atendimento, esperando, width = 720 }: {
       </svg>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 10 }}>
         {segs.map((s) => (
-          <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: SUB, fontWeight: 600 }}>
+          <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: palette.muted, fontWeight: 600 }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.color }} />
             {s.label}
-            <b style={{ color: INK }}>{s.value}</b>
+            <b style={{ color: palette.ink }}>{s.value}</b>
           </span>
         ))}
       </div>
@@ -240,9 +241,9 @@ export function StatusStack({ fila, atendimento, esperando, width = 720 }: {
   )
 }
 
-function EmptyPlot({ width, height }: { width: number; height: number }) {
+function EmptyPlot({ width, height, palette = CHART_LIGHT }: { width: number; height: number; palette?: ChartPalette }) {
   return (
-    <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: MUTED }}>
+    <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, color: palette.muted }}>
       Sem conversas no período.
     </div>
   )

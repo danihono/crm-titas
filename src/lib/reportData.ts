@@ -132,6 +132,22 @@ function buildByDay(rows: ConversationRecord[], from: Date, to: Date): DayPoint[
  * modelo. Recalcular em cada lugar é como um número exportado passa a divergir do
  * que estava na tela — e aí o relatório inteiro perde credibilidade.
  */
+/**
+ * Como as conversas abertas estão divididas NESTE momento.
+ *
+ * Vive fora de `buildReport` porque o painel precisa dela sem carregar
+ * atendentes, setores e etiquetas junto — e porque duas contas do mesmo número,
+ * em lugares diferentes, divergem no primeiro ajuste que alguém fizer numa só.
+ */
+export function filaAgora(contacts: Contact[]): { fila: number; atendimento: number; esperando: number } {
+  const abertos = contacts.filter((c) => c.conv && c.conv.status !== 'finalizado')
+  return {
+    fila: abertos.filter((c) => !convOf(c).assignedTo).length,
+    atendimento: abertos.filter((c) => convOf(c).assignedTo && convOf(c).status === 'entrada').length,
+    esperando: abertos.filter((c) => convOf(c).status === 'esperando').length,
+  }
+}
+
 export function buildReport(args: {
   conversations: ConversationRecord[]
   contacts: Contact[]
@@ -163,7 +179,6 @@ export function buildReport(args: {
     .filter((r) => r.total > 0)
     .sort((a, b) => b.total - a.total)
 
-  const liveContacts = contacts.filter((c) => c.conv && c.conv.status !== 'finalizado')
 
   return {
     from,
@@ -180,10 +195,6 @@ export function buildReport(args: {
     byAgent,
     bySector,
     byTag,
-    live: {
-      fila: liveContacts.filter((c) => !convOf(c).assignedTo).length,
-      atendimento: liveContacts.filter((c) => convOf(c).assignedTo && convOf(c).status === 'entrada').length,
-      esperando: liveContacts.filter((c) => convOf(c).status === 'esperando').length,
-    },
+    live: filaAgora(contacts),
   }
 }

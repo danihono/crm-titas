@@ -7,10 +7,18 @@ import { useCollection } from './useCollection'
 import type { EventDoc } from '../types'
 import { BRAND } from '../styles/sx'
 
-/** Eventos de um mes especifico (range em date). */
-export function useEvents(year: number, month: number) {
+/**
+ * Eventos de um mes especifico (range em date).
+ *
+ * `enabled: false` NÃO assina — o painel virou configurável, e quem tira da tela
+ * o card de agenda não pode continuar pagando a leitura do mês. O `useCollection`
+ * já trata `build` devolvendo null como "não assine".
+ */
+export function useEvents(year: number, month: number, opts: { enabled?: boolean } = {}) {
+  const enabled = opts.enabled !== false
   return useCollection<EventDoc>(
     (uid) => {
+      if (!enabled) return null
       const start = new Date(year, month, 1)
       const end = new Date(year, month + 1, 1)
       return query(
@@ -21,7 +29,7 @@ export function useEvents(year: number, month: number) {
       )
     },
     eventFromDoc,
-    [year, month],
+    [year, month, enabled],
   )
 }
 

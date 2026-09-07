@@ -1,4 +1,5 @@
 import { Timestamp, type DocumentData } from 'firebase/firestore'
+import { layoutFromDoc } from './dashboardWidgets'
 import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
   Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
@@ -342,7 +343,16 @@ export function prefsFromDoc(v: unknown): UserPrefs {
   // operacional, que é o comportamento que a pessoa já espera de um app.
   const t = d.theme
   const theme: ThemeMode = t === 'light' || t === 'dark' || t === 'system' ? t : 'system'
-  return { notifyDesktop: d.notifyDesktop !== false, notifySound: d.notifySound !== false, theme }
+  // `dashboard` é obrigatório em UserPrefs (e não opcional) DE PROPÓSITO: esta
+  // função reconstrói o objeto do zero e descarta todo campo que não está aqui.
+  // Um campo novo esquecido chegaria pelo snapshot e sumiria em silêncio —
+  // sendo obrigatório, o compilador não deixa esquecer.
+  return {
+    notifyDesktop: d.notifyDesktop !== false,
+    notifySound: d.notifySound !== false,
+    theme,
+    dashboard: layoutFromDoc(d.dashboard),
+  }
 }
 
 function toCampaignStatus(v: unknown): CampaignStatus {

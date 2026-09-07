@@ -36,15 +36,25 @@ export function sparkline(values: number[], w = 240, h = 44, pad = 5): Spark {
   })
 
   const line = 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ')
-  const prev = values[n - 2]
-  const last = values[n - 1]
+
+  // A variação compara as duas últimas semanas FECHADAS, e não a semana em curso
+  // contra a anterior.
+  //
+  // O último balde é a semana corrente, ainda pela metade: numa segunda de manhã
+  // ela tem quase nada, e comparar isso com sete dias inteiros marcava ▼100% em
+  // quase todo card — número correto na conta e mentiroso na leitura. Com menos
+  // de três baldes não há duas semanas fechadas para comparar, e aí não há chip.
+  const fechadaAtual = n >= 2 ? values[n - 2] : 0
+  const fechadaAnterior = n >= 3 ? values[n - 3] : 0
 
   return {
     line,
     area: line + ` L ${w} ${h} L 0 ${h} Z`,
     lastX: pts[n - 1][0],
     lastY: pts[n - 1][1],
-    changePct: prev > 0 ? ((last - prev) / prev) * 100 : null,
+    changePct: n >= 3 && fechadaAnterior > 0
+      ? ((fechadaAtual - fechadaAnterior) / fechadaAnterior) * 100
+      : null,
     hasData: values.some((v) => v > 0),
   }
 }

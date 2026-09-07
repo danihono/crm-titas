@@ -301,6 +301,21 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
    e não da janela: o que decide é a largura do card, não a do monitor. */
 .funil-card { container-type: inline-size; }
 
+/* ── Widgets do painel ─────────────────────────────────────────────────────
+   Todo card do painel é um contêiner de consulta. Com widget de tamanho
+   escolhido pela pessoa, a largura do card e a da janela ficam permanentemente
+   desacopladas: media query olharia para o monitor e erraria sempre. Aqui o que
+   decide é o card.
+
+   A degradação é por etapa, do detalhe para o essencial — mesma receita do
+   funil. O que some do card continua no balão do hover. */
+.widget { container-type: inline-size; }
+
+@container (max-width: 260px) {
+  .widget-sub { display: none; }
+  .widget-legenda { display: none; }
+}
+
 /* Some por etapa, do detalhe para o essencial. O "N pararam aqui" divide espaço
    com a conversão no meio da faixa e é o primeiro a sair; a % fica sempre. */
 @container (max-width: 420px) {

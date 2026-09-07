@@ -33,7 +33,7 @@ const EMPTY: SelfProfile = {
   phone: '',
   closingMessage: '',
   closingEnabled: false,
-  prefs: { notifyDesktop: true, notifySound: true, theme: 'system' },
+  prefs: { notifyDesktop: true, notifySound: true, theme: 'system', dashboard: null },
 }
 
 /**

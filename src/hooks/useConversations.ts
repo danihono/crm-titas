@@ -27,17 +27,23 @@ export function convOf(c: Contact | undefined): ConvState {
  * Filtra por `openedAt` — o mesmo doc é atualizado ao finalizar, então uma conversa
  * aberta ontem e fechada hoje aparece no dia em que começou, como no Umbler.
  */
-export function useConversations(from: Date, to: Date) {
+export function useConversations(from: Date, to: Date, opts: { enabled?: boolean } = {}) {
+  // A consulta mais cara do painel: até 365 dias de conversas. `enabled: false`
+  // não assina — sem isso, quem tirasse o mapa de calor da tela continuaria
+  // pagando a leitura por um card que não existe mais.
+  const enabled = opts.enabled !== false
   return useCollection<ConversationRecord>(
     (uid) =>
-      query(
-        collection(db, `users/${uid}/conversations`),
-        where('openedAt', '>=', from),
-        where('openedAt', '<=', to),
-        orderBy('openedAt', 'desc'),
-      ),
+      enabled
+        ? query(
+            collection(db, `users/${uid}/conversations`),
+            where('openedAt', '>=', from),
+            where('openedAt', '<=', to),
+            orderBy('openedAt', 'desc'),
+          )
+        : null,
     conversationFromDoc,
-    [from.getTime(), to.getTime()],
+    [from.getTime(), to.getTime(), enabled],
   )
 }
 

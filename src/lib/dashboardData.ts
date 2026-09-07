@@ -1,4 +1,5 @@
-import type { Column, ConversationRecord, Deal } from '../types'
+import type { Column, ConversationRecord, Deal, Invoice } from '../types'
+import type { Semana } from './sparkline'
 
 /**
  * Cálculo dos gráficos do painel — funções PURAS, sem React.
@@ -162,4 +163,54 @@ export function buildHeatmap(conversations: ConversationRecord[]): Heatmap {
   }
 
   return { grid, peak: Math.max(1, pico?.n ?? 0), total, pico }
+}
+
+/* ── Séries dos mini gráficos do painel ────────────────────────────────────
+   Reconstruir passado a partir do estado de hoje só é honesto quando o dado
+   guarda QUANDO cada coisa aconteceu. Onde não guarda, não há série aqui — e o
+   card correspondente fica sem gráfico, de propósito.
+
+   Duas assunções valem para as duas funções de nota abaixo, e são o limite
+   conhecido delas:
+
+   1. Nota `Paga` SEM `paidAt` (as anteriores ao campo existir, e as do seed)
+      conta como paga desde sempre. A alternativa — contar como em aberto em
+      todas as semanas passadas — inflaria o saldo com dinheiro que já entrou.
+   2. Nota sem `createdAt` (o campo é opcional; ver o comentário em useInvoices)
+      conta como existente desde sempre, senão ela sumiria da série inteira.
+
+   O que NÃO dá para reconstruir, e por isso não tem função aqui: o valor de um
+   negócio no passado (updateDeal sobrescreve `value` sem versionar) e o momento
+   em que uma atividade foi concluída (toggleActivity grava só `done`, não existe
+   `doneAt` em lugar nenhum do modelo). */
+
+function existiaEm(iv: Invoice, t: number): boolean {
+  return !iv.createdAt || iv.createdAt.getTime() <= t
+}
+
+function jaEstavaPagaEm(iv: Invoice, t: number): boolean {
+  if (iv.status !== 'Paga') return false
+  return !iv.paidAt || iv.paidAt.getTime() <= t
+}
+
+/** Saldo ainda a receber (não paga e não vencida) no fim de cada semana. */
+export function aReceberPorSemana(invoices: Invoice[], faixas: Semana[]): number[] {
+  return faixas.map(({ fim }) => {
+    const t = fim.getTime()
+    return invoices.reduce((s, iv) => {
+      if (!existiaEm(iv, t) || jaEstavaPagaEm(iv, t)) return s
+      return iv.dueAt.getTime() >= t ? s + iv.value : s
+    }, 0)
+  })
+}
+
+/** Quantidade de notas vencidas e em aberto no fim de cada semana. */
+export function vencidasPorSemana(invoices: Invoice[], faixas: Semana[]): number[] {
+  return faixas.map(({ fim }) => {
+    const t = fim.getTime()
+    return invoices.reduce((n, iv) => {
+      if (!existiaEm(iv, t) || jaEstavaPagaEm(iv, t)) return n
+      return iv.dueAt.getTime() < t ? n + 1 : n
+    }, 0)
+  })
 }
