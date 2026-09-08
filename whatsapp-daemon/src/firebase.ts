@@ -6,8 +6,10 @@ import { config } from './config.js'
 // Admin SDK — IGNORA as security rules do Firestore de propósito: o daemon escreve
 // tanto no subtree admin-only (whatsappSessions/**, chaves/creds do Signal) quanto no
 // subtree do tenant (users/{uid}/...). Por isso todo comando DEVE derivar o uid do PATH
-// do doc na fila (users/{uid}/waCommands/...) antes de tocar em qualquer caminho — a rule
-// `allow write: if owner(uid)` garante que só o dono conseguiu escrever ali.
+// do doc na fila (waCommands/{uid}/queue/...) antes de tocar em qualquer caminho — as rules
+// garantem que só um membro ativo daquele ambiente escreveu ali. O PAPEL de quem pediu é
+// reconferido em commands.ts, contra o Firestore, para os comandos destrutivos: rule não
+// vale para este processo.
 if (!getApps().length) {
   initializeApp({
     projectId: config.projectId,

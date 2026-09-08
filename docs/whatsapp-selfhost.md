@@ -34,7 +34,8 @@ No repositório, uma vez:
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-> O índice de `waCommands` é **`COLLECTION_GROUP`**. Sem ele o listener do daemon cai com
+> A fila vive em `waCommands/{uid}/queue` (coleção de TOPO — ver firestore.rules) e o
+> índice de `queue` é **`COLLECTION_GROUP`**. Sem ele o listener do daemon cai com
 > `FAILED_PRECONDITION` — e como o emulador não valida índices, o erro só aparece em produção.
 > Espere o índice sair de *Building* no console antes de seguir.
 
@@ -42,7 +43,7 @@ Opcional, mas recomendado — apagamento automático dos comandos velhos, sem cu
 
 ```bash
 gcloud firestore fields ttls update expireAt \
-  --collection-group=waCommands --enable-ttl --project=titas-c8967
+  --collection-group=queue --enable-ttl --project=titas-c8967
 ```
 
 ---
@@ -191,7 +192,7 @@ Aceite conscientemente (ou prefira a VM da GCP, que elimina o primeiro item):
 
 | Sintoma | Causa provável |
 |---|---|
-| Log repete `listener de waCommands caiu` | Índice `COLLECTION_GROUP` ausente ou ainda em *Building* (§2) |
+| Log repete `listener da fila de comandos caiu` | Índice `COLLECTION_GROUP` de `queue` ausente ou ainda em *Building* (§2) |
 | Processo sobe e sai na hora | Falha ao autenticar (confira `GOOGLE_APPLICATION_CREDENTIALS`) — o log mostra o erro |
 | CRM diz "Serviço de WhatsApp offline" | Daemon parado, ou `whatsappDaemon/heartbeat` sem escrita há mais de 2 min |
 | `lease detida por outra instância` | Há outra cópia rodando (outro terminal, ou a tarefa agendada). Encerre uma |

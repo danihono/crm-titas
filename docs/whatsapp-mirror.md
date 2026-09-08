@@ -22,7 +22,7 @@ Módulo que espelha, em tempo real, as conversas de WhatsApp de um usuário dent
 
 ```
 Frontend (React)                    whatsapp-daemon (self-hosted, atrás de NAT)
-  ├─ runCommand ─addDoc──► users/{uid}/waCommands/{id} ──onSnapshot──► dispatcher
+  ├─ runCommand ─addDoc──► waCommands/{uid}/queue/{id} ──onSnapshot──► dispatcher
   │     └─ onSnapshot ◄─── mesmo doc (status/result/error) ◄── ACK do daemon
   ├─ useWhatsappStatus  ──onSnapshot── whatsappStatus/{uid}  ◄── writeStatus (Admin)
   ├─ useDaemonOnline    ──onSnapshot── whatsappDaemon/heartbeat ◄── heartbeat (Admin)
@@ -48,7 +48,7 @@ o `verifyIdToken` que existia no transporte HTTP.
 
 | Path | Quem escreve | Quem lê | Conteúdo |
 |---|---|---|---|
-| `users/{uid}/waCommands/{id}` | app (cria) + daemon (executa/ACK) | dono | `type`, `args`, `status` (`pending`→`running`→`done`/`error`), `attempts`, `claimedBy`, `lockUntil`, `result`, `error`, `expireAt` (TTL) |
+| `waCommands/{uid}/queue/{id}` | app (cria) + daemon (executa/ACK) | membro ativo; purgar/desconectar/consentir exigem gestor | `type`, `args`, `status` (`pending`→`running`→`done`/`error`), `attempts`, `claimedBy`, `lockUntil`, `result`, `error`, `expireAt` (TTL) |
 | `whatsappDaemon/heartbeat` | daemon (Admin) | qualquer autenticado | `instanceId`, `updatedAt` — sinal de vida; `storageOk`/`storageCode`/`storageCheckedAt` — veredito da sonda de Storage. **Sem dado de tenant**: só o enum, nunca bucket/projeto/erro (o doc é legível por qualquer usuário) |
 | `whatsappSessions/{uid}` | daemon (Admin) | **ninguém** (default-deny) | `creds` (BufferJSON), `desiredState`, `phoneNumber`, `retentionDays`, `consentAt`, `lock` (lease), `lastMirrorAt` (watermark do gap-fill) |
 | `whatsappSessions/{uid}/keys/{keyId}` | daemon (Admin) | **ninguém** | uma chave do Signal por doc (`{v}` BufferJSON) |
@@ -189,7 +189,7 @@ Duas limitações que vale conhecer:
 
 ## Envio pelo CRM
 
-Dois comandos na fila (`users/{uid}/waCommands`), ambos só quando a sessão está `connected`:
+Dois comandos na fila (`waCommands/{uid}/queue`), ambos só quando a sessão está `connected`:
 
 - **`message.send` (texto).** O daemon resolve o contato pelo `contactId`, normaliza
   `whatsapp`/`phone`, envia com `sock.sendMessage` e grava a mensagem no contato selecionado.
@@ -273,7 +273,7 @@ Antes de subir o daemon, publique as regras e o índice:
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-> O índice de `waCommands` é **`COLLECTION_GROUP`** (os demais do projeto são `COLLECTION`).
+> O índice de `queue` é **`COLLECTION_GROUP`** (os demais do projeto são `COLLECTION`).
 > Sem ele o listener do daemon morre com `FAILED_PRECONDITION` — e o emulador **não** valida
 > índices, então isso só aparece em produção. Espere sair de *Building* antes de seguir.
 

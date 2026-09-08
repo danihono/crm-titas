@@ -33,10 +33,18 @@ etiquetas e as transições de estado. Cada ciclo vira um registro em
 `users/{uid}/conversations`, que é o que alimenta os Relatórios.
 Ver `docs/modulos-atendimento.md` para o modelo de dados e o que ainda não foi feito.
 
+> **Segurança:** `docs/auditoria-seguranca.md` traz a auditoria completa — o que foi
+> confirmado por teste, o que foi corrigido, o que depende de uma ação sua no Console e o
+> que ficou em aberto por decisão. Leia a seção "Ordem do deploy" antes de publicar: a fila
+> de comandos do WhatsApp mudou de lugar, então regras, site e daemon sobem **juntos**.
+
 ## SUPER TITAN (dono do sistema)
 As contas listadas em `src/lib/owners.ts` entram num painel próprio (`/super`), fora do CRM:
 
-- **Visão Geral** — métricas agregadas de todos os clientes (pipeline, faturamento, contagens).
+- **Visão Geral** — métricas agregadas de todos os clientes (pipeline, faturamento,
+  contagens). Calculadas **no servidor**, pela callable `estatisticasClientes`: antes o
+  painel abria `collectionGroup` pelo navegador e recebia os documentos inteiros dos
+  clientes para mostrar só as somas.
 - **Clientes** — a ficha administrativa de cada conta: **nome, cor e logo** (editáveis) e a
   **exclusão definitiva** da conta.
 
@@ -72,6 +80,11 @@ Abra http://localhost:5173 e entre com a conta demo criada pelo seed:
 
 > `.env.local` já vem com `VITE_USE_EMULATORS=true` e um projeto demo (`demo-titas-crm`), então o dev roda offline contra os emuladores. O Emulator UI fica em http://localhost:4000.
 
+> O `seed` **recusa rodar** se `FIRESTORE_EMULATOR_HOST`/`FIREBASE_AUTH_EMULATOR_HOST` não
+> apontarem para loopback. Ele cria uma conta com senha conhecida e sobrescreve dados: antes
+> usava `||=`, então um ambiente com essas variáveis já definidas mandava tudo para o
+> projeto real em silêncio.
+
 ### Scripts
 | Script | O que faz |
 |---|---|
@@ -80,6 +93,8 @@ Abra http://localhost:5173 e entre com a conta demo criada pelo seed:
 | `npm run seed` | Popula `users/{uid}/...` com os dados de exemplo (cria a conta demo) |
 | `npm run build` | `tsc --noEmit` + build de produção (`dist/`) |
 | `npm run emulators:all` | Emuladores incluindo Functions (após setup da Fase 7) |
+| `npm run test:rules` | Suíte de Security Rules nos emuladores (98 testes) |
+| `npm run storage:revogar-tokens <uid>` | Revoga as URLs de download já compartilhadas de um ambiente (prévia; `--apply` para valer) |
 
 ## Estrutura
 ```
@@ -127,27 +142,25 @@ firebase functions:secrets:set GEMINI_API_KEY     # cole sua chave do Google AI 
 > que trafega aqui é conversa de cliente, o mesmo dado que as security rules escondem até
 > do dono do sistema. O pago custa centavos e encerra esse uso.
 
-- **App Check (reCAPTCHA v3) — hoje está PELA METADE, de propósito:**
+- **App Check (reCAPTCHA v3) — desligado, e todas as callables seguem UMA chave.**
 
-  | função | `enforceAppCheck` |
-  |---|---|
-  | `askTitaIA` | `false` |
-  | `gerarFluxoIA` | `false` |
-  | `excluirCliente` | `true` |
+  Estava pela metade e era o pior dos dois mundos: as funções de IA sem defesa alguma, e a
+  `excluirCliente` exigindo um token que a build de produção **nunca enviou** — ou seja, a
+  exclusão de cliente está quebrada no ar desde então. Hoje as seis callables leem
+  `APP_CHECK_EXIGIDO` (`functions/src/index.ts`). Ligar é configuração, não código, **nesta
+  ordem**:
 
-  As duas de IA foram afrouxadas porque a build de produção nunca recebeu
-  `VITE_RECAPTCHA_SITE_KEY`: sem ela `src/lib/firebase.ts` nem inicializa o App Check, e
-  toda chamada era recusada antes de chegar ao Gemini. O que segura a porta é o
-  `request.auth` — anônimo não passa. O que se perde é a defesa contra o token de um
-  usuário logado ser usado fora do site, o que num endpoint de API paga é risco real.
+  1. reCAPTCHA v3 no console + *secret key* em Firebase Console → App Check
+  2. `VITE_RECAPTCHA_SITE_KEY` no `.env.local` e **rebuild do site**
+  3. `TITA_APP_CHECK_ENFORCED=true` em `functions/.env` e redeploy das functions
 
-  A **exclusão de cliente continua exigindo** App Check e por isso **não funciona** até a
-  site key existir — ela apaga uma conta inteira sem volta, e ali o atrito vale a pena.
+  Inverter 2 e 3 derruba as chamadas do site. O `vite.config.ts` avisa em toda build de
+  produção enquanto a site key estiver faltando. No Console, ligue o enforcement de
+  Firestore e Storage em **AUDIT** antes de ENFORCE.
 
-  Para fechar o buraco: crie um site reCAPTCHA v3, cole a *secret key* no Firebase Console
-  → App Check, ponha a *site key* em `VITE_RECAPTCHA_SITE_KEY` no `.env.local`, rebuilde e
-  devolva `enforceAppCheck: true` nas duas de IA. O `vite.config.ts` avisa em toda build de
-  produção enquanto a variável estiver faltando.
+  O App Check não é a autorização: quem decide quem pode o quê são o `request.auth`, a
+  allowlist e as security rules. Ele é a camada que impede um token válido de ser usado
+  fora do site — num endpoint que gasta API paga, risco real.
 - Modelos configuráveis por env, sem mexer em código: `TITA_MODEL` (chat, default
   `gemini-3.5-flash-lite`) e `TITA_FLOW_MODEL` (gerador de fluxos, mesmo default).
 - **Antes de publicar, teste contra a API de verdade** — a lógica vive em
@@ -190,6 +203,11 @@ firebase deploy --only functions:excluirCliente
 > `npm --prefix functions ci` na mão.
 
 ## Modelo de dados (Firestore, single-tenant)
+> A fila de comandos do WhatsApp vive em **`waCommands/{uid}/queue`**, coleção de TOPO —
+> não em `users/{uid}/waCommands`. Ela saiu de dentro do ambiente porque as regras do
+> Firestore são união permissiva: lá dentro, a regra ampla de escrita a alcançava e nenhuma
+> condição aninhada impedia um atendente de enfileirar um expurgo. Ver `firestore.rules`.
+
 `users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`, `contactId` e `reachedAt`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
 
 > A coleção `leads` **não existe mais**: na primeira abertura do Pipeline, `ensureLeadsBoard()`

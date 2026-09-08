@@ -53,10 +53,13 @@ type ActionResult = Record<string, unknown>
 // ---------------------------------------------------------------------------
 // Validação dos args
 //
-// OBRIGATÓRIA: as security rules do Firestore são união PERMISSIVA, então não é
-// possível restringir o schema de users/{uid}/waCommands por rule (uma regra aninhada
-// mais estrita não revoga o `allow write: if owner(uid)` recursivo). O daemon é a única
-// barreira entre um doc arbitrário e a execução.
+// OBRIGATÓRIA, mesmo depois de as rules passarem a validar a fila.
+//
+// Desde que a fila saiu para `waCommands/{uid}/queue`, as rules conferem o TIPO do comando
+// e o PAPEL de quem enfileira. Elas não conferem os `args` — e, principalmente, não valem
+// para este processo: o daemon usa Admin SDK e ignora rules. Um doc escrito por um script,
+// por uma função ou por uma rule afrouxada por engano chega aqui do mesmo jeito.
+// Esta validação é a última barreira entre um doc arbitrário e a execução.
 // ---------------------------------------------------------------------------
 
 function phoneDigits(v: unknown): string {
