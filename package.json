@@ -12,7 +12,9 @@
     "emulators:all": "firebase emulators:start --import=./.emulator-data --export-on-exit=./.emulator-data",
     "dev:full": "concurrently -k -n EMU,VITE -c magenta,cyan \"npm:emulators\" \"npm:dev\"",
     "seed": "tsx scripts/seed.ts",
-    "wa:sessions": "tsx scripts/wa-sessions.ts"
+    "wa:sessions": "tsx scripts/wa-sessions.ts",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-titas-rules \"vitest run\"",
+    "test:rules:watch": "firebase emulators:exec --only firestore,storage --project demo-titas-rules \"vitest\""
   },
   "dependencies": {
     "@xyflow/react": "^12.11.3",
@@ -27,6 +29,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -34,10 +37,12 @@
     "autoprefixer": "^10.5.2",
     "concurrently": "^9.1.0",
     "firebase-admin": "^13.0.2",
+    "firebase-tools": "^14.27.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
   }
 }

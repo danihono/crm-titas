@@ -1,47 +1,165 @@
 rules_version = '2';
 
-// Arquivos do tenant em users/{uid}/... — mídias de conversa, fotos de contato e a
-// biblioteca de mídias. Acessa quem é o dono da conta OU tem vínculo de atendente
+// Arquivos do tenant em users/{uid}/... — mídias de conversa, anexos de contato, fotos e a
+// biblioteca de mídias. Acessa quem é o dono da conta OU tem vínculo ATIVO de atendente
 // (users/{uid}/members/{authUid} no Firestore, o mesmo teste do firestore.rules).
-// Upload pelo navegador limitado a 10 MB; o daemon escreve pelo Admin SDK e não passa
-// por aqui, então mídia recebida do WhatsApp não esbarra neste teto.
+//
+// DUAS COISAS QUE MUDARAM NA AUDITORIA, e o motivo de cada uma:
+//
+// 1. `active != false`. Antes bastava o vínculo EXISTIR. Como o produto "bloqueia" alguém
+//    marcando active=false (e não apagando o vínculo, para o histórico não ficar órfão),
+//    o Firestore cortava na hora e o Storage não cortava nunca: a pessoa desligada seguia
+//    lendo, SOBRESCREVENDO e APAGANDO toda mídia da operação.
+//
+// 2. contentType e tamanho por pasta. Antes só havia o teto de 10 MB e nenhuma checagem de
+//    tipo — dava para hospedar HTML, SVG e executável no bucket do cliente e servi-los pela
+//    URL do Firebase. SVG fica de fora das imagens de propósito: é XML e carrega script.
+//
+// Regras de Storage também são UNIÃO PERMISSIVA: por isso a pasta `profile/` é excluída à
+// mão do match amplo de `contacts/**` — sem essa exclusão, o match amplo devolveria ao
+// avatar a permissão de aceitar PDF que a regra específica acabou de negar.
 //
 // O DONO DO SISTEMA (SUPER TITAN) não entra nesses arquivos: só na pasta
 // users/{uid}/brand/, que é a logo que ele mesmo define no painel de Clientes.
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allowlist espelhando firestore.rules (isSuperOwner) e src/lib/owners.ts.
+
+    // ---- identidade (espelha firestore.rules) ----
+    function autenticado() { return request.auth != null; }
+
     function isSuperOwner() {
-      return request.auth != null && request.auth.token.email in [
-        'danielboy200627@gmail.com'
-        // , 'dono2@exemplo.com'
-        // , 'dono3@exemplo.com'
-      ];
+      return autenticado()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'danielboy200627@gmail.com'
+          // , 'dono2@exemplo.com'
+          // , 'dono3@exemplo.com'
+        ];
     }
 
-    // Logo administrativa do cliente. Match mais específico que o de baixo: como as
-    // regras são união permissiva, o dono do sistema ganha acesso AQUI e só aqui.
+    function vinculoPath(uid) {
+      return /databases/(default)/documents/users/$(uid)/members/$(request.auth.uid);
+    }
+    function vinculo(uid) { return firestore.get(vinculoPath(uid)).data; }
+
+    function ehTitular(uid) { return autenticado() && request.auth.uid == uid; }
+
+    // Regra de Storage consultando o Firestore: é o que sustenta o multi-seat aqui.
+    // Sem isto, um atendente convidado não abriria uma única imagem da conversa.
+    function ehMembro(uid) {
+      return autenticado()
+        && firestore.exists(vinculoPath(uid))
+        && vinculo(uid).active != false;
+    }
+    function ehGestor(uid) {
+      return ehMembro(uid) && vinculo(uid).role in ['dono', 'gestor'];
+    }
+
+    function podeVer(uid)   { return ehTitular(uid) || ehMembro(uid); }
+    function podeGerir(uid) { return ehTitular(uid) || ehGestor(uid); }
+
+    // ---- tipos aceitos ----
+    function mb(n) { return request.resource.size < n * 1024 * 1024; }
+
+    // SVG NÃO entra: é XML executável. HEIC/HEIF entram porque é o padrão do iPhone.
+    function imagem() {
+      return request.resource.contentType.matches('image/(png|jpe?g|gif|webp|heic|heif)');
+    }
+
+    // O que pode virar anexo de conversa ou item de biblioteca. Tudo o que não estiver
+    // aqui — HTML, SVG, JS, executável, octet-stream — é recusado.
+    function anexo() {
+      return imagem()
+        || request.resource.contentType.matches('audio/.*')
+        || request.resource.contentType.matches('video/(mp4|quicktime|webm|3gpp)')
+        || request.resource.contentType in [
+             'application/pdf',
+             'application/msword',
+             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+             'application/vnd.ms-excel',
+             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+             'text/plain',
+             'text/csv'
+           ];
+    }
+
+    // =================================================================
+    // Logo administrativa do cliente — do dono do sistema, e só dele.
+    // =================================================================
     match /users/{uid}/brand/{file} {
-      allow read: if isSuperOwner() || (request.auth != null && request.auth.uid == uid);
-      allow create, update: if isSuperOwner() && request.resource.size < 5 * 1024 * 1024;
+      allow read: if isSuperOwner() || podeVer(uid);
+      allow create, update: if isSuperOwner() && imagem() && mb(5);
       allow delete: if isSuperOwner();
     }
 
-    match /users/{uid}/{allPaths=**} {
-      function isOwner() {
-        return request.auth != null && request.auth.uid == uid;
-      }
-      // Regra de Storage consultando o Firestore: é o que sustenta o multi-seat aqui.
-      // Sem isto, um atendente convidado não abriria uma única imagem da conversa.
-      function isMember() {
-        return request.auth != null
-               && firestore.exists(/databases/(default)/documents/users/$(uid)/members/$(request.auth.uid));
-      }
+    // =================================================================
+    // Foto de perfil da PESSOA (não do tenant): users/{authUid}/profile/
+    //
+    // A leitura é de qualquer autenticado porque o avatar de um colega aparece em telas
+    // do tenant dele, e o dono daquele arquivo é a conta pessoal — não há vínculo que
+    // relacione os dois. É baixa sensibilidade e, ainda assim, mais fechado do que hoje:
+    // a URL com token que o app grava hoje dispensa até estar logado.
+    // =================================================================
+    match /users/{uid}/profile/{file} {
+      allow read: if autenticado();
+      allow create, update: if ehTitular(uid) && imagem() && mb(2);
+      allow delete: if ehTitular(uid);
+    }
 
-      allow read: if isOwner() || isMember();
-      allow create, update: if (isOwner() || isMember())
-                            && request.resource.size < 10 * 1024 * 1024;
-      allow delete: if isOwner() || isMember();
+    // =================================================================
+    // Avatar do CONTATO. Match mais específico que o de baixo — e por isso o de baixo
+    // precisa se excluir daqui à mão (união permissiva).
+    // =================================================================
+    match /users/{uid}/contacts/{contactId}/profile/{file} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid) && imagem() && mb(5);
+      allow delete: if podeVer(uid);
+    }
+
+    // =================================================================
+    // Mídia de conversa, anexos e envios.
+    //
+    // As três pastas são declaradas UMA A UMA, sem `**`, de propósito: um match amplo
+    // `contacts/{id}/{allPaths=**}` voltaria a valer para `profile/` (união permissiva) e
+    // devolveria ao avatar a permissão de aceitar PDF que a regra de cima acabou de negar.
+    // Excluir a pasta dentro do match amplo não é opção: num match de Storage o curinga
+    // `**` é um Path, não uma string, e não responde a `matches()`.
+    //
+    //   whatsapp/ — recebida do WhatsApp, escrita pelo daemon via Admin SDK (não passa aqui)
+    //   outgoing/ — anexo que o atendente envia pela conversa
+    //   <arquivo>  — documentos anexados na ficha do contato (useFiles)
+    // =================================================================
+    match /users/{uid}/contacts/{contactId}/whatsapp/{file} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid) && anexo() && mb(10);
+      // Apagar mídia de conversa é irreversível e some do histórico: de gestor para cima.
+      allow delete: if podeGerir(uid);
+    }
+
+    match /users/{uid}/contacts/{contactId}/outgoing/{file} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid) && anexo() && mb(10);
+      allow delete: if podeGerir(uid);
+    }
+
+    match /users/{uid}/contacts/{contactId}/{file} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid) && anexo() && mb(10);
+      allow delete: if podeGerir(uid);
+    }
+
+    // =================================================================
+    // Biblioteca de mídias do ambiente — é configuração, logo é de gestor para cima.
+    // =================================================================
+    match /users/{uid}/library/{file} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeGerir(uid) && anexo() && mb(10);
+      allow delete: if podeGerir(uid);
+    }
+
+    // Qualquer outro caminho: negado. Só o Admin SDK (daemon, Cloud Functions) alcança.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

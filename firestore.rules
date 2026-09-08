@@ -3,19 +3,46 @@ rules_version = '2';
 // Multi-seat + SUPER TITAN: o tenant é users/{uid} — do dono da conta e de todo mundo
 // que tem vínculo em users/{uid}/members/{memberUid} (atendentes convidados).
 //
+// ESTRUTURA (mudou na auditoria de segurança, não mexa sem ler isto):
+// as regras do Firestore são UNIÃO PERMISSIVA — um `match` aninhado mais estrito NÃO
+// revoga um `allow` mais amplo que já casou. Por isso NÃO existe mais um
+// `match /users/{uid}/{document=**} { allow write }`: enquanto ele existia, era
+// impossível restringir papel, exclusão ou formato de campo em qualquer coleção.
+// A escrita agora é declarada COLEÇÃO POR COLEÇÃO. Coleção nova sem `match` próprio cai
+// no default-deny do fim do arquivo — some da tela até ganhar a sua regra, e isso é de
+// propósito: é o único jeito de o silêncio ser seguro.
+//
+// A leitura continua ampla (um `match` recursivo), mas com uma LISTA DE EXCEÇÕES: o que
+// é de gestor para cima não passa por ela, e ganha regra própria mais abaixo.
+//
 // Os DONOS DO SISTEMA (allowlist de e-mail) NÃO entram no tenant do cliente: os dados de
 // atendimento podem ser confidenciais. O que eles têm é (1) ler o DOC users/{uid} para
-// listar os clientes, (2) alterar só a ficha administrativa desse doc — nome, cor e logo —
-// e (3) as consultas de grupo agregadas dos dashboards. Conversas, mensagens, arquivos e
-// configurações ficam fora do alcance deles.
+// listar os clientes e (2) alterar a ficha administrativa desse doc — nome, cor e logo.
+// Conversas, mensagens, contatos, faturamento, arquivos e configurações ficam fora do
+// alcance deles. As métricas do painel SUPER TITAN vêm de contadores agregados em
+// users/{uid}/_stats, escritos pelo servidor — não de varrer os dados do cliente.
 // A allowlist abaixo deve espelhar src/lib/owners.ts (OWNER_EMAILS).
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // =====================================================================
+    // Identidade
+    // =====================================================================
+
     function signedIn() { return request.auth != null; }
+
+    // E-mail VERIFICADO. Vale para tudo que é decidido pelo endereço — allowlist de dono
+    // do sistema e aceite de convite. Sem isto, quem criasse uma conta com o e-mail de
+    // outra pessoa (o Auth não exige prova de caixa postal) herdava o que aquele endereço
+    // podia fazer.
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
     function owner(uid) { return signedIn() && request.auth.uid == uid; }
+
     function isSuperOwner() {
-      return signedIn() && request.auth.token.email in [
+      return verified() && request.auth.token.email in [
         'danielboy200627@gmail.com'
         // , 'dono2@exemplo.com'
         // , 'dono3@exemplo.com'
@@ -25,89 +52,122 @@ service cloud.firestore {
     function memberPath(uid) {
       return /databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid);
     }
+    function memberData(uid) { return get(memberPath(uid)).data; }
+
     // Vínculo de atendente. Custa 1 leitura por avaliação — por isso `owner(uid)` vem
     // sempre ANTES nas condições: o caso comum (dono no próprio tenant) nem chega aqui.
     function isMember(uid) {
-      return signedIn() && exists(memberPath(uid))
-        && get(memberPath(uid)).data.active != false;
+      return signedIn() && exists(memberPath(uid)) && memberData(uid).active != false;
     }
-    function isManager(uid) {
-      return isMember(uid) && get(memberPath(uid)).data.role in ['dono', 'gestor'];
-    }
-    // DONO DO AMBIENTE: só ele configura o tenant. O gestor consulta as configurações e
-    // administra o atendimento, mas não altera setores, etiquetas, equipe e afins.
-    function isTenantOwner(uid) {
-      return isMember(uid) && get(memberPath(uid)).data.role == 'dono';
+    function hasRole(uid, papeis) {
+      return isMember(uid) && memberData(uid).role in papeis;
     }
 
-    // Coleções que um ATENDENTE (papel mais raso) pode escrever. O que fica de fora —
-    // members, sectors, tags, quickReplies, customFields, actTypes, invoices — é de
-    // gestor para cima. Precisa ser decidido AQUI, dentro da própria regra ampla:
-    // as regras do Firestore são união permissiva, então um `allow write: if false`
-    // aninhado não revogaria nada.
-    function agentWritable(seg) {
-      return seg in [
-        'contacts', 'conversations', 'deals', 'boards', 'activities', 'events',
-        'scheduledMessages', 'leads', 'flows', 'waCommands', 'agentMessages'
-      ];
+    // Os três níveis, do mais raso ao mais alto. Use SEMPRE estes três — foi a mistura de
+    // `isMember`/`isManager` soltos que deixou a exclusão em massa aberta ao atendente.
+    function podeVer(uid)   { return owner(uid) || isMember(uid); }
+    function podeGerir(uid) { return owner(uid) || hasRole(uid, ['dono', 'gestor']); }
+    function ehDono(uid)    { return owner(uid) || hasRole(uid, ['dono']); }
+
+    // =====================================================================
+    // Validação de dados
+    // =====================================================================
+
+    function novo() { return request.resource.data; }
+    function mudou() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function tocou(campo) { return campo in mudou(); }
+
+    // Responsável e setor precisam EXISTIR no ambiente. Sem isto, um atendente atribuía
+    // conversa a um uid inventado e o relatório por atendente virava ficção — e podia
+    // esconder o próprio atendimento atrás de um responsável que não existe.
+    function membroExiste(uid, memberUid) {
+      return memberUid is string && (memberUid == ''
+        || exists(/databases/$(database)/documents/users/$(uid)/members/$(memberUid)));
+    }
+    function setorExiste(uid, sectorId) {
+      return sectorId is string && (sectorId == ''
+        || exists(/databases/$(database)/documents/users/$(uid)/sectors/$(sectorId)));
+    }
+    function responsavelOk(uid) {
+      return !('assignedTo' in novo()) || membroExiste(uid, novo().assignedTo);
+    }
+    function setorOk(uid) {
+      return !('sectorId' in novo()) || setorExiste(uid, novo().sectorId);
+    }
+    // O mesmo par, mas dentro do mapa `conv` espelhado no contato.
+    function convOk(uid) {
+      return !('conv' in novo())
+        || ((!('assignedTo' in novo().conv) || membroExiste(uid, novo().conv.assignedTo))
+         && (!('sectorId'   in novo().conv) || setorExiste(uid, novo().conv.sectorId)));
     }
 
-    // Tudo o que a tela de Configurações escreve. Fora desta lista sobra `invoices`, que é
-    // módulo e não configuração — por isso segue no nível de gestor.
-    function settingsOnly(seg) {
-      return seg in [
-        'members', 'sectors', 'tags', 'quickReplies', 'customFields', 'actTypes',
-        'variables', 'mediaLibrary', 'knowledge'
-      ];
+    function numeroOk(campo) {
+      return !(campo in novo()) || novo()[campo] is number;
     }
 
-    function invitePath() {
-      return /databases/$(database)/documents/invites/$(request.auth.token.email);
-    }
+    // =====================================================================
+    // users/{uid} — o doc do tenant e o doc da conta
+    // =====================================================================
 
     match /users/{uid} {
-      allow read: if owner(uid) || isMember(uid) || isSuperOwner();
-      // O doc do tenant guarda businessHours, orgName e a config do agente — tudo escrito
-      // pela tela de Configurações, logo é do dono do ambiente.
-      allow write: if owner(uid) || isTenantOwner(uid);
+      // O dono do sistema lê a lista de clientes (nome, cor, logo, e-mail, criação).
+      allow read: if podeVer(uid) || isSuperOwner();
+
+      // Config da operação (businessHours, orgName, agent) e as prefs pessoais da conta.
+      allow create, update, delete: if ehDono(uid);
 
       // Ficha administrativa do cliente, editada no painel SUPER TITAN. O hasOnly é a
       // trava de verdade: sem ele, "editar o nome do cliente" viraria escrita livre no
       // doc do tenant (agent, horários, prefs…).
       allow update: if isSuperOwner()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['displayName', 'brandColor', 'logoUrl', 'logoPath']);
+        && mudou().hasOnly(['displayName', 'brandColor', 'logoUrl', 'logoPath']);
+    }
 
-      // O vínculo em si: quem já é gestor administra a equipe. O CONVIDADO cria o
-      // próprio doc (id = uid dele) provando que existe um convite para o e-mail dele
-      // apontando para este tenant — o papel tem que ser igual ao do convite, então
-      // ninguém se promove no caminho. É o que dispensa uma Cloud Function no aceite.
-      match /members/{memberUid} {
-        allow read: if owner(uid) || isMember(uid);
-        allow write: if owner(uid) || isTenantOwner(uid);
-        allow create: if signedIn()
-          && memberUid == request.auth.uid
-          && exists(invitePath())
-          && get(invitePath()).data.tenantUid == uid
-          && request.resource.data.role == get(invitePath()).data.role;
+    // ---------------------------------------------------------------------
+    // A LEITURA também é declarada coleção por coleção — não existe mais um
+    // `match /users/{uid}/{document=**} { allow read }`.
+    //
+    // Não é preciosismo: como as regras são união permissiva, um match amplo de leitura
+    // não teria como tirar `invoices`, `knowledge` e `variables` do alcance do atendente.
+    // E a tentativa de filtrar por `document[0]` dentro dele não funciona: numa CONSULTA
+    // de coleção o curinga `**` não está ligado, e o Firestore recusa a query inteira com
+    // "Variable is not bound in path template".
+    // ---------------------------------------------------------------------
 
-        // Cada pessoa mantém o PRÓPRIO nome no vínculo — é o que faz o perfil renomeado
-        // chegar à lista de atendentes, ao seletor de responsável e aos relatórios. Só o
-        // nome: papel, setores e `active` seguem sendo do dono do ambiente, senão um
-        // atendente se promoveria sozinho.
-        allow update: if signedIn()
-          && memberUid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
-      }
+    // =====================================================================
+    // Equipe
+    // =====================================================================
 
-      match /{document=**} {
-        allow read: if owner(uid) || isMember(uid);
-        // Configuração é do dono; o resto (hoje só invoices) segue de gestor para cima; e o
-        // atendimento fica aberto a qualquer membro.
-        allow write: if owner(uid)
-          || (settingsOnly(document[0]) ? isTenantOwner(uid) : isManager(uid))
-          || (isMember(uid) && agentWritable(document[0]));
-      }
+    match /users/{uid}/members/{memberUid} {
+      allow read: if podeVer(uid);
+
+      // Quem já é dono do ambiente administra a equipe: papel, setores e `active`.
+      allow create, update, delete: if ehDono(uid);
+
+      // O CONVIDADO cria o próprio doc (id = uid dele) provando que existe um convite
+      // para o e-mail dele apontando para este tenant — o papel tem que ser igual ao do
+      // convite, então ninguém se promove no caminho. É o que dispensa uma Cloud Function
+      // no aceite.
+      //
+      // `verified()`: o convite é endereçado a um E-MAIL, e qualquer pessoa pode criar uma
+      // conta com o e-mail de outra. Sem a prova de caixa postal, quem adivinhasse o
+      // endereço de um convite pendente entrava no tenant no lugar do convidado.
+      allow create: if verified()
+        && memberUid == request.auth.uid
+        && exists(/databases/$(database)/documents/invites/$(request.auth.token.email))
+        && get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.tenantUid == uid
+        && novo().role == get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.role
+        && novo().keys().hasOnly(['name', 'email', 'role', 'sectorIds', 'active', 'tenantName', 'createdAt'])
+        && novo().email == request.auth.token.email
+        && novo().active == true;
+
+      // Cada pessoa mantém o PRÓPRIO nome no vínculo — é o que faz o perfil renomeado
+      // chegar à lista de atendentes, ao seletor de responsável e aos relatórios. Só o
+      // nome: papel, setores e `active` seguem sendo do dono do ambiente, senão um
+      // atendente se promoveria sozinho.
+      allow update: if signedIn()
+        && memberUid == request.auth.uid
+        && mudou().hasOnly(['name']);
     }
 
     // Descoberta de vínculo no login: collectionGroup('members') filtrado pelo próprio
@@ -117,64 +177,235 @@ service cloud.firestore {
       allow read: if signedIn() && resource.data.email == request.auth.token.email;
     }
 
-    // Convites. O doc é chaveado pelo e-mail do convidado: ele lê e apaga o próprio
-    // convite (ao aceitar); quem convida é gestor do tenant apontado no doc.
+    // =====================================================================
+    // Atendimento — todo membro ativo escreve; APAGAR é de gestor para cima.
     //
-    // A leitura de quem CONVIDA é só `resource.data.tenantUid == request.auth.uid`, de
-    // propósito: a tela lista os pendentes com where('tenantUid','==',uid), e o Firestore
-    // só aceita uma consulta quando consegue casar o filtro com a condição da regra.
-    // Um `get()` de papel aqui dentro não é comparável a um where(), e derrubaria a
-    // listagem inteira — a escrita, que é doc a doc, pode ser mais rica.
-    match /invites/{email} {
-      allow read, delete: if signedIn() && email == request.auth.token.email;
-      allow read: if signedIn() && resource.data.tenantUid == request.auth.uid;
-      allow update, delete: if signedIn()
-        && (owner(resource.data.tenantUid) || isManager(resource.data.tenantUid));
-      allow create: if signedIn()
-        && (owner(request.resource.data.tenantUid) || isManager(request.resource.data.tenantUid));
+    // Separar `delete` foi o ponto: enquanto `write` cobria os três verbos, o papel mais
+    // raso do sistema podia esvaziar contatos, negócios e quadros em lote.
+    // =====================================================================
+
+    match /users/{uid}/contacts/{contactId} {
+      allow read: if podeVer(uid);
+      allow create: if podeVer(uid) && convOk(uid)
+        && novo().keys().hasOnly([
+             'name', 'company', 'initials', 'online', 'role', 'email', 'phone',
+             'whatsapp', 'whatsappDigits', 'status', 'nameSource', 'lastMessage',
+             'lastMessageAt', 'createdAt', 'unreadCount', 'tagIds', 'conv', 'custom',
+             'photoUrl', 'photoPath', 'photoSource', 'optOut',
+           ]);
+      // No update a lista é de campos ALTERÁVEIS, não do documento inteiro: o daemon
+      // grava waJid, historyImport, mediaRecovery e afins pelo Admin SDK, e o cliente não
+      // pode encostar neles. `createdAt` fica de fora — data de criação não se reescreve.
+      allow update: if podeVer(uid) && convOk(uid)
+        && mudou().hasOnly([
+             'name', 'company', 'initials', 'role', 'email', 'phone', 'whatsapp',
+             'whatsappDigits', 'nameSource', 'unreadCount', 'lastMessage', 'lastMessageAt',
+             'tagIds', 'conv', 'custom', 'photoUrl', 'photoPath', 'photoSource', 'optOut',
+           ]);
+      allow delete: if podeGerir(uid);
     }
 
-    // Leituras agregadas (collectionGroup) para os dashboards SUPER TITAN — só donos, e só
-    // o que o useOwnerStats realmente consome: pipeline, faturamento e as contagens de
-    // contatos e atividades. `conversations` e `messages` NÃO entram aqui de propósito —
-    // é o conteúdo do atendimento, e nenhum dashboard precisa dele.
+    // Mensagens e arquivos do contato — nomeados UM A UM, nunca com `{sub=**}`.
     //
-    // `list`, e não `read`: assim vale para a consulta de grupo que alimenta os números e
-    // NÃO para um `get` direto em users/{cliente}/contacts/{id} — que seria abrir a ficha
-    // de um contato específico do cliente pelo caminho, exatamente o que não pode.
-    match /{path=**}/deals/{id}      { allow list: if isSuperOwner(); }
-    match /{path=**}/invoices/{id}   { allow list: if isSuperOwner(); }
-    match /{path=**}/contacts/{id}   { allow list: if isSuperOwner(); }
-    match /{path=**}/activities/{id} { allow list: if isSuperOwner(); }
+    // O curinga recursivo casa também com ZERO segmentos, ou seja, com o próprio doc do
+    // contato: um `match .../contacts/{id}/{sub=**}` com `allow update` livre devolveria
+    // ao contato a escrita sem validação que a regra de cima acabou de restringir, e o
+    // `createdAt` voltaria a ser reescrevível. União permissiva de novo.
+    match /users/{uid}/contacts/{contactId}/messages/{msgId} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid);
+      allow delete: if podeGerir(uid);
+    }
+    match /users/{uid}/contacts/{contactId}/files/{fileId} {
+      allow read: if podeVer(uid);
+      allow create, update: if podeVer(uid);
+      allow delete: if podeGerir(uid);
+    }
 
-    // Status da conexão de WhatsApp (QR + estado). Cliente LÊ o próprio; NUNCA escreve
-    // (quem escreve é o daemon via Admin SDK). Coleção top-level de propósito, para o
-    // read-only ser limpo — regras do Firestore são UNIÃO permissiva, então um write:false
-    // aninhado sob users/{uid}/{document=**} não revogaria o owner-write recursivo.
+    match /users/{uid}/conversations/{recordId} {
+      allow read: if podeVer(uid);
+      allow create: if podeVer(uid) && responsavelOk(uid) && setorOk(uid)
+        && novo().keys().hasOnly([
+             'contactId', 'contactName', 'assignedTo', 'assignedName', 'sectorId',
+             'tagIds', 'openedAt', 'firstResponseAt', 'closedAt', 'closedBy',
+           ]);
+      allow update: if podeVer(uid) && responsavelOk(uid) && setorOk(uid)
+        && mudou().hasOnly([
+             'contactName', 'assignedTo', 'assignedName', 'sectorId', 'tagIds',
+             'firstResponseAt', 'closedAt', 'closedBy',
+           ]);
+      allow delete: if podeGerir(uid);
+    }
+
+    match /users/{uid}/deals/{dealId} {
+      allow read: if podeVer(uid);
+      allow create: if podeVer(uid) && numeroOk('value') && numeroOk('order')
+        && novo().keys().hasOnly([
+             'company', 'contact', 'value', 'initials', 'tag', 'contactId',
+             'boardId', 'columnId', 'order', 'createdAt', 'reachedAt',
+           ]);
+      allow update: if podeVer(uid) && numeroOk('value') && numeroOk('order')
+        && mudou().hasOnly([
+             'company', 'contact', 'value', 'initials', 'tag', 'contactId',
+             'boardId', 'columnId', 'order', 'reachedAt',
+           ]);
+      allow delete: if podeGerir(uid);
+    }
+
+    // Quadros, atividades, agenda, agendamentos, fluxos e o chat do Titã IA.
+    // Sem lista de campos: o formato varia (o quadro guarda `columns`, o fluxo guarda
+    // `nodes`/`edges`) e travar isso aqui quebraria a tela sem ganho de segurança —
+    // nenhum desses campos decide permissão.
+    match /users/{uid}/boards/{id}            { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    match /users/{uid}/activities/{id}        { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    match /users/{uid}/events/{id}            { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    match /users/{uid}/scheduledMessages/{id} { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    match /users/{uid}/flows/{id}             { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    match /users/{uid}/leads/{id}             { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
+    // O chat do agente é conversa da pessoa com a IA: quem escreve também limpa.
+    match /users/{uid}/agentChat/{id}         { allow read, create, update, delete: if podeVer(uid); }
+
+    // =====================================================================
+    // Módulos de gestor
+    // =====================================================================
+
+    match /users/{uid}/invoices/{id} {
+      allow read: if podeGerir(uid);
+      allow create, update: if podeGerir(uid)
+        && numeroOk('value')
+        && (!('status' in novo()) || novo().status in ['Paga', 'Pendente', 'Vencida']);
+      allow delete: if podeGerir(uid);
+    }
+
+    match /users/{uid}/campaigns/{id}          { allow read: if podeVer(uid); allow write: if podeGerir(uid); }
+    match /users/{uid}/campaigns/{id}/targets/{targetId} { allow read: if podeVer(uid); allow write: if podeGerir(uid); }
+
+    // =====================================================================
+    // Configurações — só o dono do ambiente
+    //
+    // O gestor CONSULTA (pela leitura ampla lá em cima) e administra o atendimento, mas
+    // não altera setores, etiquetas, campos e afins.
+    // =====================================================================
+
+    match /users/{uid}/sectors/{id}       { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/tags/{id}          { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/quickReplies/{id}  { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/customFields/{id}  { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/actTypes/{id}      { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/mediaLibrary/{id}  { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+
+    // Conteúdo que alimenta a IA: fora da leitura ampla (é material interno) e de escrita
+    // exclusiva do dono do ambiente.
+    match /users/{uid}/variables/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/knowledge/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
+
+    // Contadores agregados para o painel SUPER TITAN. Escritos SÓ pelo servidor: é o que
+    // substitui a varredura das coleções do cliente (deals/invoices/contacts/activities)
+    // que o dashboard fazia antes e que dava ao dono do sistema o conteúdo do cliente.
+    match /users/{uid}/_stats/{id} {
+      allow read: if podeGerir(uid) || isSuperOwner();
+      allow write: if false;
+    }
+
+    // =====================================================================
+    // Convites
+    // =====================================================================
+
+    match /invites/{email} {
+      // O convidado lê e apaga o próprio convite (ao aceitar).
+      allow read, delete: if signedIn() && email == request.auth.token.email;
+
+      // Quem convida enxerga os pendentes do próprio tenant. `podeGerir(resource.data
+      // .tenantUid)` custa uma leitura por documento retornado, e é o que faz a tela de
+      // Equipe funcionar para o GESTOR — antes a condição era só
+      // `tenantUid == request.auth.uid`, que só casava com o titular da conta: o gestor
+      // criava e cancelava convites que nunca conseguia listar.
+      allow read: if signedIn() && podeGerir(resource.data.tenantUid);
+      allow update, delete: if signedIn() && podeGerir(resource.data.tenantUid);
+
+      // O papel é a parte perigosa: o convite vira o vínculo lá em members, então quem
+      // pode escolher `dono` aqui pode fabricar um dono do ambiente. Gestor convida
+      // atendente e gestor; só o dono do ambiente convida outro dono.
+      allow create: if signedIn()
+        && podeGerir(novo().tenantUid)
+        && novo().role in ['atendente', 'gestor', 'dono']
+        && (novo().role != 'dono' || ehDono(novo().tenantUid))
+        && novo().email == email
+        && novo().keys().hasOnly(['email', 'tenantUid', 'tenantName', 'role', 'sectorIds', 'createdAt']);
+    }
+
+    // =====================================================================
+    // WhatsApp
+    // =====================================================================
+
+    // Status da conexão (QR + estado). Cliente LÊ o próprio; NUNCA escreve (quem escreve
+    // é o daemon via Admin SDK).
     match /whatsappStatus/{uid} {
       // Qualquer membro ativo do ambiente lê: o número é o da empresa, e a sessão é uma só
       // para toda a operação — sem isto o atendente nunca via o QR nem o estado da conexão,
       // porque a tela observa whatsappStatus/{tenant}, não o uid dele.
-      allow read: if owner(uid) || isMember(uid);
+      allow read: if podeVer(uid);
       allow write: if false;
     }
+
+    // FILA DE COMANDOS DO DAEMON.
+    //
+    // Vive numa coleção de TOPO, e não em users/{uid}/waCommands, por um motivo de
+    // segurança e não de organização: lá dentro ela era alcançada pela regra ampla de
+    // escrita do tenant, e como regra do Firestore é união permissiva, nenhuma condição
+    // aninhada conseguia impedir um ATENDENTE de enfileirar `contact.purge` ou
+    // `session.disconnect` — comandos que o daemon executa com Admin SDK e que apagam
+    // contatos, mensagens e mídias sem volta. Aqui a fila tem regra própria e o tipo do
+    // comando decide o papel exigido.
+    match /waCommands/{tenantUid}/queue/{cmdId} {
+      function tipo() { return novo().type; }
+      function tipoValido() {
+        return tipo() in [
+          'session.consent', 'session.connect', 'session.disconnect',
+          'message.send', 'message.sendMedia', 'history.fetch',
+          'contact.purge', 'contact.photoRefresh', 'contact.mediaRetry'
+        ];
+      }
+      // Desconectar derruba o WhatsApp da empresa inteira; purgar apaga sem volta;
+      // o consentimento define a retenção LGPD do ambiente. Nada disso é do atendente.
+      function tipoDeGestor() {
+        return tipo() in ['contact.purge', 'session.disconnect', 'session.consent'];
+      }
+
+      allow read: if podeVer(tenantUid);
+
+      allow create: if podeVer(tenantUid)
+        && tipoValido()
+        && (!tipoDeGestor() || podeGerir(tenantUid))
+        // `by` amarra o comando a quem o pediu. O daemon confere o papel de novo antes de
+        // executar — a regra sozinha não basta, porque o Admin SDK ignora regra.
+        && novo().by == request.auth.uid
+        && novo().status == 'pending'
+        && novo().attempts == 0
+        && novo().keys().hasOnly(['type', 'args', 'status', 'attempts', 'createdAt', 'expireAt', 'by']);
+
+      // Quem avança o status é o daemon. Pelo navegador só se CANCELA o que ainda não
+      // rodou — sem isto dava para marcar como concluído um comando nunca executado.
+      allow update: if podeVer(tenantUid)
+        && resource.data.status == 'pending'
+        && mudou().hasOnly(['status'])
+        && novo().status == 'canceled';
+
+      allow delete: if podeGerir(tenantUid)
+        || (podeVer(tenantUid) && resource.data.by == request.auth.uid);
+    }
+
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
     // SEM nenhuma regra aqui, então caem no default-deny abaixo (só o Admin SDK acessa).
 
     // Sinal de vida do daemon self-hosted. O cliente lê para saber se há alguém do outro
-    // lado da fila (users/{uid}/waCommands) antes de esperar por um comando que ninguém
-    // vai atender. Doc global e sem dado de tenant — por isso basta estar autenticado.
+    // lado da fila antes de esperar por um comando que ninguém vai atender.
     match /whatsappDaemon/{doc} {
       allow read: if signedIn();
       allow write: if false;
     }
 
-    // NOTA: a fila de comandos vive em users/{uid}/waCommands/{id} e já é coberta pelo
-    // `allow write: if owner(uid)` recursivo acima. Como as regras são UNIÃO permissiva,
-    // NÃO é possível restringir aqui o schema/volume do que é enfileirado — essa validação
-    // (whitelist de `type`, cap de args, rate-limit) é feita no daemon, em actions.ts.
-
-    // Nega tudo o que não casar acima.
+    // Nega tudo o que não casar acima — inclusive coleção nova que ainda não ganhou regra.
     match /{document=**} {
       allow read, write: if false;
     }
