@@ -3,6 +3,10 @@ import { addDoc, updateDoc, collection, query, orderBy, where, serverTimestamp, 
 import { deleteObject, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
+import { safeFileName, validarImagem } from '../lib/upload'
+
+/** Avatar de contato: mesmo teto que as storage.rules aplicam à pasta profile/ do contato. */
+const MAX_IMAGEM_CONTATO = 5 * 1024 * 1024
 import { contactFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
 import { useCollection } from './useCollection'
@@ -99,8 +103,9 @@ async function deleteStoragePath(path: string): Promise<void> {
 
 /** Envia uma foto do disco como avatar do contato (marca 'manual' → o daemon não sobrescreve). */
 export async function uploadContactPhoto(contactId: string, file: File, oldPath?: string): Promise<void> {
-  const path = `users/${uid()}/contacts/${contactId}/profile/${Date.now()}_${file.name}`
-  await uploadBytes(storageRef(storage, path), file)
+  const contentType = validarImagem(file, MAX_IMAGEM_CONTATO)
+  const path = `users/${uid()}/contacts/${contactId}/profile/${Date.now()}_${safeFileName(file.name)}`
+  await uploadBytes(storageRef(storage, path), file, { contentType })
   const photoUrl = await getDownloadURL(storageRef(storage, path))
   await updateDoc(ref(`contacts/${contactId}`), { photoUrl, photoPath: path, photoSource: 'manual' })
   if (oldPath && oldPath !== path) await deleteStoragePath(oldPath)

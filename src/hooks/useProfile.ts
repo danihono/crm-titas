@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { auth, db, storage } from '../lib/firebase'
 import { selfRef } from '../lib/paths'
+import { safeFileName, validarImagem } from '../lib/upload'
 import { prefsFromDoc } from '../lib/converters'
 import { useThemeStore } from '../store/themeStore'
 import { useAuth } from '../contexts/AuthContext'
@@ -125,10 +126,10 @@ async function deleteStoragePath(path: string): Promise<void> {
 
 /** Sobe a foto de perfil e grava url + caminho no doc da conta. */
 export async function uploadSelfPhoto(file: File, oldPath?: string): Promise<void> {
-  if (!file.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem (PNG, JPG…).')
-  if (file.size > MAX_PHOTO_BYTES) throw new Error('A imagem precisa ter no máximo 2 MB.')
-  const path = `users/${selfUid()}/profile/${Date.now()}_${file.name}`
-  await uploadBytes(storageRef(storage, path), file, { contentType: file.type })
+  // `startsWith('image/')` aceitava image/svg+xml, que é XML e carrega script.
+  const contentType = validarImagem(file, MAX_PHOTO_BYTES)
+  const path = `users/${selfUid()}/profile/${Date.now()}_${safeFileName(file.name)}`
+  await uploadBytes(storageRef(storage, path), file, { contentType })
   const photoUrl = await getDownloadURL(storageRef(storage, path))
   await setDoc(selfRef(), { photoUrl, photoPath: path }, { merge: true })
   if (oldPath && oldPath !== path) await deleteStoragePath(oldPath)

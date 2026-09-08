@@ -14,7 +14,8 @@
     "seed": "tsx scripts/seed.ts",
     "wa:sessions": "tsx scripts/wa-sessions.ts",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-titas-rules \"vitest run\"",
-    "test:rules:watch": "firebase emulators:exec --only firestore,storage --project demo-titas-rules \"vitest\""
+    "test:rules:watch": "firebase emulators:exec --only firestore,storage --project demo-titas-rules \"vitest\"",
+    "storage:revogar-tokens": "tsx scripts/rotacionar-tokens-storage.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.3",

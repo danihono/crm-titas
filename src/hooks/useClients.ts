@@ -3,6 +3,7 @@ import { collection, deleteField, doc, onSnapshot, setDoc } from 'firebase/fires
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions, storage } from '../lib/firebase'
+import { validarImagem } from '../lib/upload'
 import { isOwnerEmail } from '../lib/owners'
 import { clientColor } from '../lib/clientBrand'
 
@@ -95,12 +96,13 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024
  * quem decide salvar é o modal, junto com o resto do formulário.
  */
 export async function uploadClientLogo(uid: string, file: File): Promise<{ url: string; path: string }> {
-  if (!file.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem (PNG, JPG, SVG…).')
-  if (file.size > MAX_LOGO_BYTES) throw new Error('A imagem precisa ter no máximo 2 MB.')
-  const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5)
+  // O aviso antigo oferecia SVG, e `startsWith('image/')` aceitava: SVG é XML e carrega
+  // script, então um "logo" podia virar página executável servida pelo bucket.
+  const contentType = validarImagem(file, MAX_LOGO_BYTES)
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'png'
   const path = `users/${uid}/brand/logo-${Date.now()}.${ext}`
   const sref = storageRef(storage, path)
-  await uploadBytes(sref, file, { contentType: file.type })
+  await uploadBytes(sref, file, { contentType })
   return { url: await getDownloadURL(sref), path }
 }
 

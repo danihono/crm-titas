@@ -6,6 +6,7 @@ import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
 import { knowledgeFromDoc, mediaAssetFromDoc, variableFromDoc } from '../lib/converters'
 import { extToType } from '../lib/format'
+import { safeFileName, validarAnexo } from '../lib/upload'
 import { useCollection } from './useCollection'
 import type { KnowledgeDoc, MediaAsset, Variable } from '../types'
 
@@ -70,8 +71,9 @@ export function useMediaLibrary() {
 }
 
 export async function uploadLibraryAsset(file: File): Promise<string> {
-  const path = `users/${uid()}/library/${Date.now()}_${file.name}`
-  await uploadBytes(storageRef(storage, path), file)
+  const contentType = validarAnexo(file)
+  const path = `users/${uid()}/library/${Date.now()}_${safeFileName(file.name)}`
+  await uploadBytes(storageRef(storage, path), file, { contentType })
   const downloadURL = await getDownloadURL(storageRef(storage, path))
   const r = await addDoc(col('mediaLibrary'), {
     name: file.name,
