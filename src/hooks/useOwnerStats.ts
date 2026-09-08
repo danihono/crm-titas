@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { collectionGroup, onSnapshot, type QuerySnapshot } from 'firebase/firestore'
-import { db } from '../lib/firebase'
-import { dealFromDoc, invoiceFromDoc } from '../lib/converters'
-import { invoiceStatus } from './useInvoices'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 
 export interface PerClient {
   pipeline: number
@@ -21,64 +19,43 @@ export interface OwnerStats {
   loading: boolean
 }
 
+const VAZIO: Omit<OwnerStats, 'loading'> = {
+  pipelineTotal: 0, dealCount: 0, faturado: 0, aReceber: 0, vencido: 0,
+  contactsCount: 0, activitiesCount: 0, perClient: {},
+}
+
 /**
- * Agrega métricas de TODOS os clientes via collectionGroup (somente donos).
- * Usa onSnapshot para ficar ao vivo; os volumes são pequenos.
+ * Métricas agregadas de todos os clientes, calculadas NO SERVIDOR.
+ *
+ * Antes eram quatro `collectionGroup` abertos daqui sobre `deals`, `invoices`, `contacts` e
+ * `activities` de todos os tenants. A tela só mostrava somas, mas o navegador recebia os
+ * documentos inteiros — nome da empresa e valor de cada negócio, cliente e forma de
+ * pagamento de cada nota, nome e telefone de cada contato. O produto promete que o dono do
+ * sistema não enxerga o atendimento dos clientes; essa promessa não se cumpria aqui.
+ *
+ * Agora a conta sai da callable `estatisticasClientes` e só os números atravessam.
+ * Perde-se o "ao vivo" do onSnapshot: é uma visão geral administrativa, e recarregar a
+ * página é atualização suficiente para o que ela responde.
  */
 export function useOwnerStats(): OwnerStats {
-  const [deals, setDeals] = useState({ total: 0, count: 0, perClient: {} as Record<string, PerClient> })
-  const [inv, setInv] = useState({ faturado: 0, aReceber: 0, vencido: 0 })
-  const [contactsCount, setContacts] = useState(0)
-  const [activitiesCount, setActs] = useState(0)
+  const [stats, setStats] = useState(VAZIO)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubs = [
-      onSnapshot(collectionGroup(db, 'deals'), (snap: QuerySnapshot) => {
-        let total = 0
-        const perClient: Record<string, PerClient> = {}
-        snap.forEach((d) => {
-          const deal = dealFromDoc(d.id, d.data())
-          const t = d.ref.parent.parent?.id ?? ''
-          total += deal.value
-          const pc = (perClient[t] ||= { pipeline: 0, deals: 0 })
-          pc.pipeline += deal.value
-          pc.deals += 1
-        })
-        setDeals({ total, count: snap.size, perClient })
-        setLoading(false)
-      }, (e) => { console.error('[ownerStats deals]', e); setLoading(false) }),
-
-      onSnapshot(collectionGroup(db, 'invoices'), (snap: QuerySnapshot) => {
-        let faturado = 0, aReceber = 0, vencido = 0
-        snap.forEach((d) => {
-          const iv = invoiceFromDoc(d.id, d.data())
-          const st = invoiceStatus(iv)
-          if (st === 'Paga') faturado += iv.value
-          else if (st === 'Vencida') vencido += iv.value
-          else aReceber += iv.value
-        })
-        setInv({ faturado, aReceber, vencido })
-      }, (e) => console.error('[ownerStats invoices]', e)),
-
-      onSnapshot(collectionGroup(db, 'contacts'), (snap) => setContacts(snap.size),
-        (e) => console.error('[ownerStats contacts]', e)),
-
-      onSnapshot(collectionGroup(db, 'activities'), (snap) => setActs(snap.size),
-        (e) => console.error('[ownerStats activities]', e)),
-    ]
-    return () => unsubs.forEach((u) => u())
+    let vivo = true
+    httpsCallable<void, typeof VAZIO>(functions, 'estatisticasClientes')()
+      .then((r) => {
+        if (!vivo) return
+        setStats({ ...VAZIO, ...r.data })
+      })
+      .catch((e) => {
+        console.error('[ownerStats]', e)
+      })
+      .finally(() => {
+        if (vivo) setLoading(false)
+      })
+    return () => { vivo = false }
   }, [])
 
-  return {
-    pipelineTotal: deals.total,
-    dealCount: deals.count,
-    faturado: inv.faturado,
-    aReceber: inv.aReceber,
-    vencido: inv.vencido,
-    contactsCount,
-    activitiesCount,
-    perClient: deals.perClient,
-    loading,
-  }
+  return { ...stats, loading }
 }

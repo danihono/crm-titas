@@ -19,8 +19,8 @@ rules_version = '2';
 // atendimento podem ser confidenciais. O que eles têm é (1) ler o DOC users/{uid} para
 // listar os clientes e (2) alterar a ficha administrativa desse doc — nome, cor e logo.
 // Conversas, mensagens, contatos, faturamento, arquivos e configurações ficam fora do
-// alcance deles. As métricas do painel SUPER TITAN vêm de contadores agregados em
-// users/{uid}/_stats, escritos pelo servidor — não de varrer os dados do cliente.
+// alcance deles. As métricas do painel SUPER TITAN são calculadas no servidor pela callable
+// `estatisticasClientes`, que devolve só números — não de varrer os dados do cliente daqui.
 // A allowlist abaixo deve espelhar src/lib/owners.ts (OWNER_EMAILS).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -298,14 +298,6 @@ service cloud.firestore {
     // exclusiva do dono do ambiente.
     match /users/{uid}/variables/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
     match /users/{uid}/knowledge/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
-
-    // Contadores agregados para o painel SUPER TITAN. Escritos SÓ pelo servidor: é o que
-    // substitui a varredura das coleções do cliente (deals/invoices/contacts/activities)
-    // que o dashboard fazia antes e que dava ao dono do sistema o conteúdo do cliente.
-    match /users/{uid}/_stats/{id} {
-      allow read: if podeGerir(uid) || isSuperOwner();
-      allow write: if false;
-    }
 
     // =====================================================================
     // Convites

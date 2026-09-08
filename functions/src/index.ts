@@ -378,3 +378,98 @@ export const excluirCliente = onCall(
     return { ok: true }
   },
 )
+
+// ---------------------------------------------------------------------------
+// Métricas agregadas do painel SUPER TITAN
+// ---------------------------------------------------------------------------
+
+/**
+ * Callable: devolve SÓ NÚMEROS sobre os clientes — total do pipeline, faturamento e
+ * contagens. Nenhum documento de cliente atravessa.
+ *
+ * Existe porque o painel fazia isso pelo navegador, com quatro `collectionGroup` abertos
+ * sobre `deals`, `invoices`, `contacts` e `activities` de TODOS os tenants. A tela mostrava
+ * apenas somas, mas o navegador do dono do sistema recebia os documentos inteiros: nome da
+ * empresa, contato e valor de cada negócio; cliente, valor, vencimento, forma de pagamento e
+ * observações de cada nota; nome, telefone e última mensagem de cada contato. O README e as
+ * próprias regras afirmam que esse dado está fora do alcance dele — e não estava.
+ *
+ * Agora a conta é feita aqui, onde os dados não saem do servidor, e as regras de
+ * collectionGroup que davam esse acesso foram removidas do firestore.rules.
+ */
+export const estatisticasClientes = onCall(
+  {
+    region: 'southamerica-east1',
+    maxInstances: MAX_INSTANCIAS,
+    enforceAppCheck: !process.env.FUNCTIONS_EMULATOR,
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+    }
+    const callerEmail = String(request.auth.token.email || '').toLowerCase()
+    if (!OWNER_EMAILS.includes(callerEmail)) {
+      throw new HttpsError('permission-denied', 'Apenas o dono do sistema vê estas métricas.')
+    }
+
+    const db = getFirestore()
+    const agora = Date.now()
+
+    // Teto de segurança: o painel é de dezenas de clientes, não de milhares. Sem limite,
+    // um crescimento inesperado viraria timeout e conta alta sem ninguém perceber.
+    const clientes = await db.collection('users').limit(500).get()
+
+    let pipelineTotal = 0
+    let dealCount = 0
+    let faturado = 0
+    let aReceber = 0
+    let vencido = 0
+    let contactsCount = 0
+    let activitiesCount = 0
+    const perClient: Record<string, { pipeline: number; deals: number }> = {}
+
+    await Promise.all(
+      clientes.docs.map(async (cliente) => {
+        const email = String(cliente.get('email') || '').toLowerCase()
+        // Contas de dono do sistema não são clientes — não entram nos números.
+        if (email && OWNER_EMAILS.includes(email)) return
+
+        const [deals, invoices, contatos, atividades] = await Promise.all([
+          cliente.ref.collection('deals').get(),
+          cliente.ref.collection('invoices').get(),
+          cliente.ref.collection('contacts').count().get(),
+          cliente.ref.collection('activities').count().get(),
+        ])
+
+        let pipeline = 0
+        deals.forEach((d) => {
+          const valor = Number(d.get('value') ?? 0)
+          if (Number.isFinite(valor)) pipeline += valor
+        })
+        pipelineTotal += pipeline
+        dealCount += deals.size
+        perClient[cliente.id] = { pipeline, deals: deals.size }
+
+        invoices.forEach((iv) => {
+          const valor = Number(iv.get('value') ?? 0)
+          if (!Number.isFinite(valor)) return
+          if (iv.get('status') === 'Paga') { faturado += valor; return }
+          // Mesma regra do cliente (invoiceStatus): sem baixa, o vencimento decide.
+          const due = iv.get('dueAt')
+          const dueMs = due && typeof due.toMillis === 'function' ? due.toMillis() : 0
+          if (dueMs && dueMs < agora) vencido += valor
+          else aReceber += valor
+        })
+
+        contactsCount += contatos.data().count
+        activitiesCount += atividades.data().count
+      }),
+    )
+
+    return {
+      pipelineTotal, dealCount, faturado, aReceber, vencido,
+      contactsCount, activitiesCount, perClient,
+    }
+  },
+)
