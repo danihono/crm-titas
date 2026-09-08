@@ -21,6 +21,61 @@ initializeApp()
 // do dono do sistema. O pago custa centavos e encerra esse uso.
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
+// ---------------------------------------------------------------------------
+// Cota de uso da IA
+// ---------------------------------------------------------------------------
+
+/**
+ * Teto por usuário por hora. É a ÚNICA coisa que separa "assistente do CRM" de "proxy do
+ * Gemini pago por conta da casa": o cadastro é aberto, então criar conta e chamar estas
+ * funções em laço custa segundos para quem quiser, e a fatura é do projeto. `request.auth`
+ * sozinho nunca foi controle de custo — só de identidade.
+ *
+ * Generoso de propósito: quem usa o Titã IA de verdade num dia cheio não chega perto.
+ */
+const MAX_IA_POR_HORA = 40
+const JANELA_COTA_MS = 60 * 60 * 1000
+
+/** Teto de instâncias simultâneas — trava de gasto mesmo se a cota por usuário falhar. */
+const MAX_INSTANCIAS = 10
+
+/**
+ * Consome uma unidade da cota do usuário, ou recusa.
+ *
+ * A janela vive no Firestore (e não em memória) porque cada instância da função é um
+ * processo novo: um contador local zeraria a cada chamada fria e não valeria nada.
+ * `aiUsage` não tem regra em firestore.rules — cai no default-deny, então só o Admin SDK
+ * escreve e ninguém zera a própria cota pelo navegador.
+ */
+async function consomeCota(uid: string): Promise<void> {
+  const ref = getFirestore().doc(`aiUsage/${uid}`)
+  const agora = Date.now()
+  try {
+    await getFirestore().runTransaction(async (tx) => {
+      const snap = await tx.get(ref)
+      const inicio = Number(snap.get('windowStart') ?? 0)
+      const usados = Number(snap.get('count') ?? 0)
+      const janelaViva = agora - inicio < JANELA_COTA_MS
+      if (janelaViva && usados >= MAX_IA_POR_HORA) {
+        throw new HttpsError(
+          'resource-exhausted',
+          'Você já usou o Titã IA muitas vezes nesta hora. Tente de novo mais tarde.',
+        )
+      }
+      tx.set(ref, {
+        windowStart: janelaViva ? inicio : agora,
+        count: janelaViva ? usados + 1 : 1,
+        lastAt: agora,
+      })
+    })
+  } catch (err) {
+    if (err instanceof HttpsError) throw err
+    // Falha de infraestrutura no contador não pode derrubar a funcionalidade — mas fica
+    // registrada, porque cota que falha calada é cota que não existe.
+    console.error('[consomeCota] falha ao contabilizar uso:', err)
+  }
+}
+
 interface AskData {
   system?: string
   history?: { role: 'user' | 'assistant'; content: string }[]
@@ -38,6 +93,7 @@ export const askTitaIA = onCall(
   {
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
+    maxInstances: MAX_INSTANCIAS,
     // App Check DESLIGADO por decisão consciente, não por descuido: a build de
     // produção nunca recebeu VITE_RECAPTCHA_SITE_KEY, então o App Check sequer era
     // inicializado no site (ver src/lib/firebase.ts) e TODA chamada morria antes de
@@ -55,7 +111,13 @@ export const askTitaIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
     }
+    await consomeCota(request.auth.uid)
     const { system, history, question } = (request.data || {}) as AskData
+    // O corte de verdade acontece em ./ia; aqui é só para um array absurdo não chegar a
+    // ser percorrido — recusar é mais barato do que cortar.
+    if (Array.isArray(history) && history.length > 200) {
+      throw new HttpsError('invalid-argument', 'Histórico grande demais.')
+    }
     if (!question || !question.trim()) {
       throw new HttpsError('invalid-argument', 'Pergunta vazia.')
     }
@@ -99,6 +161,7 @@ export const sugerirTarefaIA = onCall(
   {
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
+    maxInstances: MAX_INSTANCIAS,
     // Mesma decisão do askTitaIA: quem segura a porta é o request.auth.
     enforceAppCheck: false,
     cors: true,
@@ -107,10 +170,14 @@ export const sugerirTarefaIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
     }
+    await consomeCota(request.auth.uid)
     const { mensagens, tipos, cliente, hoje } = (request.data || {}) as SugerirData
 
     if (!Array.isArray(mensagens) || mensagens.length === 0) {
       throw new HttpsError('invalid-argument', 'Conversa vazia — não há o que sugerir.')
+    }
+    if (mensagens.length > 500) {
+      throw new HttpsError('invalid-argument', 'Conversa grande demais.')
     }
     if (!Array.isArray(tipos) || tipos.length === 0) {
       throw new HttpsError('invalid-argument', 'Nenhum tipo de atividade disponível.')
@@ -169,6 +236,7 @@ export const gerarFluxoIA = onCall(
   {
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
+    maxInstances: MAX_INSTANCIAS,
     // Desligado pelo mesmo motivo do askTitaIA — ver o comentário longo lá em cima.
     enforceAppCheck: false,
     cors: true,
@@ -177,6 +245,7 @@ export const gerarFluxoIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
     }
+    await consomeCota(request.auth.uid)
     const { descricao } = (request.data || {}) as { descricao?: string }
     if (!descricao || !descricao.trim()) {
       throw new HttpsError('invalid-argument', 'Descreva o fluxo que você quer.')

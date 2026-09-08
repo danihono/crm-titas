@@ -3,6 +3,7 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
+import { useTenantStore, canManage } from '../../store/tenantStore'
 import { useWhatsappStatus } from '../../hooks/useWhatsappStatus'
 import { useDaemonOnline, useDaemonStorageOk } from '../../hooks/useDaemonOnline'
 import { giveConsent, connectWhatsapp, disconnectWhatsapp, heartbeatKnown } from '../../lib/whatsapp'
@@ -33,9 +34,15 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
   const [retention, setRetention] = useState(0)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Conectar, desconectar e definir a retenção mexem na operação inteira — o número é o da
+  // empresa e o expurgo não tem volta. As security rules já recusam vindo de um atendente;
+  // isto aqui é para ele ver o MOTIVO, em vez de um "permissão negada" seco depois do clique.
+  const role = useTenantStore((s) => s.role)
+  const readOnly = useTenantStore((s) => s.readOnly)
+  const podeAdministrar = canManage(role, readOnly)
 
   async function handleConnect() {
-    if (busy) return
+    if (busy || !podeAdministrar) return
     setBusy(true)
     setErr(null)
     try {
@@ -49,7 +56,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
   }
 
   async function handleDisconnect(purge: boolean) {
-    if (busy) return
+    if (busy || !podeAdministrar) return
     if (purge && !confirm('Isso vai DESCONECTAR e APAGAR todas as mensagens espelhadas do WhatsApp. Continuar?')) return
     setBusy(true)
     setErr(null)
@@ -79,6 +86,14 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       </div>
 
       <StatusLine st={st.status} phone={st.phoneNumber} />
+
+      {!podeAdministrar && (
+        <div style={{ marginTop: 10, background: 'rgba(154,111,184,0.10)', border: '1px solid rgba(154,111,184,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
+          <b style={{ color: C.ink }}>Somente leitura.</b> Conectar ou desconectar o WhatsApp vale
+          para toda a operação — quem administra o ambiente faz isso. Você continua atendendo
+          normalmente pelas conversas.
+        </div>
+      )}
 
       {showOffline && (
         <div style={{ marginTop: 10, background: 'rgba(193,77,119,0.09)', border: '1px solid rgba(193,77,119,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
@@ -148,8 +163,8 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
             radius={11}
             block
             onClick={handleConnect}
-            disabled={!consented || busy}
-            style={{ ...sx.btnPrimary, justifyContent: 'center', opacity: !consented || busy ? 0.55 : 1, cursor: !consented || busy ? 'not-allowed' : 'pointer' }}
+            disabled={!consented || busy || !podeAdministrar}
+            style={{ ...sx.btnPrimary, justifyContent: 'center', opacity: !consented || busy || !podeAdministrar ? 0.55 : 1, cursor: !consented || busy || !podeAdministrar ? 'not-allowed' : 'pointer' }}
           >
             <MaterialIcon name="qr_code_2" size={18} /> {busy ? 'Gerando QR…' : 'Gerar QR e conectar'}
           </RingButton>
@@ -167,20 +182,24 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
               A recuperação é <b>por conversa</b>: abra um contato e toque em <b>“Recuperar histórico”</b> no topo do chat para trazer as mensagens antigas dele. É best-effort — o WhatsApp devolve só o que o aparelho ainda guarda daquela conversa (pode não trazer tudo).
             </div>
           </div>
-          <button
-            onClick={() => handleDisconnect(false)}
-            disabled={busy}
-            style={{ ...sx.btnGhost, width: '100%', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}
-          >
-            <MaterialIcon name="link_off" size={18} /> Desconectar
-          </button>
-          <button
-            onClick={() => handleDisconnect(true)}
-            disabled={busy}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.3)', borderRadius: 11, padding: '9px 14px', color: C.rose, fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}
-          >
-            <MaterialIcon name="delete_forever" size={18} /> Desconectar e apagar tudo
-          </button>
+          {podeAdministrar && (
+            <>
+              <button
+                onClick={() => handleDisconnect(false)}
+                disabled={busy}
+                style={{ ...sx.btnGhost, width: '100%', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}
+              >
+                <MaterialIcon name="link_off" size={18} /> Desconectar
+              </button>
+              <button
+                onClick={() => handleDisconnect(true)}
+                disabled={busy}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.3)', borderRadius: 11, padding: '9px 14px', color: C.rose, fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}
+              >
+                <MaterialIcon name="delete_forever" size={18} /> Desconectar e apagar tudo
+              </button>
+            </>
+          )}
         </div>
       )}
 

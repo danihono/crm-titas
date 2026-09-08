@@ -14,13 +14,22 @@ import { actions, isWaCommandType, CommandError, type WaCommandType } from './ac
 /**
  * Dispatcher da fila de comandos — o canal Frontend → daemon.
  *
- * Substitui o servidor HTTP: o CRM escreve um doc em `users/{uid}/waCommands/{id}` e o
+ * Substitui o servidor HTTP: o CRM escreve um doc em `waCommands/{uid}/queue/{id}` e o
  * daemon reage por listener. Com isso o processo precisa apenas de INTERNET DE SAÍDA —
  * nenhuma porta aberta, nenhum TLS, nenhum domínio — e roda atrás de qualquer NAT.
  *
- * Autorização vem do PATH do doc: a rule `users/{uid}/{document=**} allow write: if
- * owner(uid)` garante que só o dono conseguiu escrever ali. É o substituto exato do
- * `verifyIdToken` que existia no transporte HTTP.
+ * AUTORIZAÇÃO — duas camadas, e a segunda não é redundante:
+ *
+ * 1. O TENANT vem do PATH, nunca dos dados do doc. As rules garantem que só um membro
+ *    ativo daquele ambiente escreveu ali.
+ * 2. O PAPEL de quem pediu é reconferido AQUI, contra o Firestore, para os comandos
+ *    destrutivos. Isso não duplica a rule: este processo usa Admin SDK e IGNORA as rules.
+ *    Se um dia algo escrever na fila por outro caminho — um script, uma função, uma rule
+ *    afrouxada por engano —, purgar e desconectar continuam exigindo gestor.
+ *
+ * A fila mora numa coleção de TOPO por causa da união permissiva das rules: enquanto
+ * ficava em users/{uid}/waCommands, a regra ampla de escrita do tenant a alcançava e
+ * nenhuma condição aninhada conseguia impedir um atendente de enfileirar um expurgo.
  */
 
 /** Teto de execução por tipo. Sem isto, uma chamada pendurada do Baileys travaria a fila do uid. */
@@ -72,7 +81,7 @@ const rate = new Map<string, number[]>()
 
 function pendingQuery(): Query {
   return db
-    .collectionGroup('waCommands')
+    .collectionGroup('queue')
     .where('status', '==', 'pending')
     .orderBy('createdAt')
     .limit(50)
@@ -80,13 +89,39 @@ function pendingQuery(): Query {
 
 /**
  * uid derivado do PATH, nunca dos dados do doc. As guardas garantem que estamos mesmo em
- * `users/{uid}/waCommands/{id}` — uma coleção `waCommands` em qualquer outro lugar é ignorada.
+ * `waCommands/{uid}/queue/{id}` — uma coleção `queue` em qualquer outro lugar é ignorada.
  */
 function uidFromPath(ref: DocumentReference): string | null {
-  if (ref.parent.id !== 'waCommands') return null
-  const userDoc = ref.parent.parent
-  if (!userDoc || userDoc.parent.id !== 'users') return null
-  return userDoc.id
+  if (ref.parent.id !== 'queue') return null
+  const tenantDoc = ref.parent.parent
+  if (!tenantDoc || tenantDoc.parent.id !== 'waCommands') return null
+  return tenantDoc.id
+}
+
+/**
+ * Comandos que não são do atendente: apagam sem volta ou mexem na operação inteira.
+ * Espelha `tipoDeGestor()` em firestore.rules — as duas listas andam juntas.
+ */
+const TIPOS_DE_GESTOR: ReadonlySet<string> = new Set([
+  'contact.purge',
+  'session.disconnect',
+  'session.consent',
+])
+
+/**
+ * O papel de quem enfileirou, lido do vínculo. Devolve null quando não dá para afirmar
+ * (sem `by`, sem vínculo) — e o chamador trata isso como recusa, não como permissão.
+ */
+async function papelDe(uid: string, by: unknown): Promise<string | null> {
+  if (typeof by !== 'string' || !by) return null
+  // O titular da conta manda no próprio ambiente mesmo sem doc de vínculo (ele é criado
+  // no login, e a ordem entre os dois não é garantida).
+  if (by === uid) return 'dono'
+  const snap = await db.collection('users').doc(uid).collection('members').doc(by).get()
+  if (!snap.exists) return null
+  if (snap.get('active') === false) return null
+  const role = snap.get('role')
+  return typeof role === 'string' ? role : null
 }
 
 function queueFor(uid: string): Limiter {
@@ -195,7 +230,7 @@ function dispatch(snap: QueryDocumentSnapshot): void {
 
   const uid = uidFromPath(ref)
   if (!uid) {
-    logger.warn({ path }, 'doc waCommands fora de users/{uid} — ignorado')
+    logger.warn({ path }, 'doc de fila fora de waCommands/{uid}/queue — ignorado')
     return
   }
 
@@ -207,12 +242,26 @@ function dispatch(snap: QueryDocumentSnapshot): void {
         await finish(ref, null, new CommandError('unknown_command', 'Comando desconhecido.'))
         return
       }
-      // Um tenant enfileirando em massa afogaria o daemon de TODOS (as rules não conseguem
-      // validar schema/volume da fila — ver comentário no topo de actions.ts).
+      // Um tenant enfileirando em massa afogaria o daemon de TODOS. As rules já validam o
+      // formato do doc; o VOLUME continua sendo problema daqui.
       if (rateLimited(uid)) {
         await finish(ref, null, new CommandError('rate_limited', 'Muitos pedidos em sequência. Aguarde alguns segundos.'))
         return
       }
+      // Segunda camada de autorização — ver o cabeçalho deste arquivo. Roda ANTES do
+      // claim para não queimar tentativa de um comando que nunca poderia rodar.
+      if (TIPOS_DE_GESTOR.has(type)) {
+        const papel = await papelDe(uid, snap.get('by'))
+        if (papel !== 'dono' && papel !== 'gestor') {
+          logger.warn({ path, type, by: snap.get('by') }, 'comando destrutivo sem papel de gestor — recusado')
+          await finish(ref, null, new CommandError(
+            'forbidden',
+            'Esta ação é restrita a quem administra o ambiente.',
+          ))
+          return
+        }
+      }
+
       if (!(await claim(ref, type))) return
 
       const args = (snap.get('args') ?? {}) as Record<string, unknown>
@@ -248,8 +297,8 @@ function subscribe(): void {
     },
     (err) => {
       // Índice composto ausente aparece AQUI (FAILED_PRECONDITION) e mataria o listener
-      // em silêncio — por isso o nível 'error'. Ver firestore.indexes.json (waCommands).
-      logger.error({ err }, 'listener de waCommands caiu — re-subscrevendo')
+      // em silêncio — por isso o nível 'error'. Ver firestore.indexes.json (queue).
+      logger.error({ err }, 'listener da fila de comandos caiu — re-subscrevendo')
       unsubscribe = null
       scheduleResubscribe()
     },
@@ -268,7 +317,7 @@ async function sweepOnce(): Promise<void> {
   // 1) Comandos finalizados antigos (backstop do TTL nativo e do delete feito pelo cliente).
   for (const status of ['done', 'error', 'canceled'] as const) {
     const old = await db
-      .collectionGroup('waCommands')
+      .collectionGroup('queue')
       .where('status', '==', status)
       .where('createdAt', '<', Timestamp.fromMillis(now - TERMINAL_TTL_MS))
       .limit(200)
@@ -283,7 +332,7 @@ async function sweepOnce(): Promise<void> {
   // 2) 'running' órfão — o processo que o claimou morreu no meio. Sem isto ficaria preso
   //    para sempre (já saiu da query de 'pending').
   const stuck = await db
-    .collectionGroup('waCommands')
+    .collectionGroup('queue')
     .where('status', '==', 'running')
     .where('createdAt', '<', Timestamp.fromMillis(now - RUNNING_ORPHAN_MS))
     .limit(100)

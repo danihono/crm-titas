@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useUIStore } from '../store/uiStore'
-import { useTenantStore } from '../store/tenantStore'
+import { useTenantStore, canManage } from '../store/tenantStore'
 import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto, markContactRead } from '../hooks/useContacts'
 import { useMessages, sendMessage, uploadOutgoingMedia, sendLocalMediaMessage } from '../hooks/useMessages'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
@@ -109,6 +109,11 @@ function Atendimento() {
   const { docs: contacts } = useContacts()
   const ui = useUIStore()
   const readOnly = useTenantStore((s) => s.readOnly)
+  // Apagar contato e limpar conversa somem de vez (Firestore + Storage, pelos dois
+  // caminhos: daemon e local). As rules recusam vindo de um atendente — aqui o botão
+  // simplesmente não aparece, para o clique não virar erro de permissão.
+  const role = useTenantStore((s) => s.role)
+  const podeApagar = canManage(role, readOnly)
   const wa = useWhatsappStatus()
   // WhatsApp liberado para todos os usuários (sem feature-flag por tenant). Some
   // no modo somente-leitura (dono visualizando outro tenant) e enquanto o
@@ -506,7 +511,7 @@ function Atendimento() {
   }
 
   async function handleDeleteContact() {
-    if (!active) return
+    if (!active || !podeApagar) return
     if (!confirm(`Apagar o contato "${active.name}" e TODO o histórico dele (mensagens, arquivos e mídias)?`)) return
     const next = contacts.find((c) => c.id !== active.id)
     try {
@@ -526,7 +531,7 @@ function Atendimento() {
   }
 
   async function handleClearConversation() {
-    if (!active || convBusy) return
+    if (!active || convBusy || !podeApagar) return
     if (!confirm(`Limpar TODA a conversa com "${active.name}"? Mensagens, arquivos e mídias serão apagados — o contato continua no CRM.`)) return
     setConvBusy(true)
     try {
@@ -883,12 +888,18 @@ function Atendimento() {
                         <button onClick={() => setShowEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.22)', borderRadius: 11, padding: '8px 14px', color: C.purple, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                           <MaterialIcon name="edit" size={17} /> Editar
                         </button>
-                        <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: C.amberDeep, fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
-                          <MaterialIcon name="delete_sweep" size={17} /> Limpar conversa
-                        </button>
-                        <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                          <MaterialIcon name="delete" size={17} /> Apagar
-                        </button>
+                        {/* Apagar não tem volta e leva junto mensagens, arquivos e mídias:
+                            é de quem administra o ambiente. Editar segue com o atendente. */}
+                        {podeApagar && (
+                          <>
+                            <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: C.amberDeep, fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
+                              <MaterialIcon name="delete_sweep" size={17} /> Limpar conversa
+                            </button>
+                            <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                              <MaterialIcon name="delete" size={17} /> Apagar
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

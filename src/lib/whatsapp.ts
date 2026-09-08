@@ -46,7 +46,17 @@ export function whatsappEnabled(): boolean {
   return !WHATSAPP_KILL_SWITCH
 }
 
+/**
+ * Fila de comandos do daemon — coleção de TOPO, não subcoleção do tenant.
+ *
+ * Ficava em users/{uid}/waCommands e, lá dentro, era alcançada pela regra ampla de escrita
+ * do tenant. Como regra do Firestore é união permissiva, nenhuma condição aninhada
+ * conseguia impedir um ATENDENTE de enfileirar `contact.purge` ou `session.disconnect` —
+ * comandos que o daemon executa com Admin SDK e que apagam contatos, mensagens e mídias sem
+ * volta. Aqui a fila tem regra própria e o tipo do comando decide o papel exigido.
+ */
 const WA_COMMANDS = 'waCommands'
+const WA_QUEUE = 'queue'
 
 /** Validade do doc de comando — casada com o TTL nativo configurado em `expireAt`. */
 const COMMAND_TTL_MS = 3_600_000
@@ -206,11 +216,16 @@ async function runCommand(
   // ainda nunca via o próprio QR, porque a tela observa whatsappStatus/{tenant}.
   //
   // O motivo antigo de usar o uid da conta (não escrever no tenant impersonado pelo dono do
-  // sistema) morreu quando o dono perdeu o acesso ao ambiente do cliente. `waCommands` está
-  // em agentWritable nas rules, então qualquer membro ativo escreve nesta fila.
-  const ref = await addDoc(collection(db, 'users', tenantUid(), WA_COMMANDS), {
+  // sistema) morreu quando o dono perdeu o acesso ao ambiente do cliente. Todo membro ativo
+  // enfileira nesta fila; o que é DESTRUTIVO (purgar, desconectar, definir retenção) as
+  // rules restringem a gestor — ver waCommands em firestore.rules.
+  const ref = await addDoc(collection(db, WA_COMMANDS, tenantUid(), WA_QUEUE), {
     type,
     args,
+    // Quem pediu. As rules exigem que seja o próprio uid, e o daemon reconfere o papel
+    // desta pessoa antes de executar comando destrutivo — o Admin SDK ignora as rules,
+    // então a barreira do lado do servidor não pode depender delas.
+    by: auth.currentUser.uid,
     status: 'pending',
     attempts: 0,
     createdAt: serverTimestamp(),
