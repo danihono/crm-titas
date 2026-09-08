@@ -179,7 +179,10 @@ export async function startHistoryImport(uid: string, contactId: string, maxDays
 
   await setStatus(uid, contactId, { status: 'loading', imported: 0 })
   armTimeout(uid, state)
-  logger.info({ uid, contactId, chatJid }, 'importação de histórico iniciada')
+  // `chatJid` é o telefone do cliente. Fica no nível debug: em info ele acaba em qualquer
+  // coletor de log, e telefone de cliente é dado pessoal — o resto do daemon loga jidHost.
+  logger.debug({ uid, contactId, chatJid }, 'importação de histórico iniciada')
+  logger.info({ uid, contactId }, 'importação de histórico iniciada')
 }
 
 /** Localiza o import correspondente à resposta: por sessionId (exato) → senão por chatJid. */

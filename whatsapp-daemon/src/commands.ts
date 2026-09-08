@@ -60,6 +60,19 @@ const RUNNING_ORPHAN_MS = 600_000
 const RATE_LIMIT_MAX = 30
 const RATE_LIMIT_WINDOW_MS = 60_000
 
+/**
+ * Teto de comandos pendentes por ambiente.
+ *
+ * A janela de rate-limit acima vive em MEMÓRIA: zera a cada restart e não soma entre
+ * instâncias — ela protege o daemon de ser afogado, não a conta do Firestore de crescer.
+ * Nada impede um cliente de gravar dezenas de milhares de docs pendentes: cada um é uma
+ * escrita cobrada, e a fila drena 50 por vez. Aqui a varredura corta o excedente, mantendo
+ * os mais antigos (que são os legítimos, por ordem de chegada).
+ *
+ * Generoso de propósito: o uso normal tem punhados de comandos pendentes, nunca centenas.
+ */
+const MAX_PENDENTES_POR_AMBIENTE = 200
+
 const LISTEN_RETRY_MIN_MS = 5_000
 const LISTEN_RETRY_MAX_MS = 60_000
 
@@ -243,7 +256,8 @@ function dispatch(snap: QueryDocumentSnapshot): void {
         return
       }
       // Um tenant enfileirando em massa afogaria o daemon de TODOS. As rules já validam o
-      // formato do doc; o VOLUME continua sendo problema daqui.
+      // formato do doc e o papel de quem pede; o VOLUME continua sendo problema daqui —
+      // ver também MAX_PENDENTES_POR_AMBIENTE, na varredura.
       if (rateLimited(uid)) {
         await finish(ref, null, new CommandError('rate_limited', 'Muitos pedidos em sequência. Aguarde alguns segundos.'))
         return
@@ -329,7 +343,35 @@ async function sweepOnce(): Promise<void> {
     logger.debug({ status, count: old.size }, 'sweep: comandos antigos removidos')
   }
 
-  // 2) 'running' órfão — o processo que o claimou morreu no meio. Sem isto ficaria preso
+  // 2) Fila estufada — ver MAX_PENDENTES_POR_AMBIENTE.
+  const pendentes = await db
+    .collectionGroup('queue')
+    .where('status', '==', 'pending')
+    .orderBy('createdAt')
+    .limit(5000)
+    .get()
+  const porAmbiente = new Map<string, QueryDocumentSnapshot[]>()
+  for (const doc of pendentes.docs) {
+    const uid = uidFromPath(doc.ref)
+    if (!uid) continue
+    const lista = porAmbiente.get(uid) ?? []
+    lista.push(doc)
+    porAmbiente.set(uid, lista)
+  }
+  for (const [uid, docs] of porAmbiente) {
+    if (docs.length <= MAX_PENDENTES_POR_AMBIENTE) continue
+    // `docs` vem ordenado por createdAt: o excedente é o mais NOVO.
+    const excedente = docs.slice(MAX_PENDENTES_POR_AMBIENTE)
+    const batch = db.batch()
+    for (const doc of excedente.slice(0, 400)) batch.delete(doc.ref)
+    await batch.commit()
+    logger.warn(
+      { uid, pendentes: docs.length, removidos: Math.min(excedente.length, 400) },
+      'fila acima do teto — excedente descartado',
+    )
+  }
+
+  // 3) 'running' órfão — o processo que o claimou morreu no meio. Sem isto ficaria preso
   //    para sempre (já saiu da query de 'pending').
   const stuck = await db
     .collectionGroup('queue')

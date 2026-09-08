@@ -336,7 +336,7 @@ async function enrichPeerWithLid(peer: Peer, ctx?: MediaDownloadContext): Promis
   if (!pnJid || !pnJid.endsWith('@s.whatsapp.net')) {
     if (!lidMisses.has(peer.lid)) {
       lidMisses.add(peer.lid)
-      logger.info({ lid: peer.lid }, 'LID sem mapeamento para telefone — contato seguirá pelo @lid')
+      logger.debug({ lid: peer.lid }, 'LID sem mapeamento para telefone — contato seguirá pelo @lid')
     }
     return peer
   }
@@ -347,7 +347,7 @@ async function enrichPeerWithLid(peer: Peer, ctx?: MediaDownloadContext): Promis
   if (!cached) {
     lidPhoneCache.set(peer.lid, pnJid)
     lidMisses.delete(peer.lid)
-    logger.info({ lid: peer.lid, resolved: true }, 'LID resolvido para telefone')
+    logger.debug({ lid: peer.lid, resolved: true }, 'LID resolvido para telefone')
   }
   return { jid, phone, lid: peer.lid }
 }

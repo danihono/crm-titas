@@ -14,6 +14,27 @@ import { defaultActTypes, defaultAgentConfig } from '../src/lib/theme'
 process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080'
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099'
 
+/**
+ * Trava: este script cria uma conta com SENHA CONHECIDA e escreve dados de exemplo por
+ * cima do ambiente. Como as duas linhas acima usam `||=`, um ambiente que já tivesse
+ * essas variáveis apontando para outro lugar — ou que tivesse
+ * GOOGLE_APPLICATION_CREDENTIALS de produção — mandava o seed para o projeto real, em
+ * silêncio, com `demo@titas.crm` / `titas123` virando uma conta de verdade.
+ *
+ * Aponta para loopback ou não roda.
+ */
+const LOOPBACK = /^(127\.0\.0\.1|localhost|\[::1\]):\d+$/
+for (const nome of ['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST'] as const) {
+  const valor = process.env[nome] ?? ''
+  if (!LOOPBACK.test(valor)) {
+    console.error(
+      `\n${nome}="${valor}" não aponta para um emulador local.\n` +
+      'O seed cria uma conta com senha conhecida e sobrescreve dados — ele só roda contra emulador.\n',
+    )
+    process.exit(1)
+  }
+}
+
 const projectId = process.env.GCLOUD_PROJECT || process.env.VITE_FIREBASE_PROJECT_ID || 'demo-titas-crm'
 const EMAIL = process.env.SEED_EMAIL || 'demo@titas.crm'
 const PASSWORD = process.env.SEED_PASSWORD || 'titas123'

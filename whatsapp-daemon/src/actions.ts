@@ -113,11 +113,29 @@ function mediaPathArg(args: Args, uid: string, contactId: string): string {
   return raw
 }
 
-/** URL de download já gerada no upload — é ela que fica gravada na mensagem. */
+/**
+ * URL de download já gerada no upload — é ela que fica gravada na mensagem.
+ *
+ * Precisa apontar para o Storage DESTE projeto: a URL é gravada no doc da mensagem e o CRM
+ * a renderiza como `src`. Aceitando qualquer `https://`, um membro plantava um endereço
+ * externo que os colegas carregariam ao abrir a conversa — um pixel que entrega quando cada
+ * um leu e de qual endereço IP, sem que ninguém tivesse escolhido isso.
+ */
 function mediaUrlArg(args: Args): string {
   const raw = String(args.mediaUrl ?? '').trim()
-  if (!raw || raw.length > 2048 || !/^https?:\/\//i.test(raw)) {
+  if (!raw || raw.length > 2048) {
     throw new CommandError('invalid_args', 'Endereço do arquivo inválido.')
+  }
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new CommandError('invalid_args', 'Endereço do arquivo inválido.')
+  }
+  const hostOk = url.protocol === 'https:'
+    && (url.hostname === 'firebasestorage.googleapis.com' || url.hostname.endsWith('.googleapis.com'))
+  if (!hostOk) {
+    throw new CommandError('invalid_args', 'O anexo precisa estar no armazenamento do próprio sistema.')
   }
   return raw
 }
@@ -415,12 +433,13 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
         throw new CommandError('whatsapp_not_connected', 'Conecte o WhatsApp primeiro.')
       }
       if (msg === 'photo_timeout') {
-        // O trace vai na mensagem de propósito: o alerta do front o exibe, e um print
-        // do usuário mostra qual endereço/modo o WhatsApp ignorou.
+        // O trace fica no LOG, não na tela: ele nomeia endereços e modos tentados, e a
+        // mensagem de erro é lida por quem não deveria conhecer a topologia do sistema.
         const trace = (err as { trace?: string }).trace
+        logger.warn({ uid, contactId, trace }, 'timeout ao buscar foto do WhatsApp')
         throw new CommandError(
           'photo_timeout',
-          `O WhatsApp não respondeu a tempo. Tente novamente em instantes.${trace ? ` [diag: ${trace}]` : ''}`,
+          'O WhatsApp não respondeu a tempo. Tente novamente em instantes.',
         )
       }
       logger.error({ err, uid, contactId }, 'refresh de foto do WhatsApp falhou')

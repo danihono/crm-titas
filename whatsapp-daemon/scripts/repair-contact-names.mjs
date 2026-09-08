@@ -1,15 +1,17 @@
 // Repairs WhatsApp contacts that were auto-created with the account owner's name.
-// Usage: GOOGLE_CLOUD_PROJECT=titas-c8967 node scripts/repair-contact-names.mjs <email|uid> [--dry-run]
+// Usage: GOOGLE_CLOUD_PROJECT=titas-c8967 node scripts/repair-contact-names.mjs <email|uid> [--apply]
+// Sem --apply é prévia: um reparo em massa de nomes que sai errado é trabalhoso de desfazer.
 // Requires ADC (gcloud auth application-default login) with access to the project.
 import { initializeApp, applicationDefault } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 const target = process.argv[2]
-const dryRun = process.argv.includes('--dry-run')
+// Prévia por padrão — antes o dry-run era opt-in, ou seja, o descuido escrevia.
+const dryRun = !process.argv.includes('--apply')
 
 if (!target) {
-  console.error('uso: node scripts/repair-contact-names.mjs <email|uid> [--dry-run]')
+  console.error('uso: node scripts/repair-contact-names.mjs <email|uid> [--apply]')
   process.exit(1)
 }
 
