@@ -1,6 +1,7 @@
 import { deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
-import { db } from './firebase'
-import { col, ref } from './paths'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from './firebase'
+import { col, ref, uid } from './paths'
 import { inviteFromDoc, memberFromDoc } from './converters'
 import type { MemberRole } from '../types'
 
@@ -60,9 +61,21 @@ export async function updateMemberSectors(memberUid: string, sectorIds: string[]
 /**
  * Desativa/reativa em vez de apagar: as conversas e os relatórios guardam o uid do
  * atendente, e remover o doc deixaria esse histórico apontando para o vazio.
+ *
+ * Desativar TAMBÉM derruba as sessões abertas da pessoa. Sem isso o bloqueio só valia para
+ * escritas novas: o token de ID que ela já tinha na aba aberta continuava válido por até
+ * uma hora e o refresh token seguia renovando — quem foi desligado ficava com o CRM aberto
+ * e funcionando. Só o Admin SDK revoga, daí a callable.
+ *
+ * Best-effort de propósito: se a revogação falhar, o vínculo já está desativado e as regras
+ * já recusam. Falhar aqui não pode impedir o bloqueio de acontecer.
  */
 export async function setMemberActive(memberUid: string, active: boolean): Promise<void> {
   await updateDoc(ref(`members/${memberUid}`), { active })
+  if (!active) {
+    await httpsCallable(functions, 'revogarAcesso')({ tenantUid: uid(), memberUid })
+      .catch((err) => console.error('[revogarAcesso]', err))
+  }
 }
 
 /**
@@ -84,16 +97,30 @@ export async function ensureOwnerMember(uid: string, name: string, email: string
 
 /**
  * Aceita o convite endereçado ao e-mail do usuário logado, se houver: cria o próprio
- * doc de membro e apaga o convite. Devolve o tenant em que entrou, ou null.
+ * doc de membro e apaga o convite.
+ *
+ * Devolve o tenant em que entrou, `'precisa-verificar'` quando existe convite mas o e-mail
+ * ainda não foi confirmado, ou null quando não há convite.
  *
  * O papel é copiado do convite porque a regra do Firestore exige que sejam iguais —
  * é o que impede alguém de se criar como `dono` do tenant alheio.
+ *
+ * A EXIGÊNCIA DE E-MAIL VERIFICADO é o ponto: o convite é endereçado a um ENDEREÇO, e o
+ * Firebase Auth deixa qualquer pessoa criar conta com o e-mail de outra sem provar acesso à
+ * caixa postal. Sem esta trava, quem descobrisse um convite pendente para
+ * fulano@empresa.com — e o padrão de e-mail de uma empresa não é difícil de adivinhar —
+ * criava a conta antes do convidado e entrava no ambiente no lugar dele, com o papel do
+ * convite. A regra do Firestore recusa de qualquer forma; aqui a checagem existe para o
+ * app dizer o que está acontecendo em vez de estourar "permissão negada".
  */
+export type ResultadoConvite = Membership | 'precisa-verificar' | null
+
 export async function acceptPendingInvite(
   uid: string,
   name: string,
   email: string,
-): Promise<Membership | null> {
+  emailVerificado: boolean,
+): Promise<ResultadoConvite> {
   const key = emailKey(email)
   if (!key) return null
   const inviteRef = doc(db, 'invites', key)
@@ -102,6 +129,7 @@ export async function acceptPendingInvite(
 
   const invite = inviteFromDoc(snap.id, snap.data())
   if (!invite.tenantUid || invite.tenantUid === uid) return null
+  if (!emailVerificado) return 'precisa-verificar'
 
   await setDoc(doc(db, 'users', invite.tenantUid, 'members', uid), {
     name: name || key,

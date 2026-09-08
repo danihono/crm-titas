@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react'
+import { sendPasswordResetEmail } from 'firebase/auth'
+import { auth } from '../lib/firebase'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AuroraBackground } from '@/components/ui/aurora-background'
@@ -14,13 +16,47 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (user) return <Navigate to="/" replace />
 
+  /**
+   * Recuperação de senha. Não existia: quem esquecia a senha dependia de alguém com acesso
+   * ao console do Firebase — o que empurra a operação para senhas anotadas e compartilhadas.
+   *
+   * A confirmação é a MESMA para endereço cadastrado e não cadastrado, de propósito: dizer
+   * "este e-mail não existe" transforma a tela num verificador de quem é cliente. O projeto
+   * já tem a proteção contra enumeração ligada no Firebase; a tela precisa acompanhar.
+   */
+  async function onResetPassword() {
+    const alvo = email.trim()
+    setError('')
+    setAviso('')
+    if (!alvo) {
+      setError('Escreva seu e-mail primeiro e clique de novo.')
+      return
+    }
+    setBusy(true)
+    try {
+      await sendPasswordResetEmail(auth, alvo)
+    } catch (err) {
+      // Só erro de formato vale mostrar; o resto viraria pista sobre quem existe.
+      if ((err as { code?: string })?.code === 'auth/invalid-email') {
+        setError('E-mail inválido.')
+        setBusy(false)
+        return
+      }
+      console.error('[sendPasswordResetEmail]', err)
+    }
+    setAviso('Se houver uma conta com esse e-mail, o link de redefinição já está a caminho.')
+    setBusy(false)
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    setAviso('')
     setBusy(true)
     try {
       if (mode === 'signup') await signUp(name.trim(), email.trim(), password)
@@ -94,6 +130,23 @@ export default function Login() {
           {error && (
             <div style={{ fontSize: 12.5, color: '#e58aab', background: 'rgba(217,138,171,0.12)', border: '1px solid rgba(217,138,171,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
               {error}
+            </div>
+          )}
+
+          {aviso && (
+            <div style={{ fontSize: 12.5, color: '#a9d4b4', background: 'rgba(120,190,140,0.12)', border: '1px solid rgba(120,190,140,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
+              {aviso}
+            </div>
+          )}
+
+          {mode === 'login' && (
+            <div style={{ textAlign: 'right', marginBottom: 14, marginTop: -4 }}>
+              <span
+                onClick={() => { if (!busy) void onResetPassword() }}
+                style={{ fontSize: 12, color: '#a99fb8', cursor: busy ? 'default' : 'pointer' }}
+              >
+                Esqueci minha senha
+              </span>
             </div>
           )}
 
@@ -176,7 +229,9 @@ function friendlyError(err: unknown): string {
     case 'auth/user-not-found':
       return 'E-mail ou senha incorretos.'
     case 'auth/email-already-in-use':
-      return 'Este e-mail já está em uso.'
+      // Genérica de propósito: "este e-mail já está em uso" transforma o cadastro num
+      // verificador de quem tem conta. O resto do projeto já esconde isso.
+      return 'Não foi possível criar a conta com esses dados. Se você já tem cadastro, entre com sua senha.'
     case 'auth/weak-password':
       return 'A senha precisa ter pelo menos 6 caracteres.'
     case 'auth/invalid-email':

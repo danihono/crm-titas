@@ -40,6 +40,32 @@ const JANELA_COTA_MS = 60 * 60 * 1000
 const MAX_INSTANCIAS = 10
 
 /**
+ * App Check exigido? UMA chave para as quatro callables.
+ *
+ * Estava pela metade e o resultado era o pior dos dois mundos: as funções de IA com
+ * `false` (sem defesa contra o token de um usuário ser usado fora do site) e a
+ * `excluirCliente` com `true` — exigindo um token que a build de produção NUNCA enviou,
+ * porque `VITE_RECAPTCHA_SITE_KEY` nunca foi configurada. Ou seja: a exclusão de cliente
+ * está quebrada no ar desde então, e um caminho destrutivo que nunca roda é um caminho
+ * que nunca foi testado.
+ *
+ * Agora as quatro seguem a mesma chave, e ligar é um passo de configuração, não de código:
+ *
+ *   1. reCAPTCHA v3 no console + secret key em Firebase Console → App Check
+ *   2. `VITE_RECAPTCHA_SITE_KEY` no .env.local e rebuild do site
+ *   3. `TITA_APP_CHECK_ENFORCED=true` em functions/.env e redeploy das functions
+ *
+ * A ordem importa: inverter 2 e 3 derruba as chamadas do site. No emulador nunca é
+ * exigido — lá o app roda sem reCAPTCHA e toda chamada voltaria 401.
+ *
+ * Isto NÃO é a autorização: quem decide quem pode o quê são o `request.auth`, a allowlist
+ * e as security rules. O App Check é a camada que impede o token válido de ser usado fora
+ * do site — num endpoint que gasta API paga, risco real.
+ */
+const APP_CHECK_EXIGIDO =
+  process.env.TITA_APP_CHECK_ENFORCED === 'true' && !process.env.FUNCTIONS_EMULATOR
+
+/**
  * Consome uma unidade da cota do usuário, ou recusa.
  *
  * A janela vive no Firestore (e não em memória) porque cada instância da função é um
@@ -94,17 +120,7 @@ export const askTitaIA = onCall(
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
     maxInstances: MAX_INSTANCIAS,
-    // App Check DESLIGADO por decisão consciente, não por descuido: a build de
-    // produção nunca recebeu VITE_RECAPTCHA_SITE_KEY, então o App Check sequer era
-    // inicializado no site (ver src/lib/firebase.ts) e TODA chamada morria antes de
-    // chegar ao Gemini.
-    //
-    // Quem segura a porta é o `request.auth` abaixo: anônimo não passa. O que se
-    // perde é a defesa contra o token de um usuário logado ser usado FORA do site —
-    // num endpoint que gasta API paga, isso é risco real, não teórico. Para voltar
-    // atrás: registrar o reCAPTCHA v3, pôr a site key no .env.local, rebuildar e
-    // devolver este `true`. O excluirCliente NÃO foi afrouxado.
-    enforceAppCheck: false,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
     cors: true,
   },
   async (request) => {
@@ -162,8 +178,7 @@ export const sugerirTarefaIA = onCall(
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
     maxInstances: MAX_INSTANCIAS,
-    // Mesma decisão do askTitaIA: quem segura a porta é o request.auth.
-    enforceAppCheck: false,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
     cors: true,
   },
   async (request) => {
@@ -237,8 +252,7 @@ export const gerarFluxoIA = onCall(
     region: 'southamerica-east1',
     secrets: [GEMINI_API_KEY],
     maxInstances: MAX_INSTANCIAS,
-    // Desligado pelo mesmo motivo do askTitaIA — ver o comentário longo lá em cima.
-    enforceAppCheck: false,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
     cors: true,
   },
   async (request) => {
@@ -301,10 +315,8 @@ async function step(label: string, fn: () => Promise<unknown>): Promise<void> {
 export const excluirCliente = onCall(
   {
     region: 'southamerica-east1',
-    // Exigido em produção; dispensado no emulador, onde o app roda sem reCAPTCHA e a
-    // chamada voltaria 401 — o que deixaria a exclusão sem como ser testada localmente.
     // A autorização de verdade é a allowlist logo abaixo, não o App Check.
-    enforceAppCheck: !process.env.FUNCTIONS_EMULATOR,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
     cors: true,
   },
   async (request) => {
@@ -401,7 +413,7 @@ export const estatisticasClientes = onCall(
   {
     region: 'southamerica-east1',
     maxInstances: MAX_INSTANCIAS,
-    enforceAppCheck: !process.env.FUNCTIONS_EMULATOR,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
     cors: true,
   },
   async (request) => {
@@ -471,5 +483,72 @@ export const estatisticasClientes = onCall(
       pipelineTotal, dealCount, faturado, aReceber, vencido,
       contactsCount, activitiesCount, perClient,
     }
+  },
+)
+
+// ---------------------------------------------------------------------------
+// Revogação de acesso
+// ---------------------------------------------------------------------------
+
+/**
+ * Callable: derruba as sessões abertas de um atendente ao desativá-lo ou removê-lo.
+ *
+ * Sem isto, "bloquear" era só `active: false` no vínculo. As security rules passam a
+ * recusar na hora seguinte à mudança, mas o token de ID que a pessoa já tem na aba aberta
+ * continua válido por até uma hora, e o refresh token continua renovando indefinidamente —
+ * quem foi desligado seguia com o CRM aberto e funcionando. `revokeRefreshTokens` é a única
+ * coisa que corta isso, e só o Admin SDK pode chamá-la.
+ *
+ * A autorização é refeita aqui do zero, contra o Firestore: quem administra o ambiente é o
+ * titular da conta ou quem tem papel `dono` nele — os mesmos de firestore.rules.
+ */
+export const revogarAcesso = onCall(
+  {
+    region: 'southamerica-east1',
+    maxInstances: MAX_INSTANCIAS,
+    enforceAppCheck: APP_CHECK_EXIGIDO,
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+    }
+    const { tenantUid, memberUid } = (request.data || {}) as {
+      tenantUid?: unknown
+      memberUid?: unknown
+    }
+    const tenant = String(tenantUid || '').trim()
+    const alvo = String(memberUid || '').trim()
+    if (!tenant || !alvo) {
+      throw new HttpsError('invalid-argument', 'Ambiente ou pessoa não informados.')
+    }
+
+    const db = getFirestore()
+    const quem = request.auth.uid
+
+    if (quem !== tenant) {
+      const vinculo = await db.doc(`users/${tenant}/members/${quem}`).get()
+      const ativo = vinculo.exists && vinculo.get('active') !== false
+      if (!ativo || vinculo.get('role') !== 'dono') {
+        throw new HttpsError('permission-denied', 'Apenas quem administra o ambiente pode revogar acessos.')
+      }
+    }
+
+    // O titular do ambiente não se derruba por aqui — seria um jeito silencioso de
+    // travar o dono fora da própria conta.
+    if (alvo === tenant) {
+      throw new HttpsError('failed-precondition', 'O titular do ambiente não pode ter o acesso revogado.')
+    }
+
+    try {
+      await getAuth().revokeRefreshTokens(alvo)
+    } catch (err) {
+      if ((err as { code?: string }).code === 'auth/user-not-found') return { ok: true }
+      console.error('[revogarAcesso] falha ao revogar:', err)
+      throw new HttpsError('internal', 'Não foi possível encerrar as sessões desta pessoa.')
+    }
+
+    console.info(`[revogarAcesso] sessões de ${alvo} encerradas em ${tenant} por ${quem}`)
+    return { ok: true }
   },
 )

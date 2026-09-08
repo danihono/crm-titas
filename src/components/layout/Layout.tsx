@@ -6,6 +6,7 @@ import MaterialIcon from '../common/MaterialIcon'
 import { C, FONT_UI } from '../../styles/sx'
 import { useTenantStore } from '../../store/tenantStore'
 import { useMemberships } from '../../hooks/useTeam'
+import { useAuth } from '../../contexts/AuthContext'
 
 /**
  * Cabeçalho por rota. Só entra onde a tela não tem um próprio:
@@ -32,11 +33,31 @@ export default function Layout() {
   const exitClient = useTenantStore((s) => s.exitClient)
   const enterMembership = useTenantStore((s) => s.enterMembership)
   const { memberships } = useMemberships()
+  const { conviteAguardandoVerificacao, reenviarVerificacao } = useAuth()
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--c-void)' }}>
       <Sidebar />
       <main style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, background: C.panel }}>
+        {/* Convite parado esperando a confirmação do e-mail. Sem este aviso a pessoa entra,
+            vê a própria conta vazia e não tem como saber por que "não caiu na equipe". */}
+        {conviteAguardandoVerificacao && (
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', minHeight: 38, background: 'rgba(216,169,96,0.14)', borderBottom: '1px solid rgba(216,169,96,0.3)', color: C.amberDeep, fontSize: 12.5 }}>
+            <MaterialIcon name="mark_email_unread" size={17} />
+            <span>
+              Você tem um convite para uma equipe. Confirme seu e-mail para entrar —
+              o link foi enviado no cadastro.
+            </span>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => { void reenviarVerificacao().catch(() => {}) }}
+              style={{ background: 'transparent', border: '1px solid rgba(216,169,96,0.45)', borderRadius: 9, padding: '4px 10px', color: C.amberDeep, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: FONT_UI }}
+            >
+              Reenviar
+            </button>
+          </div>
+        )}
+
         {/* Atendente convidado: mostra em que equipe está e deixa voltar à conta dele. */}
         {!readOnly && memberships.length > 0 && (
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', height: 38, background: C.tintPurple, borderBottom: `1px solid ${C.selBorder}`, color: C.purple, fontSize: 12.5 }}>
