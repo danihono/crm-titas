@@ -19,6 +19,7 @@ import Settings from './pages/Settings'
 import SuperHome from './pages/super/SuperHome'
 import GeneralDashboard from './pages/super/GeneralDashboard'
 import ClientsList from './pages/super/ClientsList'
+import AssistantSession from './pages/super/AssistantSession'
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
           { path: 'super', element: <SuperHome /> },
           { path: 'super/geral', element: <GeneralDashboard /> },
           { path: 'super/clientes', element: <ClientsList /> },
+          { path: 'super/assistente', element: <AssistantSession /> },
         ],
       },
       // CRM — usuários comuns (próprios dados) ou dono visualizando um cliente

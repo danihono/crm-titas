@@ -27,6 +27,13 @@ export default function SuperHome() {
       desc: `Acesse o CRM de cada cliente individualmente${clients.length ? ` · ${clients.length} cliente(s)` : ''}.`,
       accent: 'linear-gradient(140deg,#4f7fc0,#2e4f86)',
     },
+    {
+      to: '/super/assistente',
+      icon: 'auto_awesome',
+      title: 'Assistente',
+      desc: 'O número de WhatsApp da plataforma — o que manda o resumo diário para todos os clientes.',
+      accent: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)',
+    },
   ]
 
   return (
