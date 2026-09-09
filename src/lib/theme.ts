@@ -2,7 +2,7 @@
 // (constructor: avPalette, deepMap, typeColors, typeIcons; e mapas inline de
 // renderColumns/renderNewLeads/renderInvoices/renderActivities/fileVM).
 
-import type { ActType, AgentConfig } from '../types'
+import type { ActType, AgentConfig, AssistantWhatsapp } from '../types'
 
 export const avPalette = [
   '#9a6fb8', '#7a52a0', '#b47cc4', '#6f9bcf', '#c98aab', '#5fa9c9', '#cf9b6f',
@@ -80,13 +80,31 @@ export const defaultActTypes: ActType[] = [
   { id: 'task', label: 'Tarefa', icon: 'check_circle', color: '#b3801f', bg: 'rgba(216,169,96,0.18)', evColor: '#d8a960' },
 ]
 
-/** Config inicial do agente Titã IA (campo agent em users/{uid}). */
+/**
+ * Resumo diário desligado — o estado de quem nunca abriu a seção.
+ *
+ * Existe como constante porque a tela precisa de um objeto completo para renderizar os
+ * campos antes do primeiro salvamento, e `agent.whatsapp` é opcional no Firestore.
+ */
+export const defaultAssistantWhatsapp: AssistantWhatsapp = {
+  enabled: false,
+  sendAt: '07:00',
+  blocks: { agenda: true, tarefas: true, faturas: true, conversas: true },
+}
+
+/**
+ * Config inicial da Assistente (campo `agent` em users/{uid} — o nome do campo não mudou
+ * junto com o do módulo; ver o comentário em AgentConfig).
+ *
+ * Só vale para quem começa agora: quem já personalizou o nome fica com o dele.
+ */
 export const defaultAgentConfig: AgentConfig = {
-  name: 'Titã IA',
+  name: 'Assistente',
   persona: 'Consultor de Vendas',
   instructions:
     'Você é o assistente comercial da Titãs CRM. Analise o pipeline, contatos, atividades e conversas para sugerir próximos passos, priorizar negócios e redigir mensagens. Seja objetivo, estratégico e fale em português do Brasil.',
-  sources: { pipeline: true, contatos: true, atividades: true, conversas: true, faturamento: false },
+  sources: { pipeline: true, contatos: true, atividades: true, conversas: true, faturamento: false, agenda: true },
+  whatsapp: defaultAssistantWhatsapp,
 }
 
 /**
@@ -104,7 +122,7 @@ export const navDefs = [
   { id: 'atividades', label: 'Atividades', icon: 'task_alt', path: '/atividades', group: 'OPERAÇÃO' },
   { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda', group: 'OPERAÇÃO' },
 
-  { id: 'agente', label: 'Agente de IA', icon: 'auto_awesome', path: '/agente', group: 'CRESCIMENTO' },
+  { id: 'assistente', label: 'Assistente', icon: 'auto_awesome', path: '/assistente', group: 'CRESCIMENTO' },
   { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas', group: 'CRESCIMENTO' },
 
   { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento', group: 'GESTÃO' },

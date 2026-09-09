@@ -571,20 +571,82 @@ export interface AgentSources {
   atividades: boolean
   conversas: boolean
   faturamento: boolean
+  /**
+   * Compromissos de `events`. Opcional porque os docs criados antes deste campo não o
+   * têm — ausente vale como desligado, que é o padrão seguro para uma fonte nova.
+   */
+  agenda?: boolean
 }
 
+/** Blocos que compõem o resumo diário. Espelha `RESUMO_BLOCOS` na tela da Assistente. */
+export interface AssistantBlocks {
+  agenda: boolean
+  tarefas: boolean
+  faturas: boolean
+  conversas: boolean
+}
+
+/**
+ * O resumo diário no WhatsApp.
+ *
+ * Vive DENTRO de `agent` porque é o mesmo módulo: a Assistente é uma só, e o que muda é
+ * por onde ela fala. Separar em outro campo do perfil espalharia a configuração de uma
+ * coisa só por dois lugares.
+ *
+ * `blocks` não reusa `AgentSources` de propósito. São perguntas diferentes: `sources`
+ * responde "o que ela pode consultar quando eu perguntar", `blocks` responde "o que vem
+ * no meu resumo das 7h". Hoje `sources.faturamento` já nasce desligado enquanto faturas é
+ * um dos blocos do resumo — colapsar os dois quebraria os dois casos.
+ */
+export interface AssistantWhatsapp {
+  enabled: boolean
+  /** 'HH:MM' no fuso de `businessHours.timezone`. */
+  sendAt: string
+  /** Telefone confirmado para receber. Vazio = cai em `UserProfile.phone`. */
+  phone?: string
+  blocks: AssistantBlocks
+  /**
+   * dateKey do último resumo enviado, no fuso do tenant. É só o espelho legível na tela —
+   * a trava de duplicidade de verdade é o id determinístico do doc em `assistantOutbox`.
+   */
+  lastSentDateKey?: string
+  /** Pediu "SAIR" pelo WhatsApp. Desliga sem precisar entrar no sistema. */
+  optOut?: boolean
+}
+
+/**
+ * Configuração da ASSISTENTE (campo `agent` em users/{uid}).
+ *
+ * O nome do campo no Firestore continua `agent`, e a coleção do chat continua `agentChat`,
+ * embora o módulo se chame "Assistente" na tela. Renomear obrigaria a migrar o doc de todo
+ * tenant já existente e a mexer nas security rules, em troca de nada que apareça para o
+ * usuário. Não "conserte" isto.
+ */
 export interface AgentConfig {
   name: string
   persona: string
   instructions: string
   sources: AgentSources
+  /** Ausente = o resumo diário nunca foi configurado neste ambiente. */
+  whatsapp?: AssistantWhatsapp
 }
+
+/** Por onde a mensagem entrou. A tela e o WhatsApp são a MESMA conversa. */
+export type AgentChannel = 'app' | 'whatsapp'
 
 export interface AgentMessage {
   id: string
   role: AgentRole
   text: string
   createdAt?: Date
+  /**
+   * Ausente = 'app' (todo o histórico anterior a este campo).
+   *
+   * NÃO é cosmético: é ele que o gatilho da Cloud Function usa para decidir se responde
+   * pelo WhatsApp. Sem o discriminador, cada linha digitada na tela viraria uma mensagem
+   * no celular do usuário.
+   */
+  channel?: AgentChannel
 }
 
 export interface Features {

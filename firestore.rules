@@ -262,8 +262,21 @@ service cloud.firestore {
     match /users/{uid}/scheduledMessages/{id} { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
     match /users/{uid}/flows/{id}             { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
     match /users/{uid}/leads/{id}             { allow read: if podeVer(uid); allow create, update: if podeVer(uid); allow delete: if podeGerir(uid); }
-    // O chat do agente é conversa da pessoa com a IA: quem escreve também limpa.
-    match /users/{uid}/agentChat/{id}         { allow read, create, update, delete: if podeVer(uid); }
+    // O chat da Assistente é conversa da pessoa com a IA: quem escreve também limpa.
+    //
+    // `channel` NÃO é decoração, e é por isso que ele tem regra própria: é esse campo que o
+    // gatilho da Cloud Function lê para decidir se manda a resposta pelo WhatsApp. Deixar o
+    // cliente escrever 'whatsapp' entregaria a qualquer ATENDENTE um disparador de WhatsApp
+    // — e, com ele, uma chamada paga do Gemini por mensagem. Só o Admin SDK grava esse
+    // valor; do navegador o campo é ausente ou 'app'.
+    //
+    // Vale também no update: um doc que já nasceu 'whatsapp' carrega o campo no
+    // request.resource.data, então a tela não consegue editar mensagem vinda do celular.
+    match /users/{uid}/agentChat/{id} {
+      allow read, delete: if podeVer(uid);
+      allow create, update: if podeVer(uid)
+        && (!('channel' in novo()) || novo().channel == 'app');
+    }
 
     // =====================================================================
     // Módulos de gestor
@@ -347,6 +360,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // O NÚMERO DA ASSISTENTE (sessão `_assistente`).
+    //
+    // Não é o número de nenhum cliente: é o da plataforma, que manda o resumo diário para
+    // os donos de todos os ambientes. Por isso quem enxerga é o dono do SISTEMA, e não
+    // `podeVer` — `users/_assistente` não existe, não tem dono nem members, então a
+    // regra genérica acima casa com este path mas nunca libera nada. Os blocos abaixo
+    // SOMAM o acesso do dono do sistema (regra do Firestore é união permissiva).
+    match /whatsappStatus/_assistente {
+      allow read: if isSuperOwner();
+      allow write: if false;
+    }
+
+    // Log de saída da Assistente. Escrito só pelo Admin SDK (Cloud Function enfileira,
+    // daemon envia); o dono do sistema lê para conferir o que saiu e o que falhou.
+    match /assistantOutbox/{id} {
+      allow read: if isSuperOwner();
+      allow write: if false;
+    }
+
+    // NOTA: `assistantSubscribers/**` (telefone → tenant) fica deliberadamente SEM regra,
+    // caindo no default-deny. É um índice reverso que revelaria o telefone do dono de cada
+    // ambiente para quem o lesse — não tem por que existir fora do Admin SDK.
+
     // FILA DE COMANDOS DO DAEMON.
     //
     // Vive numa coleção de TOPO, e não em users/{uid}/waCommands, por um motivo de
@@ -392,6 +428,32 @@ service cloud.firestore {
 
       allow delete: if podeGerir(tenantUid)
         || (podeVer(tenantUid) && resource.data.by == request.auth.uid);
+    }
+
+    // Fila de comandos do NÚMERO DA ASSISTENTE — só conectar/desconectar, e só o dono do
+    // sistema. Sem este bloco a página do SUPER TITAN não teria como pedir o QR: a regra
+    // genérica acima exige `podeVer(tenantUid)`, e ninguém é membro de `_assistente`.
+    //
+    // Os tipos de mensagem (message.send e afins) ficam FORA de propósito: o que a
+    // Assistente envia sai da fila `assistantOutbox`, montada no servidor. Abrir envio
+    // avulso por aqui seria dar ao painel um disparador de WhatsApp sem trilha.
+    match /waCommands/_assistente/queue/{cmdId} {
+      allow read: if isSuperOwner();
+
+      allow create: if isSuperOwner()
+        && novo().type in ['session.consent', 'session.connect', 'session.disconnect']
+        // O daemon reconfere a allowlist antes de executar — Admin SDK ignora regra.
+        && novo().by == request.auth.uid
+        && novo().status == 'pending'
+        && novo().attempts == 0
+        && novo().keys().hasOnly(['type', 'args', 'status', 'attempts', 'createdAt', 'expireAt', 'by']);
+
+      allow update: if isSuperOwner()
+        && resource.data.status == 'pending'
+        && mudou().hasOnly(['status'])
+        && novo().status == 'canceled';
+
+      allow delete: if isSuperOwner();
     }
 
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
