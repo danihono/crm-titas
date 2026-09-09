@@ -3,7 +3,7 @@ import {
   useAgentConfig, useAgentChat, updateAgentField, toggleAgentSource, pushAgentMessage, callTitaIA, fallbackReply,
   agentErrorHint, errorCode,
 } from '../hooks/useAgent'
-import { useTenantStore } from '../store/tenantStore'
+import { useTenantStore, canManage } from '../store/tenantStore'
 import { knowledgeContext, useKnowledge } from '../hooks/useLibrary'
 import { useAllDeals, useBoards } from '../hooks/useDeals'
 import { useActivities, statusOf } from '../hooks/useActivities'
@@ -63,9 +63,11 @@ export default function Agent() {
   const { docs: deals } = useAllDeals()
   const { docs: boards } = useBoards()
   const { docs: activities } = useActivities()
-  const { docs: invoices } = useInvoices()
-  const { docs: contacts } = useContacts()
   const readOnly = useTenantStore((s) => s.readOnly)
+  const role = useTenantStore((s) => s.role)
+  // Faturamento no contexto da IA só para quem pode lê-lo — as regras negam ao atendente.
+  const { docs: invoices } = useInvoices({ enabled: canManage(role, readOnly) })
+  const { docs: contacts } = useContacts()
   const { docs: knowledge } = useKnowledge()
 
   const [input, setInput] = useState('')

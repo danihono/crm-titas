@@ -15,16 +15,19 @@ function numOf(iv: Invoice): number {
   return iv.seq ?? (parseInt(iv.num.replace(/\D/g, ''), 10) || 0)
 }
 
-export function useInvoices() {
+export function useInvoices(opts: { enabled?: boolean } = {}) {
   // Sem orderBy no Firestore, e a ordenação sai aqui. Dois motivos: `num` é string, e
   // ordená-la se inverte assim que a numeração passa de #999 para #1000; e um orderBy
   // por createdAt EXCLUIRIA da consulta qualquer nota que não tenha o campo — uma nota
   // sumindo da tela em silêncio é pior do que ordenar em memória, ainda mais num volume
   // que é sempre de dezenas.
+  // `enabled: false` não assina. Faturamento é de gestor para cima nas security rules, e
+  // assinar mesmo assim renderia só um erro de permissão no console de todo atendente.
+  const enabled = opts.enabled !== false
   const { docs, loading } = useCollection<Invoice>(
-    (u) => query(collection(db, `users/${u}/invoices`)),
+    (u) => (enabled ? query(collection(db, `users/${u}/invoices`)) : null),
     invoiceFromDoc,
-    [],
+    [enabled],
   )
   const sorted = useMemo(() => [...docs].sort((a, b) => numOf(b) - numOf(a)), [docs])
   return { docs: sorted, loading }

@@ -38,9 +38,12 @@ function avisaAppCheck(mode: string, dir: string): void {
   if (mode !== 'production' || env.VITE_RECAPTCHA_SITE_KEY) return
   console.warn(
     '\n\x1b[33m⚠  VITE_RECAPTCHA_SITE_KEY ausente — esta build sai SEM App Check.\x1b[0m\n' +
-    '   As funções com `enforceAppCheck: true` vão recusar toda chamada deste site.\n' +
-    '   Hoje isso atinge: excluirCliente (exclusão definitiva no painel SUPER TITAN).\n' +
-    '   Para resolver: reCAPTCHA v3 no console e a site key no .env.local.\n',
+    '   Nada QUEBRA por isso: as callables leem APP_CHECK_EXIGIDO, que nasce desligado.\n' +
+    '   O que se perde é a defesa contra o token de um usuário logado ser usado FORA\n' +
+    '   do site — num endpoint que gasta API paga, risco real.\n' +
+    '   Para ligar, nesta ordem: (1) reCAPTCHA v3 + secret no Console → App Check;\n' +
+    '   (2) site key aqui no .env.local e rebuild; (3) TITA_APP_CHECK_ENFORCED=true em\n' +
+    '   functions/.env e redeploy. Inverter 2 e 3 derruba as chamadas do site.\n',
   )
 }
 

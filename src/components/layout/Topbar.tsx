@@ -11,6 +11,7 @@ import { useThemeStore } from '../../store/themeStore'
 import { settingsNav } from '../../lib/theme'
 import { C } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
+import { useTenantStore, canManage } from '../../store/tenantStore'
 import { fmtMoney, initialsOf } from '../../lib/format'
 import Avatar from '../common/Avatar'
 import MaterialIcon from '../common/MaterialIcon'
@@ -42,7 +43,13 @@ export default function Topbar() {
   const { prefs } = profile
   const { docs: deals } = useAllDeals()
   const { docs: activities } = useActivities()
-  const { docs: invoices } = useInvoices()
+  // Busca global: faturamento é de gestor para cima nas regras. Sem este filtro, todo
+  // atendente gerava um erro de permissão no console a cada carga da tela.
+  const podeVerFaturamento = canManage(
+    useTenantStore((s) => s.role),
+    useTenantStore((s) => s.readOnly),
+  )
+  const { docs: invoices } = useInvoices({ enabled: podeVerFaturamento })
 
   const resolved = useThemeStore((s) => s.resolved)
   const setMode = useThemeStore((s) => s.setMode)

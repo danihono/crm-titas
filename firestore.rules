@@ -294,10 +294,17 @@ service cloud.firestore {
     match /users/{uid}/actTypes/{id}      { allow read: if podeVer(uid); allow write: if ehDono(uid); }
     match /users/{uid}/mediaLibrary/{id}  { allow read: if podeVer(uid); allow write: if ehDono(uid); }
 
-    // Conteúdo que alimenta a IA: fora da leitura ampla (é material interno) e de escrita
-    // exclusiva do dono do ambiente.
-    match /users/{uid}/variables/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
-    match /users/{uid}/knowledge/{id} { allow read: if podeGerir(uid); allow write: if ehDono(uid); }
+    // Conteúdo que alimenta a IA e as respostas rápidas. TODO MEMBRO LÊ, só o dono escreve.
+    //
+    // A primeira versão desta auditoria restringiu a leitura a gestor, junto com `invoices`,
+    // e isso estava errado: o atendente PRECISA de `variables` para as respostas rápidas
+    // substituírem nome, empresa e afins (src/pages/Contacts.tsx usa `variableMap`), e
+    // `knowledge` alimenta o Titã IA, que ele tem permissão de usar. Esconder qualquer um
+    // dos dois de quem já lê todas as conversas do ambiente não protege nada — só quebra o
+    // uso diário, e quebra CALADO, porque `useCollection` engole o erro e devolve lista
+    // vazia. Quem tem valor de segregação aqui é `invoices`, que segue em `podeGerir`.
+    match /users/{uid}/variables/{id} { allow read: if podeVer(uid); allow write: if ehDono(uid); }
+    match /users/{uid}/knowledge/{id} { allow read: if podeVer(uid); allow write: if ehDono(uid); }
 
     // =====================================================================
     // Convites

@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { navDefs, settingsNav } from '../../lib/theme'
+import { navDefs, navSoGestor, settingsNav } from '../../lib/theme'
+import { useTenantStore, canManage } from '../../store/tenantStore'
 import { C, FONT_DISPLAY } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,6 +29,13 @@ export default function Sidebar() {
 
   const { pathname } = useLocation()
   const emConfig = pathname.startsWith(settingsNav.path)
+
+  // O menu segue o papel. Filtra ANTES do map porque o cabeçalho de grupo se decide
+  // comparando com o item anterior — filtrar dentro do map deixaria "GESTÃO" órfão.
+  const role = useTenantStore((s) => s.role)
+  const readOnly = useTenantStore((s) => s.readOnly)
+  const podeGerir = canManage(role, readOnly)
+  const itens = navDefs.filter((d) => podeGerir || !navSoGestor.includes(d.id))
 
   return (
     <aside
@@ -86,8 +94,8 @@ export default function Sidebar() {
       )}
 
       <nav style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {navDefs.map((d, i) => {
-          const abreGrupo = d.group && d.group !== navDefs[i - 1]?.group
+        {itens.map((d, i) => {
+          const abreGrupo = d.group && d.group !== itens[i - 1]?.group
           return (
             <div key={d.id}>
               {abreGrupo && expanded && (

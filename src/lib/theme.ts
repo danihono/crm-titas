@@ -111,6 +111,15 @@ export const navDefs = [
   { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios', group: 'GESTÃO' },
 ] as const
 
+/**
+ * Itens do menu que exigem papel de gestor.
+ *
+ * Faturamento é lido só por gestor nas security rules; deixá-lo no menu do atendente
+ * entregava uma tela que carrega vazia e um erro de permissão no console. O menu não
+ * é a trava — a regra é —, mas oferecer o que vai ser negado é defeito de interface.
+ */
+export const navSoGestor: readonly string[] = ['faturamento']
+
 /** Fixo no pé do menu, separado do resto — como na interface de referência. */
 export const settingsNav = {
   id: 'configuracoes',

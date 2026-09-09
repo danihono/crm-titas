@@ -112,6 +112,7 @@ export async function semearDados(env: RulesTestEnvironment): Promise<void> {
       await db.doc(`users/${tenant}/sectors/s1`).set({ name: 'Comercial' })
       await db.doc(`users/${tenant}/activities/a1`).set({ title: 'Ligar', done: false })
       await db.doc(`users/${tenant}/knowledge/k1`).set({ title: 'Manual', content: 'segredo' })
+      await db.doc(`users/${tenant}/variables/v1`).set({ key: 'primeiro_nome', label: 'Primeiro nome' })
     }
 
     // Equipe do tenant A: um gestor, um atendente e um atendente DESATIVADO.

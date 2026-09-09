@@ -245,15 +245,24 @@ describe('M4 — leitura segregada dentro do tenant', () => {
   it('atendente NÃO lê faturamento', async () => {
     await assertFails(getDocs(collection(atendente(), `users/${TENANT_A}/invoices`)))
   })
-  it('atendente NÃO lê a base de conhecimento', async () => {
-    await assertFails(getDocs(collection(atendente(), `users/${TENANT_A}/knowledge`)))
-  })
   it('gestor lê faturamento (não pode regredir)', async () => {
     await assertSucceeds(getDocs(collection(gestor(), `users/${TENANT_A}/invoices`)))
   })
   it('atendente ainda lê a equipe, para atribuir conversa (não pode regredir)', async () => {
     await assertSucceeds(getDocs(collection(atendente(), `users/${TENANT_A}/members`)))
   })
+  // Estes três faltavam, e foi por isso que a restrição errada passou: `variables` e
+  // `knowledge` são uso diário do atendente, não material sigiloso.
+  it('atendente lê as variáveis das respostas rápidas (não pode regredir)', async () => {
+    await assertSucceeds(getDocs(collection(atendente(), `users/${TENANT_A}/variables`)))
+  })
+  it('atendente lê a base de conhecimento que alimenta a IA (não pode regredir)', async () => {
+    await assertSucceeds(getDocs(collection(atendente(), `users/${TENANT_A}/knowledge`)))
+  })
+  it('mas segue sem enxergar faturamento', async () => {
+    await assertFails(getDocs(collection(atendente(), `users/${TENANT_A}/invoices`)))
+  })
+
   it('atendente ainda lê contatos e mensagens (não pode regredir)', async () => {
     await assertSucceeds(getDocs(collection(atendente(), `users/${TENANT_A}/contacts`)))
     await assertSucceeds(getDocs(collection(atendente(), `users/${TENANT_A}/contacts/c1/messages`)))
