@@ -5,6 +5,21 @@
  * `id` do gradiente é parametrizável porque dois documentos na mesma página com o mesmo id
  * fariam um deles pintar com o gradiente do outro.
  */
+
+/**
+ * Contorno do "T" da Maharlika, o mesmo desenho de public/favicon.svg.
+ *
+ * É contorno e não <text fontFamily="Maharlika"> de propósito: esta marca sai na
+ * IMPRESSÃO, e depender do carregamento de uma webfont no momento em que o
+ * navegador monta o PDF é justamente onde a letra volta a ser a do sistema sem
+ * ninguém perceber. O caminho não depende de fonte nenhuma.
+ *
+ * Extraído do glifo T de public/fonts/Maharlika-Regular.woff2 (unitsPerEm 1000,
+ * capitular 729, tinta em x 20→720).
+ */
+const T_PATH =
+  'M20 540 53 729H687L720 540H707Q698 590 679.0 624.0Q660 658 633.0 678.5Q606 699 572.0 707.5Q538 716 497 716H425V67Q425 32 442.0 22.5Q459 13 495 13V0H246V13Q282 13 298.5 22.5Q315 32 315 67V716H242Q202 716 168.0 707.5Q134 699 107.0 678.5Q80 658 61.0 624.0Q42 590 33 540Z'
+
 export default function BrandMark({ size = 40, gradientId = 'titas-mark' }: {
   size?: number
   gradientId?: string
@@ -18,8 +33,10 @@ export default function BrandMark({ size = 40, gradientId = 'titas-mark' }: {
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="16" fill={`url(#${gradientId})`} />
-      <text x="32" y="44" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" fontSize="40"
-        fontWeight="600" textAnchor="middle" fill="#ffffff">T</text>
+      {/* O scale negativo em Y inverte o eixo: na fonte o Y sobe, no SVG ele desce. */}
+      <g transform="translate(14.74 49) scale(0.04664 -0.04664)">
+        <path d={T_PATH} fill="#ffffff" />
+      </g>
     </svg>
   )
 }

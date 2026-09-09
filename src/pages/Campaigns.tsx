@@ -46,7 +46,7 @@ export default function Campaigns() {
     <div style={{ padding: '28px 30px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 20 }}>
         <div>
-          <h1 style={{ ...sx.serif, fontSize: 30, fontWeight: 600, color: C.ink, margin: 0 }}>Campanhas</h1>
+          <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>Campanhas</h1>
           <div style={{ fontSize: 13, color: C.sub, marginTop: 4, maxWidth: 620, lineHeight: 1.6 }}>
             Disparo de mensagens para um público filtrado por etiqueta. O envio é lento de
             propósito — ver o aviso abaixo.

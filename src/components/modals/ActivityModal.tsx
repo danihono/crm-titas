@@ -53,7 +53,7 @@ export default function ActivityModal({ types, contactOptions, contatoFixo, inic
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>Nova atividade</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>Nova atividade</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 

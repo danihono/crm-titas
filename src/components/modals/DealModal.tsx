@@ -71,7 +71,7 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>{editing ? 'Editar negócio' : 'Novo negócio'}</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{editing ? 'Editar negócio' : 'Novo negócio'}</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 18 }}>

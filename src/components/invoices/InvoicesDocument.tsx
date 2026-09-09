@@ -65,7 +65,8 @@ export default function InvoicesDocument({ rows, orgName, recorte }: {
       <div className="print-section" style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14, borderBottom: `2px solid ${PURPLE}` }}>
         <BrandMark gradientId="titas-mark-invoices" />
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: '.12em' }}>
+          {/* Literal, não var(): este é o caminho da impressão. */}
+          <div style={{ fontFamily: "'Maharlika', Georgia, serif", fontSize: 24, fontWeight: 400, letterSpacing: '.12em', lineHeight: 1.25 }}>
             TITÃS CRM
           </div>
           <div style={{ fontSize: 11, color: SUB }}>{orgName || 'Faturamento'}</div>

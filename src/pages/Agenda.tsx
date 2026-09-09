@@ -28,7 +28,7 @@ export default function Agenda() {
       {/* Calendário */}
       <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 600, color: C.ink }}>{monthName(ui.calMonth)} {ui.calYear}</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 400, color: C.ink }}>{monthName(ui.calMonth)} {ui.calYear}</div>
           <div style={{ flex: 1 }} />
           <NavBtn icon="chevron_left" onClick={ui.prevMonth} />
           <NavBtn icon="chevron_right" onClick={ui.nextMonth} />
@@ -73,7 +73,7 @@ export default function Agenda() {
       {/* Painel do dia */}
       <div style={{ width: 300, flexShrink: 0, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 20, padding: 22, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{longDayLabel(selectedDate)}</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 600, color: C.ink, marginBottom: 18 }}>Compromissos</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 23, fontWeight: 400, color: C.ink, marginBottom: 18 }}>Compromissos</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {dayEvents.map((e) => (
             <div key={e.id} style={{ display: 'flex', gap: 12 }}>

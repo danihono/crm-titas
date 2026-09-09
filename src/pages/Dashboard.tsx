@@ -110,7 +110,7 @@ export default function Dashboard() {
     <div style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 25, fontWeight: 700, letterSpacing: '-.03em', color: C.ink, margin: 0, lineHeight: 1.15 }}>
+          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.25 }}>
             {greeting(profile.displayName || user?.displayName || user?.email || '').split(' · ')[0]}
           </h1>
           <div style={{ fontSize: 12.5, color: C.sub, marginTop: 3 }}>

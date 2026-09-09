@@ -119,6 +119,7 @@ export const purpleAvatar = 'var(--c-avatar-grad)'
 
 /** Pilha tipográfica do sistema (San Francisco na Apple, equivalente no resto). */
 export const FONT_UI = 'var(--font-ui)'
+/** A serif da marca (Maharlika). Peso único 400 — ver `sx.serif` abaixo. */
 export const FONT_DISPLAY = 'var(--font-display)'
 
 const card: CSSProperties = {
@@ -197,13 +198,20 @@ const modalBox: CSSProperties = {
 }
 
 /**
- * Antes era Cormorant Garamond. A marca passou para a tipografia do sistema
- * (San Francisco na Apple): título agora é a MESMA família, com peso e tracking
- * negativo — o jeito Apple de fazer display.
+ * Estilo de título: a Maharlika, a serif da logo da Titãs.
+ *
+ * O peso 400 é obrigatório e não é enfeite — a família só tem esse peso, e um
+ * 600 aqui viraria negrito sintético (ver o comentário do @font-face em
+ * src/index.css). O tracking é zero pela mesma razão: o -0.02em de antes foi
+ * calibrado para a San Francisco, e numa serif de display ele fecha a palavra.
+ *
+ * Quem espalha este objeto NÃO deve reescrever fontWeight nem letterSpacing
+ * depois do spread; o tracking positivo da marca ('TITÃS') é a única exceção.
  */
 const serif: CSSProperties = {
   fontFamily: FONT_DISPLAY,
-  letterSpacing: '-0.02em',
+  fontWeight: 400,
+  letterSpacing: 0,
 }
 
 export const sx = { card, btnPrimary, btnGhost, input, label, modalOverlay, modalBox, serif }

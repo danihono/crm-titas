@@ -100,7 +100,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
   return (
     <Modal width={520} onClose={() => !busy && onClose()}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>
           {editing ? `Nota ${invoice.num}` : 'Emitir nota de faturamento'}
         </div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
