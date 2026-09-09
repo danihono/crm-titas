@@ -73,4 +73,14 @@ export const config = {
 
   /** true quando apontado a um emulador do Firestore (dev local sem credenciais reais). */
   useEmulator: !!process.env.FIRESTORE_EMULATOR_HOST,
+
+  /**
+   * Ensaio: a fila da Assistente roda inteira (claim, lock, marcar como enviado) mas o
+   * texto vai para o LOG em vez do WhatsApp.
+   *
+   * Existe porque o resto do ciclo — fuso, montagem do texto, trava de duplicidade — só se
+   * prova de ponta a ponta, e a alternativa seria testar mandando mensagem de verdade para
+   * o celular de alguém. Nunca ligar em produção: a fila drena e ninguém recebe nada.
+   */
+  dryRun: process.env.WA_DRY_RUN === 'true',
 }

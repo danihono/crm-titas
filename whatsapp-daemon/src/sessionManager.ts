@@ -25,6 +25,7 @@ import { onHistorySet, type GapFillState } from './history.js'
 import { onAgendaContacts } from './agenda.js'
 import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
 import { acquireSessionLease, releaseSessionLease } from './lease.js'
+import { isAssistantUid, onAssistantMessage } from './assistant.js'
 
 interface Session {
   sock: WASocket
@@ -394,6 +395,20 @@ async function openSession(uid: string): Promise<void> {
       logger.error({ err, uid }, 'handler connection.update falhou'),
     )
   })
+
+  // A ASSISTENTE não espelha nada. O número dela é da plataforma, não de um ambiente:
+  // ligar o espelhamento aqui criaria contatos, conversas e mídias em
+  // `users/_assistente/**` — um tenant que não existe — a cada mensagem que ela recebesse.
+  // Só a entrada de texto interessa, e ela vai para a conversa do ambiente de quem falou.
+  if (isAssistantUid(uid)) {
+    sock.ev.on('messages.upsert', (ev) => {
+      onAssistantMessage(ev, resolveLidToPhone).catch((err) =>
+        logger.error({ err }, 'handler messages.upsert da Assistente falhou'),
+      )
+    })
+    return
+  }
+
   sock.ev.on('messages.upsert', (ev) => {
     ingestMessages(uid, ev, mediaCtx).catch((err) =>
       logger.error({ err, uid }, 'handler messages.upsert falhou'),

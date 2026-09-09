@@ -10,6 +10,7 @@ import { db } from './firebase.js'
 import { config } from './config.js'
 import { logger } from './logger.js'
 import { actions, isWaCommandType, CommandError, type WaCommandType } from './actions.js'
+import { ehDonoDoSistema, isAssistantUid } from './assistant.js'
 
 /**
  * Dispatcher da fila de comandos — o canal Frontend → daemon.
@@ -262,6 +263,21 @@ function dispatch(snap: QueryDocumentSnapshot): void {
         await finish(ref, null, new CommandError('rate_limited', 'Muitos pedidos em sequência. Aguarde alguns segundos.'))
         return
       }
+      // A fila da ASSISTENTE é o único caso em que o papel não vem de um vínculo: o
+      // número é da plataforma, `users/_assistente` não existe e nunca terá members, então
+      // `papelDe()` devolveria null para todo mundo. Quem manda nele é o dono do SISTEMA —
+      // e desconectá-lo derruba o resumo diário de todos os clientes de uma vez.
+      if (isAssistantUid(uid)) {
+        if (!(await ehDonoDoSistema(snap.get('by')))) {
+          logger.warn({ path, type }, 'comando na fila da Assistente sem dono do sistema — recusado')
+          await finish(ref, null, new CommandError(
+            'forbidden',
+            'O número da Assistente é administrado pelos donos do sistema.',
+          ))
+          return
+        }
+      }
+
       // Segunda camada de autorização — ver o cabeçalho deste arquivo. Roda ANTES do
       // claim para não queimar tentativa de um comando que nunca poderia rodar.
       if (TIPOS_DE_GESTOR.has(type)) {
