@@ -73,7 +73,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <MaterialIcon name="chat" size={22} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-          <div style={{ ...sx.serif, fontSize: 22, fontWeight: 600, color: C.ink }}>Conectar WhatsApp</div>
+          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>Conectar WhatsApp</div>
         </div>
         <MaterialIcon name="close" size={22} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>

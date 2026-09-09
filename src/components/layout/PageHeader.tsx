@@ -16,7 +16,7 @@ export default function PageHeader({ title, subtitle, right }: {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, padding: '28px 30px 0' }}>
       <div style={{ minWidth: 0 }}>
-        <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 27, fontWeight: 700, letterSpacing: '-0.025em', color: C.ink, margin: 0, lineHeight: 1.15 }}>
+        <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.25 }}>
           {title}
         </h1>
         {subtitle && (

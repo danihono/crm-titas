@@ -69,10 +69,12 @@ export default function Login() {
               boxShadow: '0 6px 18px rgba(120,70,160,0.4)',
             }}
           >
-            <span style={{ ...sx.serif, fontSize: 30, fontWeight: 600, color: '#fff', lineHeight: 1, letterSpacing: '.04em' }}>T</span>
+            {/* ver Sidebar: o translateY corrige a tinta do T dentro do quadrado. */}
+            <span style={{ ...sx.serif, fontSize: 29, color: '#fff', lineHeight: 1, transform: 'translateY(3px)' }}>T</span>
           </div>
           <div>
-            <div style={{ ...sx.serif, fontWeight: 600, fontSize: 25, letterSpacing: '.18em', color: '#f3eef6', lineHeight: 1 }}>TITÃS</div>
+            {/* lineHeight folgado: o til do Ã não cabe num lineHeight: 1. */}
+            <div style={{ ...sx.serif, fontSize: 27, letterSpacing: '.18em', color: '#f3eef6', lineHeight: 1.25 }}>TITÃS</div>
             <div style={{ fontSize: 9, letterSpacing: '.42em', color: '#8a7d97', marginTop: 3, fontWeight: 600 }}>C R M</div>
           </div>
         </div>

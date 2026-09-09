@@ -76,7 +76,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
   return (
     <Modal width={470} onClose={sending ? () => {} : onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>Enviar {TYPE_LABEL[mediaType].toLowerCase()}</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>Enviar {TYPE_LABEL[mediaType].toLowerCase()}</div>
         {!sending && <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />}
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>

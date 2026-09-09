@@ -105,7 +105,9 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
       <header style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 14, borderBottom: `2px solid ${PURPLE}` }}>
         <BrandMark />
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 24, fontWeight: 600, letterSpacing: '.16em', lineHeight: 1 }}>
+          {/* Literal, não var(): este é o caminho da impressão. lineHeight folgado
+              porque o til do Ã não cabe num lineHeight: 1 na Maharlika. */}
+          <div style={{ fontFamily: "'Maharlika', Georgia, serif", fontSize: 26, fontWeight: 400, letterSpacing: '.16em', lineHeight: 1.25 }}>
             TITÃS
           </div>
           <div style={{ fontSize: 9, letterSpacing: '.36em', color: MUTED, fontWeight: 700, marginTop: 2 }}>C R M</div>

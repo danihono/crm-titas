@@ -40,7 +40,7 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
         <MaterialIcon name="schedule_send" size={24} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ ...sx.serif, fontSize: 22, fontWeight: 600, color: C.ink }}>{isEdit ? 'Editar agendamento' : 'Agendar mensagem'}</div>
+          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>{isEdit ? 'Editar agendamento' : 'Agendar mensagem'}</div>
           <div style={{ fontSize: 12, color: C.sub }}>Para {contactName} - WhatsApp</div>
         </div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />

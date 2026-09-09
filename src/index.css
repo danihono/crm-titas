@@ -3,6 +3,26 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   MAHARLIKA — a letra da marca
+
+   A logo da Titãs (o site e o avatar) é desenhada nesta serif de alto
+   contraste. Ela não existe no Google Fonts, então o arquivo mora aqui mesmo,
+   em public/fonts/ — 42 KB em woff2, servido pela raiz do Vite.
+
+   A família tem UM ÚNICO peso (400). Pedir 600/700 num título faz o navegador
+   engrossar o traço por conta própria, e negrito sintético numa serif de
+   contraste alto borra justamente os filetes finos que dão o ar da marca.
+   Por isso todo ponto que usa --font-display carrega weight 400 explícito.
+   ══════════════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: 'Maharlika';
+  src: url('/fonts/Maharlika-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TOKENS DE TEMA
 
    O app é estilizado com objetos de estilo INLINE, não com classes. Estilo
@@ -32,9 +52,12 @@
      GitHub e o próprio app da referência usam. */
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
              'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  /* Título é a MESMA família com tracking negativo — é assim que a Apple faz
-     display. Trocar de família no título é o que dava o ar de folheto. */
-  --font-display: var(--font-ui);
+  /* Título e marca saem na Maharlika, a serif da logo. O corpo do app continua
+     na pilha do sistema acima: a serif é para TÍTULO e para a palavra TITÃS,
+     não para texto corrido. O fallback é serifado de propósito — se o woff2
+     não chegar, o título ainda lê como título, e não como parágrafo.
+     Quem usa isto: FONT_DISPLAY e sx.serif em src/styles/sx.ts. */
+  --font-display: 'Maharlika', Georgia, 'Times New Roman', serif;
 
   /* superfícies */
   --c-void: #0a080c;

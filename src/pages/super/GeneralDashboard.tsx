@@ -32,7 +32,7 @@ export default function GeneralDashboard() {
 
   return (
     <SuperShell title="Visão Geral" back>
-      <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[28px] font-bold text-[#f3eef6] mb-1">Panorama de todos os clientes</h1>
+      <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6] mb-1">Panorama de todos os clientes</h1>
       <p className="text-[#8a7d97] text-sm mb-6">Métricas agregadas em tempo real {stats.loading && '· carregando…'}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

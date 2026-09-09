@@ -31,7 +31,7 @@ export default function TypeModal({ existingTypes, onClose }: { existingTypes: A
   return (
     <Modal width={460} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>Tipos de atividade</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>Tipos de atividade</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>Crie seus próprios tipos — ligação, visita, proposta, o que precisar.</div>

@@ -93,7 +93,7 @@ export default function Reports() {
       <div style={{ padding: '26px 30px 16px', background: C.surface, borderBottom: '1px solid ' + C.fieldBorder }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <h1 style={{ ...sx.serif, fontSize: 30, fontWeight: 600, color: C.ink, margin: 0 }}>Relatórios</h1>
+            <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>Relatórios</h1>
             <div style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>
               Volume de conversas, tempo de resposta e desempenho por atendente, setor e etiqueta.
             </div>

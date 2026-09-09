@@ -33,7 +33,7 @@ export default function SuperHome() {
     <SuperShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <div className="text-[#8a7d97] text-sm">Bem-vindo{first ? `, ${first}` : ''}</div>
-        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[34px] font-bold text-[#f3eef6] leading-tight">
+        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[38px] font-normal text-[#f3eef6] leading-snug">
           O que você quer ver hoje?
         </h1>
         <p className="text-[#8a7d97] mt-1 max-w-xl">Como dono do sistema, você pode olhar o panorama geral de todos os clientes ou entrar no CRM de um cliente específico.</p>

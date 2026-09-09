@@ -59,12 +59,18 @@ export default function Sidebar() {
             flexShrink: 0,
           }}
         >
-          <span style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em' }}>T</span>
+          {/* Centralizar por flex alinha a CAIXA DE LINHA, não a tinta. Com
+              lineHeight: 1 a caixa reserva a descida (que o T não usa), então a
+              letra sobe ~9% do corpo dentro do quadrado. O translateY devolve
+              essa diferença — medida, não chutada: 0.09 × fontSize. */}
+          <span style={{ fontFamily: FONT_DISPLAY, fontSize: 25, fontWeight: 400, color: '#fff', lineHeight: 1, transform: 'translateY(3px)' }}>T</span>
         </div>
         {expanded && (
           <>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 19, letterSpacing: '.12em', lineHeight: 1, color: C.chromeInk }}>TITÃS</div>
+              {/* lineHeight folgado porque o til do Ã sobe acima da capitular na
+                  Maharlika e um lineHeight: 1 o cortaria. */}
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 400, fontSize: 21, letterSpacing: '.12em', lineHeight: 1.25, color: C.chromeInk }}>TITÃS</div>
               <div style={{ fontSize: 9, letterSpacing: '.42em', color: C.chromeLabel, marginTop: 3, fontWeight: 600 }}>C R M</div>
             </div>
             <button onClick={toggleSidebar} title="Recolher menu" style={iconBtn}>

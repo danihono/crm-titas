@@ -42,7 +42,7 @@ export default function ContactModal({ contact, onClose, onSaved }: { contact?: 
   return (
     <Modal width={500} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, fontWeight: 600, color: C.ink }}>{editing ? 'Editar contato' : 'Novo contato'}</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{editing ? 'Editar contato' : 'Novo contato'}</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 18 }}>{editing ? 'Atualize as informações do cliente.' : 'Cadastre todas as informações do cliente.'}</div>
