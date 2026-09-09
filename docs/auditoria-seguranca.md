@@ -360,9 +360,17 @@ porque a caixa de seleção de setores no convite sugere o contrário.
 conhecimento. A regra era `allow read: if owner(uid) || isMember(uid)` para tudo. A interface
 escondia; as regras não.
 
-**Correção.** A leitura passou a ser declarada coleção por coleção. `invoices`, `knowledge` e
-`variables` saem do alcance do atendente. O que ele precisa para atender — contatos,
-mensagens, equipe, setores, etiquetas, respostas rápidas — continua.
+**Correção.** A leitura passou a ser declarada coleção por coleção, e **`invoices`** sai do
+alcance do atendente. O que ele precisa para atender — contatos, mensagens, equipe, setores,
+etiquetas, respostas rápidas, variáveis e base de conhecimento — continua.
+
+**Uma correção da correção, que vale registrar.** A primeira versão tirou também `variables`
+e `knowledge` do atendente. Estava errado: `variables` alimenta a substituição nas respostas
+rápidas (uso diário dele) e `knowledge` alimenta o Titã IA, que ele pode usar. Esconder
+qualquer um dos dois de quem já lê todas as conversas do ambiente não protege nada — e
+quebrava calado, porque `useCollection` engole o erro de permissão e devolve lista vazia. Os
+testes de "não pode regredir" cobriam contatos e mensagens, não esses dois: foi essa lacuna
+que deixou o erro passar, e agora há teste para os três casos.
 
 **Nota técnica.** A primeira tentativa foi um `match` amplo com lista de exceções
 (`document[0]`), e ela **não funciona**: numa consulta de coleção o curinga `**` não está
