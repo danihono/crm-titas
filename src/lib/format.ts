@@ -1,37 +1,42 @@
-// Helpers de formatação — valores em REAIS (inteiro) e datas amigáveis em PT-BR.
+// Helpers de formatação — valores em REAIS (inteiro) e datas amigáveis.
 // Os rótulos "Hoje/Ontem/há 2h/Atrasada" são DERIVADOS aqui (não persistidos).
+//
+// O idioma entra por baixo: os nomes de mês e de dia vêm do `Intl`
+// (src/i18n/formato.ts) e as palavras vêm do catálogo. As assinaturas ficaram
+// iguais de propósito — são quarenta arquivos importando daqui, e trocar o
+// idioma não podia virar um refactor de chamada em cada um deles.
+//
+// A MOEDA NÃO SEGUE O IDIOMA. O valor é do negócio, não de quem lê: o CRM
+// fatura em reais mesmo com a tela em inglês. O que muda é só o separador —
+// 'R$ 12.000' em pt/es, 'R$ 12,000' em inglês.
+import { t } from '../i18n'
+import {
+  dataPorExtenso, diaAbrev, diaEMes, lerNumero, mesPorExtenso, num, num1,
+} from '../i18n/formato'
 
-export const MESES_CURTO = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-const MESES_LONGO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
-const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
-const brl = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
-
-/** '12.000' | '24.000,00' -> 12000 (número em reais). */
+/** '12.000' | '24.000,00' -> 12000, no formato que o idioma ativo usa. */
 export function parseValueBR(s: string | number): number {
-  if (typeof s === 'number') return s
-  return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0
+  return lerNumero(s)
 }
 
 /** 12000 -> '12.000' (sem o "R$"). */
 export function fmtMoney(v: number): string {
-  return brl.format(v)
+  return num(v)
 }
 
 /** 12000 -> 'R$ 12.000'. */
 export function fmtBRL(v: number): string {
-  return 'R$ ' + brl.format(v)
+  return 'R$ ' + num(v)
 }
 
 /** Abreviação tipo legacy fmtK: 12000 -> '12k', 284500 -> '284,5k'. */
 export function fmtK(v: number): string {
-  if (v >= 1000) return (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1).replace('.', ',') + 'k'
+  if (v >= 1000) return num1(v / 1000) + 'k'
   return String(v)
 }
 
 export function monthName(m: number): string {
-  return MESES_LONGO[m]
+  return mesPorExtenso(m)
 }
 
 export function pad2(n: number): string {
@@ -58,6 +63,9 @@ function sameDay(a: Date, b: Date): boolean {
  * Contato criado pelo espelhamento do WhatsApp guarda o número cru, e ele acaba aparecendo
  * como se fosse nome. Formatos reconhecidos: com ou sem DDI 55, celular (9 dígitos) e fixo
  * (8). O que não casar volta como veio — melhor um número feio do que um número escondido.
+ *
+ * NÃO segue o idioma: formata o plano de numeração brasileiro, que é uma
+ * propriedade do número, não de quem está lendo a tela.
  */
 export function fmtPhoneBR(raw: string): string {
   const d = (raw || '').replace(/\D/g, '')
@@ -94,24 +102,24 @@ export function chatTimeLabel(d: Date, now = new Date()): string {
   if (sameDay(d, now)) return timeHHMM(d)
   const y = new Date(now)
   y.setDate(now.getDate() - 1)
-  if (sameDay(d, y)) return 'Ontem'
+  if (sameDay(d, y)) return t('comum.ontem')
   const diff = (now.getTime() - d.getTime()) / 86400000
-  if (diff < 7) return DIAS_CURTO[d.getDay()]
-  return d.getDate() + ' ' + MESES_CURTO[d.getMonth()]
+  if (diff < 7) return diaAbrev(d.getDay())
+  return diaEMes(d)
 }
 
 /** "há 2h" / "ontem" / "24 Jun" — para leads/feed. */
 export function relativeLabel(d: Date, now = new Date()): string {
   const ms = now.getTime() - d.getTime()
   const min = Math.floor(ms / 60000)
-  if (min < 1) return 'agora'
-  if (min < 60) return 'há ' + min + 'min'
+  if (min < 1) return t('formato.agora')
+  if (min < 60) return t('formato.haMin', { n: min })
   const h = Math.floor(min / 60)
-  if (h < 24) return 'há ' + h + 'h'
+  if (h < 24) return t('formato.haHoras', { n: h })
   const days = Math.floor(h / 24)
-  if (days === 1) return 'ontem'
-  if (days < 7) return 'há ' + days + 'd'
-  return d.getDate() + ' ' + MESES_CURTO[d.getMonth()]
+  if (days === 1) return t('formato.ontemMinusculo')
+  if (days < 7) return t('formato.haDias', { n: days })
+  return diaEMes(d)
 }
 
 export interface DueInfo {
@@ -126,28 +134,28 @@ export function dueInfo(dueAt: Date, done: boolean, now = new Date()): DueInfo {
     return { text: dateLabel(dueAt, now), overdue: false }
   }
   if (overdue) {
-    return { text: 'Atrasada · ' + dueAt.getDate() + ' ' + MESES_CURTO[dueAt.getMonth()], overdue: true }
+    return { text: t('formato.atrasadaEm', { data: diaEMes(dueAt) }), overdue: true }
   }
-  if (sameDay(dueAt, now)) return { text: 'Hoje, ' + timeHHMM(dueAt), overdue: false }
+  if (sameDay(dueAt, now)) return { text: t('formato.hojeAs', { hora: timeHHMM(dueAt) }), overdue: false }
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
-  if (sameDay(dueAt, tomorrow)) return { text: 'Amanhã, ' + timeHHMM(dueAt), overdue: false }
-  return { text: dueAt.getDate() + ' ' + MESES_CURTO[dueAt.getMonth()] + ', ' + timeHHMM(dueAt), overdue: false }
+  if (sameDay(dueAt, tomorrow)) return { text: t('formato.amanhaAs', { hora: timeHHMM(dueAt) }), overdue: false }
+  return { text: t('formato.dataAs', { data: diaEMes(dueAt), hora: timeHHMM(dueAt) }), overdue: false }
 }
 
 /** 'Venc. 10 Jun' para faturamento. */
 export function dueDateShort(d: Date): string {
-  return 'Venc. ' + pad2(d.getDate()) + ' ' + MESES_CURTO[d.getMonth()]
+  return t('formato.vencimento', { data: diaEMes(d) })
 }
 
 function dateLabel(d: Date, now = new Date()): string {
-  if (sameDay(d, now)) return 'Hoje, ' + timeHHMM(d)
-  return d.getDate() + ' ' + MESES_CURTO[d.getMonth()] + ', ' + timeHHMM(d)
+  if (sameDay(d, now)) return t('formato.hojeAs', { hora: timeHHMM(d) })
+  return t('formato.dataAs', { data: diaEMes(d), hora: timeHHMM(d) })
 }
 
-/** "Sexta, 26 de Junho" — cabeçalho do dia selecionado na agenda. */
+/** "Sexta, 26 de junho" — cabeçalho do dia selecionado na agenda. */
 export function longDayLabel(d: Date): string {
-  return DIAS[d.getDay()] + ', ' + d.getDate() + ' de ' + MESES_LONGO[d.getMonth()]
+  return dataPorExtenso(d)
 }
 
 /** Extensão do arquivo -> categoria usada no fileVM. */
@@ -163,19 +171,23 @@ export function extToType(name: string): 'pdf' | 'doc' | 'img' | 'xls' {
  * Rótulo curto de uma mídia — vira o `text` da mensagem quando não há legenda, e é o que
  * aparece no preview da lista de contatos. Espelha os rótulos que o daemon já grava na
  * ingestão (whatsapp-daemon/src/messages.ts, MEDIA_META).
+ *
+ * O rótulo GRAVADO pelo daemon fica em português: é dado, escrito uma vez na
+ * chegada da mensagem, e reescrevê-lo mudaria histórico. Este aqui é o
+ * derivado, calculado na hora de mostrar — esse segue o idioma.
  */
 export function mediaLabel(type?: 'image' | 'video' | 'audio' | 'document' | 'sticker'): string {
-  if (type === 'image') return '[imagem]'
-  if (type === 'video') return '[vídeo]'
-  if (type === 'audio') return '[áudio]'
-  if (type === 'document') return '[documento]'
-  if (type === 'sticker') return '[figurinha]'
+  if (type === 'image') return t('formato.midiaImagem')
+  if (type === 'video') return t('formato.midiaVideo')
+  if (type === 'audio') return t('formato.midiaAudio')
+  if (type === 'document') return t('formato.midiaDocumento')
+  if (type === 'sticker') return t('formato.midiaFigurinha')
   return ''
 }
 
 /** Tamanho legível: 180000 -> '180 KB', 2400000 -> '2,4 MB'. */
 export function fmtSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB'
+  if (bytes >= 1024 * 1024) return num1(bytes / (1024 * 1024)) + ' MB'
   if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB'
   return bytes + ' B'
 }
@@ -183,7 +195,9 @@ export function fmtSize(bytes: number): string {
 /** Saudação por horário. */
 export function greeting(name: string, now = new Date()): string {
   const h = now.getHours()
-  const part = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+  const parte = h < 12 ? t('formato.bomDia') : h < 18 ? t('formato.boaTarde') : t('formato.boaNoite')
   const first = name.trim().split(/\s+/)[0] || ''
-  return `${part}, ${first} · ${DIAS_CURTO[now.getDay()]}, ${now.getDate()} ${MESES_CURTO[now.getMonth()]}`
+  return t('formato.saudacao', {
+    parte, nome: first, dia: diaAbrev(now.getDay()), data: diaEMes(now),
+  })
 }

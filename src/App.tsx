@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ouvirSistema } from './store/themeStore'
+import { useLocaleStore } from './store/localeStore'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { OwnerRoute, CrmRoute } from './components/layout/RouteGuards'
 import Layout from './components/layout/Layout'
@@ -72,9 +73,17 @@ export default function App() {
   // do macOS/Windows com o CRM aberto).
   useEffect(() => ouvirSistema(), [])
 
+  // A `key` é o que faz a troca de idioma valer na tela inteira, e não é
+  // decoração: as rotas são elementos criados em escopo de módulo, então a
+  // referência nunca muda e o React pula a re-renderização do subtree quando só
+  // o App re-renderiza. Com a key, ele remonta. A URL sobrevive — o `router` é o
+  // mesmo objeto e guarda a própria localização. O que se perde é estado de
+  // tela (modal aberto, rolagem), aceitável numa ação que a pessoa faz uma vez.
+  const idioma = useLocaleStore((s) => s.idioma)
+
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <RouterProvider key={idioma} router={router} />
     </AuthProvider>
   )
 }

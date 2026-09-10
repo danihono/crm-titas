@@ -24,6 +24,25 @@
         if (escuro) document.documentElement.setAttribute('data-theme', 'dark');
         document.documentElement.style.colorScheme = escuro ? 'dark' : 'light';
       } catch (e) {}
+
+      // Idioma, pelo mesmo motivo: o atributo lang manda no leitor de tela, no
+      // corretor ortográfico e na quebra de linha do navegador. Trocá-lo só
+      // quando o React sobe faz a página começar em português para quem
+      // escolheu outra coisa. Lê a chave que src/store/localeStore.ts grava, e
+      // repete a detecção pelo navegador que ele faz quando não há escolha.
+      try {
+        var TAGS = { pt: 'pt-BR', es: 'es', en: 'en' };
+        var salvo = localStorage.getItem('titas.locale');
+        var idioma = TAGS[salvo] ? salvo : null;
+        if (!idioma) {
+          var lista = navigator.languages || [navigator.language || 'pt'];
+          for (var i = 0; i < lista.length && !idioma; i++) {
+            var base = String(lista[i]).slice(0, 2).toLowerCase();
+            if (TAGS[base]) idioma = base;
+          }
+        }
+        document.documentElement.lang = TAGS[idioma || 'pt'];
+      } catch (e) {}
     })();
   </script>
 </head>

@@ -4,6 +4,18 @@
 
 import type { ActType, AgentConfig, AssistantWhatsapp } from '../types'
 
+/**
+ * Id fixo do quadro do sistema. É fixo de propósito: o painel aponta para ele
+ * pelo nome.
+ *
+ * Mora aqui, e não em useDeals.ts, porque a tradução precisa dele
+ * (src/i18n/sistema.ts) e este é o módulo de constantes puras — importar um
+ * hook que abre o Firebase só para comparar uma string arrastaria o SDK inteiro
+ * para dentro de quem só quer escrever um rótulo. `useDeals` reexporta, então
+ * quem já importava de lá continua igual.
+ */
+export const LEADS_BOARD_ID = 'leads'
+
 export const avPalette = [
   '#9a6fb8', '#7a52a0', '#b47cc4', '#6f9bcf', '#c98aab', '#5fa9c9', '#cf9b6f',
 ]

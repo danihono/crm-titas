@@ -7,6 +7,7 @@ import { selfRef } from '../lib/paths'
 import { safeFileName, validarImagem } from '../lib/upload'
 import { prefsFromDoc } from '../lib/converters'
 import { useThemeStore } from '../store/themeStore'
+import { useLocaleStore } from '../store/localeStore'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserPrefs } from '../types'
 
@@ -34,7 +35,7 @@ const EMPTY: SelfProfile = {
   phone: '',
   closingMessage: '',
   closingEnabled: false,
-  prefs: { notifyDesktop: true, notifySound: true, theme: 'system', dashboard: null },
+  prefs: { notifyDesktop: true, notifySound: true, theme: 'system', idioma: 'pt', dashboard: null },
 }
 
 /**
@@ -57,6 +58,8 @@ export function useSelfProfile(): SelfProfile {
       // Onde já existe escolha local, ela manda — senão duas abas com preferências
       // diferentes ficariam se sobrescrevendo a cada snapshot.
       useThemeStore.getState().adotarDoPerfil(prefs.theme)
+      // Mesma assimetria para o idioma: o aparelho que já escolheu manda.
+      useLocaleStore.getState().adotarDoPerfil(prefs.idioma)
       setProfile({
         displayName: d.displayName ?? '',
         role: d.role ?? '',

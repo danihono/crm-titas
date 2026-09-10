@@ -6,6 +6,7 @@ import { db } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
 import { boardFromDoc, dealFromDoc, leadFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
+import { LEADS_BOARD_ID } from '../lib/theme'
 import { useCollection } from './useCollection'
 import type { Board, Column, Deal } from '../types'
 
@@ -17,8 +18,9 @@ export function useBoards() {
   )
 }
 
-/** Id fixo do quadro do sistema. É fixo de propósito: o painel aponta para ele pelo nome. */
-export const LEADS_BOARD_ID = 'leads'
+// O id vive em src/lib/theme.ts (constantes puras); daqui ele só é reexportado,
+// para não quebrar quem já importava deste módulo.
+export { LEADS_BOARD_ID }
 
 /**
  * As etapas do quadro LEADS. Não são editáveis, e é isso que faz o funil do painel valer:

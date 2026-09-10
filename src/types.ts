@@ -3,6 +3,8 @@
 
 export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** Idioma da interface. O padrão de quem nunca escolheu vem do navegador. */
+export type Idioma = 'pt' | 'es' | 'en'
 /** Cor de acento de um card do painel. */
 export type Accent = 'purple' | 'green' | 'amber' | 'rose' | 'blue'
 /** Branco, ou o escuro em destaque (o primeiro card do painel). */
@@ -492,6 +494,13 @@ export interface UserPrefs {
    * entra de outro computador, não para mandar no que já está pintado.
    */
   theme: ThemeMode
+  /**
+   * Idioma da interface. Espelho do que o dispositivo já gravou no
+   * localStorage (src/store/localeStore.ts) — serve para o idioma seguir a
+   * pessoa quando ela entra de outro computador, não para mandar no que já
+   * está na tela.
+   */
+  idioma: Idioma
   /**
    * Como esta pessoa montou o painel. `null` = nunca mexeu, usa o padrão de
    * fábrica — guardar o padrão explicitamente congelaria o painel de quem nunca
