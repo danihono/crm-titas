@@ -198,6 +198,11 @@ async function runCommand(
   type: WaCommandType,
   args: Record<string, unknown>,
   timeoutMs: number,
+  /**
+   * Fila de destino. Por padrão a do ambiente ativo; a Assistente usa a própria, porque o
+   * número dela é da plataforma e não pertence a ambiente nenhum. Ver ASSISTANT_UID.
+   */
+  queueUid?: string,
 ): Promise<Record<string, unknown>> {
   if (WHATSAPP_KILL_SWITCH) {
     throw new Error('O WhatsApp está temporariamente desativado.')
@@ -219,7 +224,7 @@ async function runCommand(
   // sistema) morreu quando o dono perdeu o acesso ao ambiente do cliente. Todo membro ativo
   // enfileira nesta fila; o que é DESTRUTIVO (purgar, desconectar, definir retenção) as
   // rules restringem a gestor — ver waCommands em firestore.rules.
-  const ref = await addDoc(collection(db, WA_COMMANDS, tenantUid(), WA_QUEUE), {
+  const ref = await addDoc(collection(db, WA_COMMANDS, queueUid ?? tenantUid(), WA_QUEUE), {
     type,
     args,
     // Quem pediu. As rules exigem que seja o próprio uid, e o daemon reconfere o papel
@@ -369,4 +374,38 @@ export function purgeWhatsappContact(contactId: string, keepContact = false): Pr
  */
 export function retryWhatsappMedia(contactId: string): Promise<Record<string, unknown>> {
   return runCommand('contact.mediaRetry', { contactId }, 60_000)
+}
+
+// ---------------------------------------------------------------------------
+// O número da ASSISTENTE (painel SUPER TITAN)
+// ---------------------------------------------------------------------------
+
+/**
+ * Id da sessão da Assistente — o número da plataforma, não o de um cliente.
+ *
+ * Casa com ASSISTANT_UID em whatsapp-daemon/src/assistant.ts. NÃO pode ser
+ * `__assistente__`: o Firestore recusa ids que casem `__.*__`, são reservados. O underscore
+ * único mantém a garantia que interessa — uid do Auth é alfanumérico de 28 caracteres.
+ */
+export const ASSISTANT_UID = '_assistente'
+
+/** Consentimento da sessão da Assistente. Sem retenção: ela não espelha conversa nenhuma. */
+export function giveAssistantConsent(): Promise<Record<string, unknown>> {
+  return runCommand('session.consent', { retentionDays: 0 }, 20_000, ASSISTANT_UID)
+}
+
+/** Conecta o número da Assistente. O QR chega em whatsappStatus/_assistente. */
+export function connectAssistant(): Promise<Record<string, unknown>> {
+  return runCommand('session.connect', {}, 45_000, ASSISTANT_UID)
+}
+
+/**
+ * Desconecta o número da Assistente.
+ *
+ * Sem `purge`: não há o que expurgar — a sessão da Assistente não espelha contatos nem
+ * mensagens. E isto derruba o resumo diário de TODOS os clientes de uma vez, então a tela
+ * pede confirmação antes.
+ */
+export function disconnectAssistant(): Promise<Record<string, unknown>> {
+  return runCommand('session.disconnect', { purge: false }, 150_000, ASSISTANT_UID)
 }

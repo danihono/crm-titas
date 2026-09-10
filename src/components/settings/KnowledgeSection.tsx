@@ -30,7 +30,7 @@ export default function KnowledgeSection({ canEdit }: { canEdit: boolean }) {
   return (
     <SettingsCard
       title="Bases de conhecimento"
-      subtitle="O material que o Titã IA consulta ao responder: política de trocas, tabela de preços, FAQ."
+      subtitle="O material que a Assistente consulta ao responder: política de trocas, tabela de preços, FAQ."
       action={
         <span style={{ fontSize: 12.5, fontWeight: 700, color: enabledCount ? C.purple : C.faint }}>
           {enabledCount} em uso
@@ -111,7 +111,7 @@ export default function KnowledgeSection({ canEdit }: { canEdit: boolean }) {
       )}
 
       <div style={{ fontSize: 12, color: C.faint, marginTop: 16, lineHeight: 1.6 }}>
-        A base entra no contexto de cada pergunta feita ao Titã IA, com um teto de tamanho —
+        A base entra no contexto de cada pergunta feita à Assistente — na tela e no WhatsApp —, com um teto de tamanho —
         documentos além do teto ficam de fora daquela chamada, porque cada pergunta é paga
         por token. Mantenha ligado só o que for realmente consultado.
       </div>

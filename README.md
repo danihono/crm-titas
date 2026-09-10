@@ -10,7 +10,7 @@ CRM de vendas em **React + Vite + TypeScript** sobre **Firebase** (Firestore, Au
 
 ## Módulos
 Dashboard · Pipeline (Kanban com drag&drop) · Contatos + WhatsApp + Atendimento + Arquivos ·
-Atividades · Faturamento · Agenda · Agente de IA · Campanhas · Relatórios · Configurações.
+Atividades · Faturamento · Agenda · Assistente · Campanhas · Relatórios · Configurações.
 
 **Pipeline e o funil.** O Kanban tem um quadro do sistema, **Leads** (`boards/leads`), com
 seis etapas fixas — Novo lead · Contato feito · Qualificado · Proposta enviada · Ganho, mais

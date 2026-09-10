@@ -161,6 +161,42 @@ pareamento continua intacto.
 
 ---
 
+## 7b. O número da ASSISTENTE
+
+Além do WhatsApp de cada cliente, o mesmo daemon carrega **um número a mais**: o da
+Assistente, que manda o resumo diário para o dono de cada ambiente e responde ali mesmo.
+
+É uma sessão como qualquer outra, com um id reservado: **`_assistente`**. Ela aparece em
+`whatsappSessions/_assistente`, `whatsappStatus/_assistente` e
+`waCommands/_assistente/queue`, e é rehidratada no boot junto com as demais.
+
+> O id **não** pode ser `__assistente__`: o Firestore recusa ids que casem `__.*__`, são
+> reservados. O underscore único mantém a garantia que importa — uid do Firebase Auth é
+> alfanumérico de 28 caracteres, então nunca colide com este.
+
+Três coisas a saber:
+
+1. **Ela não espelha nada.** `openSession()` ramifica: na sessão da Assistente nenhum dos
+   handlers de espelhamento é registrado. Sem isso, cada mensagem recebida criaria contato,
+   conversa e mídia em `users/_assistente/**` — um ambiente que não existe.
+2. **Quem manda nela é o dono do sistema.** A reconferência de papel normal (`papelDe()`)
+   procura vínculo em `users/{uid}/members`, e `_assistente` não tem nem terá membros. Então
+   `commands.ts` confere a allowlist de e-mail direto no Auth. Desconectar este número
+   derruba o resumo diário de **todos** os clientes de uma vez.
+3. **Use um chip só dela.** Não o número pessoal nem o de atendimento de um cliente.
+
+Onde parear: **SUPER TITAN → Assistente** (`/super/assistente`).
+
+### Testar sem mandar mensagem para ninguém
+
+`WA_DRY_RUN=true` faz a fila de saída rodar inteira — reivindica, trava, marca como
+enviada — e escrever o texto no log em vez de enviar. É como se testa fuso, montagem do
+resumo e trava de duplicidade sem número pareado e sem incomodar cliente nenhum.
+
+**Nunca ligue isso em produção:** a fila drena e ninguém recebe nada.
+
+---
+
 ## 8. O que esperar
 
 - **Trocar de máquina não pede QR de novo.** O auth (creds + chaves do Signal) vive no

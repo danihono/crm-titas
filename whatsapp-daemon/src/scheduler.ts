@@ -2,6 +2,7 @@ import { FieldValue, Timestamp, type QueryDocumentSnapshot } from 'firebase-admi
 import { db } from './firebase.js'
 import { logger } from './logger.js'
 import { activeSessionUids, sendTextToPhone } from './sessionManager.js'
+import { isAssistantUid } from './assistant.js'
 import { saveOutgoingTextMessage } from './messages.js'
 
 const INTERVAL_MS = 5_000
@@ -165,7 +166,10 @@ async function tick(): Promise<void> {
   running = true
   try {
     const now = Timestamp.now()
-    for (const uid of activeSessionUids()) {
+    // A Assistente entra em activeSessionUids como qualquer sessão, mas não é um tenant:
+    // varrer `users/_assistente/scheduledMessages` seria consulta a uma coleção que nunca
+    // vai existir, a cada 5 segundos.
+    for (const uid of activeSessionUids().filter((u) => !isAssistantUid(u))) {
       const snap = await db
         .collection('users')
         .doc(uid)

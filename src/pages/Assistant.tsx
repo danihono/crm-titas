@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   useAgentConfig, useAgentChat, updateAgentField, toggleAgentSource, pushAgentMessage, callTitaIA, fallbackReply,
-  agentErrorHint, errorCode,
-} from '../hooks/useAgent'
+  agentErrorHint, errorCode, assistantWhatsapp, updateAssistantWhatsapp, toggleAssistantBlock, useTenantPhone,
+} from '../hooks/useAssistant'
 import { useTenantStore, canManage } from '../store/tenantStore'
 import { knowledgeContext, useKnowledge } from '../hooks/useLibrary'
 import { useAllDeals, useBoards } from '../hooks/useDeals'
@@ -12,7 +12,7 @@ import { useContacts } from '../hooks/useContacts'
 import { fmtMoney, relativeLabel } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
-import type { AgentConfig } from '../types'
+import type { AgentConfig, AgentMessage, AssistantBlocks } from '../types'
 import { C } from '../styles/sx'
 
 const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: string; icon: string; desc: string }[] = [
@@ -21,13 +21,25 @@ const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: string; icon: str
   { key: 'atividades', label: 'Atividades', icon: 'task_alt', desc: 'Tarefas, ligações e reuniões' },
   { key: 'conversas', label: 'Conversas (WhatsApp)', icon: 'forum', desc: 'Histórico de mensagens' },
   { key: 'faturamento', label: 'Faturamento', icon: 'receipt_long', desc: 'Notas e status de pagamento' },
+  { key: 'agenda', label: 'Agenda', icon: 'calendar_month', desc: 'Compromissos marcados' },
+]
+
+/** Blocos do resumo diário. Deliberadamente SEPARADO de SOURCE_DEFS — ver AssistantWhatsapp. */
+const RESUMO_BLOCOS: { key: keyof AssistantBlocks; label: string; icon: string }[] = [
+  { key: 'agenda', label: 'Agenda do dia', icon: 'calendar_month' },
+  { key: 'tarefas', label: 'Tarefas e atrasos', icon: 'task_alt' },
+  { key: 'faturas', label: 'Faturas', icon: 'receipt_long' },
+  { key: 'conversas', label: 'Conversas sem resposta', icon: 'forum' },
 ]
 const SUGGESTIONS = ['Qual meu foco hoje?', 'Analisar a Atlas Cloud', 'Cobrar notas vencidas']
 
+/** Um único aviso de falha para toda a tela — salvar config aqui nunca falha em silêncio. */
+function avisaFalha(e: unknown) {
+  alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração da Assistente.')
+}
+
 function saveAgentField(field: 'name' | 'persona' | 'instructions', value: string) {
-  updateAgentField(field, value).catch((e) => {
-    alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração do agente.')
-  })
+  updateAgentField(field, value).catch(avisaFalha)
 }
 
 /**
@@ -65,8 +77,9 @@ export default function Agent() {
   const { docs: activities } = useActivities()
   const readOnly = useTenantStore((s) => s.readOnly)
   const role = useTenantStore((s) => s.role)
+  const podeGerir = canManage(role, readOnly)
   // Faturamento no contexto da IA só para quem pode lê-lo — as regras negam ao atendente.
-  const { docs: invoices } = useInvoices({ enabled: canManage(role, readOnly) })
+  const { docs: invoices } = useInvoices({ enabled: podeGerir })
   const { docs: contacts } = useContacts()
   const { docs: knowledge } = useKnowledge()
 
@@ -74,6 +87,16 @@ export default function Agent() {
   const [typing, setTyping] = useState(false)
   const nameField = useDebouncedAgentField('name', cfg.name)
   const instrField = useDebouncedAgentField('instructions', cfg.instructions)
+
+  // Resumo diário. `wa` já vem com os padrões preenchidos, então os campos abaixo nunca
+  // recebem undefined num ambiente que ainda não abriu esta seção.
+  const wa = assistantWhatsapp(cfg)
+  const tenantPhone = useTenantPhone()
+  const [phoneDraft, setPhoneDraft] = useState<string | null>(null)
+  const phoneSalvo = wa.phone ?? ''
+  // Enquanto ninguém digita, o campo mostra o telefone do ambiente — é para lá que o
+  // resumo vai quando `whatsapp.phone` está vazio, e mostrar em branco esconderia isso.
+  const phoneValor = phoneDraft ?? (phoneSalvo || tenantPhone)
 
   const colTitle: Record<string, string> = {}
   boards.forEach((b) => b.columns.forEach((c) => { colTitle[c.id] = c.title }))
@@ -154,8 +177,8 @@ export default function Agent() {
             <MaterialIcon name="auto_awesome" size={24} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Construtor de Agente</div>
-            <div style={{ fontSize: 12, color: C.sub }}>Crie um agente que entende seu negócio</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Assistente</div>
+            <div style={{ fontSize: 12, color: C.sub }}>Quem ela é, o que ela lê e quando ela te procura</div>
           </div>
         </div>
 
@@ -176,26 +199,107 @@ export default function Agent() {
         <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>Escolha o que o agente pode acessar. Ele lê os dados em tempo real para entender todo o seu negócio.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {SOURCE_DEFS.map((s) => {
-            const on = cfg.sources[s.key]
+            const on = !!cfg.sources[s.key] // `agenda` é opcional: ausente = desligada
             return (
               <div key={s.key} onClick={() => {
                 if (readOnly) return
-                toggleAgentSource(s.key, on).catch((e) => {
-                  alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração do agente.')
-                })
+                toggleAgentSource(s.key, on).catch(avisaFalha)
               }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? C.tintPurpleWeak : C.field, border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : C.fieldBorder), borderRadius: 12, padding: '12px 14px', cursor: readOnly ? 'default' : 'pointer' }}>
                 <MaterialIcon name={s.icon} size={20} color={on ? C.purple : C.faint} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{s.label}</div>
                   <div style={{ fontSize: 11, color: C.muted }}>{s.desc}</div>
                 </div>
-                <div style={{ width: 38, height: 22, borderRadius: 20, flexShrink: 0, position: 'relative', transition: '.2s', background: on ? 'linear-gradient(140deg,#9a6fb8,#5a3a7e)' : '#dcd8e6' }}>
-                  <div style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: C.surface, transition: '.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }} />
-                </div>
+                <Chave on={on} />
               </div>
             )
           })}
         </div>
+
+        {/* Resumo diário no WhatsApp */}
+        {podeGerir && (
+          <>
+            <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '26px 0 10px' }}>RESUMO DIÁRIO NO WHATSAPP</div>
+            <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>
+              A Assistente te manda um resumo do dia no WhatsApp e responde ali mesmo, na
+              mesma conversa desta tela.
+            </div>
+
+            <div
+              onClick={() => {
+                if (readOnly) return
+                updateAssistantWhatsapp({ enabled: !wa.enabled, optOut: false }).catch(avisaFalha)
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, background: wa.enabled ? C.tintPurpleWeak : C.field, border: '1px solid ' + (wa.enabled ? 'rgba(150,110,200,0.35)' : C.fieldBorder), borderRadius: 12, padding: '12px 14px', cursor: readOnly ? 'default' : 'pointer', marginBottom: 14 }}
+            >
+              <MaterialIcon name="schedule_send" size={20} color={wa.enabled ? C.purple : C.faint} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Enviar todos os dias</div>
+                <div style={{ fontSize: 11, color: C.muted }}>
+                  {wa.enabled ? `Todo dia às ${wa.sendAt}` : 'Desligado'}
+                </div>
+              </div>
+              <Chave on={wa.enabled} />
+            </div>
+
+            {wa.enabled && (
+              <>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Horário</label>
+                <input
+                  type="time"
+                  value={wa.sendAt}
+                  disabled={readOnly}
+                  onChange={(e) => updateAssistantWhatsapp({ sendAt: e.target.value || '07:00' }).catch(avisaFalha)}
+                  style={fieldStyle}
+                />
+
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>WhatsApp que vai receber</label>
+                <input
+                  value={phoneValor}
+                  disabled={readOnly}
+                  placeholder="+55 11 90000-0000"
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  onBlur={() => {
+                    if (phoneDraft === null) return
+                    const limpo = phoneDraft.trim()
+                    setPhoneDraft(null)
+                    if (limpo !== phoneSalvo) updateAssistantWhatsapp({ phone: limpo }).catch(avisaFalha)
+                  }}
+                  style={fieldStyle}
+                />
+
+                <div style={{ fontSize: 11, letterSpacing: '.08em', color: C.faint, fontWeight: 700, margin: '4px 0 10px' }}>O QUE VEM NO RESUMO</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {RESUMO_BLOCOS.map((b) => {
+                    const on = wa.blocks[b.key]
+                    return (
+                      <div
+                        key={b.key}
+                        onClick={() => {
+                          if (readOnly) return
+                          toggleAssistantBlock(b.key, on).catch(avisaFalha)
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? C.tintPurpleWeak : C.field, border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : C.fieldBorder), borderRadius: 12, padding: '10px 14px', cursor: readOnly ? 'default' : 'pointer' }}
+                      >
+                        <MaterialIcon name={b.icon} size={19} color={on ? C.purple : C.faint} />
+                        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.ink }}>{b.label}</div>
+                        <Chave on={on} />
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6, marginTop: 14 }}>
+                  {wa.optOut
+                    ? '⚠ Você respondeu SAIR no WhatsApp. Religue acima para voltar a receber.'
+                    : wa.lastSentDateKey
+                      ? `Último resumo enviado em ${wa.lastSentDateKey}.`
+                      : 'Nenhum resumo enviado ainda.'}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       {/* Chat */}
@@ -221,10 +325,13 @@ export default function Agent() {
           )}
           {chat.map((m) => (
             m.role === 'agent'
-              ? <AgentBubble key={m.id} text={m.text} />
+              ? <AgentBubble key={m.id} text={m.text} m={m} />
               : (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <div style={{ maxWidth: '74%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.5, color: '#f5f0fa', whiteSpace: 'pre-wrap', boxShadow: '0 2px 8px rgba(110,65,150,0.25)' }}>{m.text}</div>
+                  <div style={{ maxWidth: '74%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div style={{ background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.5, color: '#f5f0fa', whiteSpace: 'pre-wrap', boxShadow: '0 2px 8px rgba(110,65,150,0.25)' }}>{m.text}</div>
+                    <SeloCanal m={m} />
+                  </div>
                 </div>
               )
           ))}
@@ -266,13 +373,38 @@ export default function Agent() {
   )
 }
 
-function AgentBubble({ text }: { text: string }) {
+/** A chave liga/desliga — mesma peça nas fontes de conhecimento e nos blocos do resumo. */
+function Chave({ on }: { on: boolean }) {
+  return (
+    <div style={{ width: 38, height: 22, borderRadius: 20, flexShrink: 0, position: 'relative', transition: '.2s', background: on ? 'linear-gradient(140deg,#9a6fb8,#5a3a7e)' : '#dcd8e6' }}>
+      <div style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: C.surface, transition: '.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }} />
+    </div>
+  )
+}
+
+/**
+ * Selo de origem. Só aparece no que veio do WhatsApp: a tela é o caso comum, e marcar os
+ * dois lados encheria a conversa de etiqueta sem informar nada.
+ */
+function SeloCanal({ m }: { m: AgentMessage }) {
+  if (m.channel !== 'whatsapp') return null
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: C.muted, marginTop: 5 }}>
+      <MaterialIcon name="smartphone" size={12} color={C.muted} />WhatsApp
+    </span>
+  )
+}
+
+function AgentBubble({ text, m }: { text: string; m?: AgentMessage }) {
   return (
     <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
       <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <MaterialIcon name="auto_awesome" size={17} color="#fff" />
       </div>
-      <div style={{ maxWidth: '74%', background: C.surface, border: '1px solid #e9e6f0', borderRadius: '4px 15px 15px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.55, color: C.ink, whiteSpace: 'pre-wrap', boxShadow: '0 1px 2px rgba(28,20,50,0.05)' }}>{text}</div>
+      <div style={{ maxWidth: '74%' }}>
+        <div style={{ background: C.surface, border: '1px solid #e9e6f0', borderRadius: '4px 15px 15px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.55, color: C.ink, whiteSpace: 'pre-wrap', boxShadow: '0 1px 2px rgba(28,20,50,0.05)' }}>{text}</div>
+        {m && <SeloCanal m={m} />}
+      </div>
     </div>
   )
 }
