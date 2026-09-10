@@ -120,6 +120,6 @@ daemon reaproveitando o `scheduler.ts`, com throttle forte e opt-out.
 
 Os **Fluxos** que já existem (`src/components/flows`, `@xyflow/react`) hoje são só
 desenho. Virar chatbot = executá-los no daemon quando chega mensagem, com nós de
-condição/resposta/transferência-para-humano. O **Agente de IA** ganha base de
+condição/resposta/transferência-para-humano. A **Assistente** ganha base de
 conhecimento e passa a poder responder a conversa e devolver para um humano.
 É a fase de maior valor e a de maior trabalho — por isso vem por último.

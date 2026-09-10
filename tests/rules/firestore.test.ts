@@ -392,3 +392,76 @@ describe('status do WhatsApp', () => {
     await assertFails(getDoc(doc(estranho(), `whatsappStatus/${TENANT_A}`)))
   })
 })
+
+describe('Assistente — canal do chat', () => {
+  // `channel` decide se a Cloud Function responde pelo WhatsApp. Se o cliente puder
+  // gravá-lo, qualquer atendente vira um disparador de mensagem (e de chamada paga).
+  it('atendente cria mensagem normal no chat (não pode regredir)', async () => {
+    await assertSucceeds(
+      addDoc(collection(atendente(), `users/${TENANT_A}/agentChat`), { role: 'user', text: 'oi' }),
+    )
+  })
+  it('atendente cria mensagem marcada como app (não pode regredir)', async () => {
+    await assertSucceeds(
+      addDoc(collection(atendente(), `users/${TENANT_A}/agentChat`), { role: 'user', text: 'oi', channel: 'app' }),
+    )
+  })
+  it('NINGUÉM do lado do cliente forja channel: whatsapp — nem o dono', async () => {
+    await assertFails(
+      addDoc(collection(dono(), `users/${TENANT_A}/agentChat`), { role: 'user', text: 'oi', channel: 'whatsapp' }),
+    )
+    await assertFails(
+      addDoc(collection(atendente(), `users/${TENANT_A}/agentChat`), { role: 'user', text: 'oi', channel: 'whatsapp' }),
+    )
+  })
+})
+
+describe('Assistente — o número da plataforma', () => {
+  it('dono do sistema lê o status/QR do número da Assistente', async () => {
+    await assertSucceeds(getDoc(doc(donoSistema(), 'whatsappStatus/_assistente')))
+  })
+  it('dono de um ambiente NÃO lê o status do número da Assistente', async () => {
+    await assertFails(getDoc(doc(dono(), 'whatsappStatus/_assistente')))
+    await assertFails(getDoc(doc(atendente(), 'whatsappStatus/_assistente')))
+  })
+  it('dono do sistema pede a conexão do número', async () => {
+    await assertSucceeds(
+      addDoc(collection(donoSistema(), 'waCommands/_assistente/queue'), {
+        type: 'session.connect', args: {}, status: 'pending', attempts: 0,
+        createdAt: serverTimestamp(), expireAt: serverTimestamp(), by: UID_DONO_SISTEMA,
+      }),
+    )
+  })
+  it('dono de ambiente NÃO enfileira comando no número da Assistente', async () => {
+    await assertFails(
+      addDoc(collection(dono(), 'waCommands/_assistente/queue'), {
+        type: 'session.connect', args: {}, status: 'pending', attempts: 0,
+        createdAt: serverTimestamp(), expireAt: serverTimestamp(), by: TENANT_A,
+      }),
+    )
+  })
+  it('nem o dono do sistema manda mensagem avulsa por essa fila', async () => {
+    // O que a Assistente envia sai de `assistantOutbox`, montada no servidor.
+    await assertFails(
+      addDoc(collection(donoSistema(), 'waCommands/_assistente/queue'), {
+        type: 'message.send', args: {}, status: 'pending', attempts: 0,
+        createdAt: serverTimestamp(), expireAt: serverTimestamp(), by: UID_DONO_SISTEMA,
+      }),
+    )
+  })
+})
+
+describe('Assistente — filas do servidor', () => {
+  it('a fila de saída é só do Admin SDK: ninguém escreve, e só o dono do sistema lê', async () => {
+    await assertFails(getDocs(collection(dono(), 'assistantOutbox')))
+    await assertFails(
+      addDoc(collection(donoSistema(), 'assistantOutbox'), { tenantUid: TENANT_A, text: 'oi' }),
+    )
+    await assertSucceeds(getDocs(collection(donoSistema(), 'assistantOutbox')))
+  })
+  it('o índice telefone → ambiente não é legível por ninguém', async () => {
+    // Ele revelaria o telefone do dono de cada ambiente. Nem o dono do sistema lê.
+    await assertFails(getDoc(doc(dono(), 'assistantSubscribers/5511999998888')))
+    await assertFails(getDoc(doc(donoSistema(), 'assistantSubscribers/5511999998888')))
+  })
+})

@@ -561,6 +561,9 @@ export function agentMessageFromDoc(id: string, d: DocumentData): AgentMessage {
     role: d.role === 'user' ? 'user' : 'agent',
     text: d.text ?? '',
     createdAt: toDate(d.createdAt),
+    // Sem o campo = veio da tela. Todo o histórico anterior ao WhatsApp cai aqui, e é
+    // por isso que a ausência vale 'app' em vez de exigir migração.
+    channel: d.channel === 'whatsapp' ? 'whatsapp' : 'app',
   }
 }
 

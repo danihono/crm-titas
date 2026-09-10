@@ -12,13 +12,14 @@ import Contacts from './pages/Contacts'
 import Activities from './pages/Activities'
 import Invoices from './pages/Invoices'
 import Agenda from './pages/Agenda'
-import Agent from './pages/Agent'
+import Assistant from './pages/Assistant'
 import Reports from './pages/Reports'
 import Campaigns from './pages/Campaigns'
 import Settings from './pages/Settings'
 import SuperHome from './pages/super/SuperHome'
 import GeneralDashboard from './pages/super/GeneralDashboard'
 import ClientsList from './pages/super/ClientsList'
+import AssistantSession from './pages/super/AssistantSession'
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
           { path: 'super', element: <SuperHome /> },
           { path: 'super/geral', element: <GeneralDashboard /> },
           { path: 'super/clientes', element: <ClientsList /> },
+          { path: 'super/assistente', element: <AssistantSession /> },
         ],
       },
       // CRM — usuários comuns (próprios dados) ou dono visualizando um cliente
@@ -47,7 +49,11 @@ const router = createBrowserRouter([
               { path: 'atividades', element: <Activities /> },
               { path: 'faturamento', element: <Invoices /> },
               { path: 'agenda', element: <Agenda /> },
-              { path: 'agente', element: <Agent /> },
+              { path: 'assistente', element: <Assistant /> },
+              // O módulo se chamava "Agente de IA" e virou "Assistente". O redirect fica:
+              // link antigo em favorito ou colado num histórico de conversa não pode
+              // cair no catch-all e mandar a pessoa para o Dashboard sem explicação.
+              { path: 'agente', element: <Navigate to="/assistente" replace /> },
               { path: 'campanhas', element: <Campaigns /> },
               { path: 'relatorios', element: <Reports /> },
               { path: 'configuracoes', element: <Settings /> },

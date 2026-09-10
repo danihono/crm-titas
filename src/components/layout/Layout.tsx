@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext'
  * Cabeçalho por rota. Só entra onde a tela não tem um próprio:
  *  - Dashboard monta o seu (é o da saudação);
  *  - Relatórios e Campanhas já têm <h1>;
- *  - Contatos, Pipeline e Agente de IA ocupam a altura toda (height:100%) e são
+ *  - Contatos, Pipeline e Assistente ocupam a altura toda (height:100%) e são
  *    identificados pelo menu lateral; um cabeçalho ali roubaria altura da
  *    conversa e ainda quebraria o cálculo de altura dos painéis.
  */

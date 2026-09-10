@@ -2,6 +2,7 @@ import { FieldValue, Timestamp, type DocumentData, type QueryDocumentSnapshot } 
 import { db } from './firebase.js'
 import { logger } from './logger.js'
 import { activeSessionUids, sendTextToPhone } from './sessionManager.js'
+import { isAssistantUid } from './assistant.js'
 import { saveOutgoingTextMessage } from './messages.js'
 
 const INTERVAL_MS = 20_000
@@ -292,7 +293,9 @@ async function tick(): Promise<void> {
   running = true
   const now = new Date()
   try {
-    for (const uid of activeSessionUids()) {
+    // Mesma razão do scheduler: a Assistente é uma sessão, não um ambiente — ela não tem
+    // campanha nem contatos.
+    for (const uid of activeSessionUids().filter((u) => !isAssistantUid(u))) {
       const campaigns = await db
         .collection('users').doc(uid).collection('campaigns')
         .where('status', '==', 'enviando')

@@ -6,9 +6,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTenantStore } from '../store/tenantStore'
 import { col, userRef } from '../lib/paths'
 import { agentMessageFromDoc } from '../lib/converters'
-import { defaultAgentConfig } from '../lib/theme'
+import { defaultAgentConfig, defaultAssistantWhatsapp } from '../lib/theme'
 import { useCollection } from './useCollection'
-import type { AgentConfig, AgentMessage } from '../types'
+import type { AgentConfig, AgentMessage, AssistantBlocks, AssistantWhatsapp } from '../types'
 
 /**
  * Config do agente (campo `agent` em users/{uid}), em tempo real.
@@ -46,8 +46,50 @@ export async function toggleAgentSource(key: keyof AgentConfig['sources'], curre
   await setDoc(userRef(), { agent: { sources: { [key]: !current } } }, { merge: true })
 }
 
+// ---------------------------------------------------------------------------
+// Resumo diário no WhatsApp (agent.whatsapp)
+// ---------------------------------------------------------------------------
+
+/**
+ * Config do resumo com os padrões preenchidos.
+ *
+ * A tela precisa de um objeto COMPLETO para renderizar os campos, e `agent.whatsapp` é
+ * opcional no Firestore (ambiente que nunca abriu a seção não tem o campo). Resolver isso
+ * aqui evita `?? ''` espalhado por cada input.
+ */
+export function assistantWhatsapp(cfg: AgentConfig): AssistantWhatsapp {
+  const w = cfg.whatsapp
+  if (!w) return defaultAssistantWhatsapp
+  return {
+    ...defaultAssistantWhatsapp,
+    ...w,
+    blocks: { ...defaultAssistantWhatsapp.blocks, ...(w.blocks ?? {}) },
+  }
+}
+
+/**
+ * Grava um pedaço do resumo. `merge: true` em campo aninhado só substitui as chaves
+ * enviadas — `lastSentDateKey`, escrito pela Cloud Function, sobrevive a um salvamento
+ * da tela feito no mesmo instante.
+ */
+export async function updateAssistantWhatsapp(patch: Partial<AssistantWhatsapp>) {
+  await setDoc(userRef(), { agent: { whatsapp: patch } }, { merge: true })
+}
+
+export async function toggleAssistantBlock(key: keyof AssistantBlocks, current: boolean) {
+  await setDoc(userRef(), { agent: { whatsapp: { blocks: { [key]: !current } } } }, { merge: true })
+}
+
+/**
+ * Escreve na conversa da Assistente. SEMPRE com `channel: 'app'`.
+ *
+ * O canal não é decoração: é ele que o gatilho da Cloud Function lê para decidir se manda
+ * a resposta pelo WhatsApp. Se a tela gravasse 'whatsapp', cada linha digitada aqui viraria
+ * uma mensagem no celular do usuário — e as security rules recusam esse valor vindo do
+ * cliente justamente para que nem um bug nem um atendente consigam fazer isso.
+ */
 export async function pushAgentMessage(role: 'user' | 'agent', text: string) {
-  await addDoc(col('agentChat'), { role, text, createdAt: serverTimestamp() })
+  await addDoc(col('agentChat'), { role, text, channel: 'app', createdAt: serverTimestamp() })
 }
 
 interface AskRequest { system: string; history: { role: 'user' | 'assistant'; content: string }[]; question: string }
@@ -110,4 +152,24 @@ export function fallbackReply(q: string): string {
     return 'Sugestão de mensagem para a Marina (Nexa Software):\n\n"Oi Marina! Conforme combinamos, segue a proposta do plano Enterprise cobrindo os 3 ambientes (produção, homologação e dev) com suporte prioritário. Fico à disposição para ajustar qualquer ponto — podemos fechar ainda esta semana? 🚀"'
   }
   return 'Analisei os dados do seu CRM. Posso priorizar seu dia, analisar um negócio específico, cobrar notas vencidas ou redigir mensagens — é só pedir. (Observação: a IA respondeu em modo offline; configure a Cloud Function askTitaIA para respostas em tempo real.)'
+}
+
+/**
+ * Telefone do TENANT (users/{tenantUid}.phone) — o destino padrão do resumo diário.
+ *
+ * Não usa `useSelfProfile`: aquele lê a conta logada, e um dono do sistema visualizando um
+ * cliente veria o próprio telefone no campo de destino do cliente. O resumo é do ambiente,
+ * então o telefone tem de vir do doc do ambiente.
+ */
+export function useTenantPhone(): string {
+  const { user } = useAuth()
+  const tenantUid = useTenantStore((s) => s.tenantUid)
+  const [phone, setPhone] = useState('')
+  useEffect(() => {
+    const uid = tenantUid ?? user?.uid
+    if (!uid) return
+    setPhone('')
+    return onSnapshot(doc(db, 'users', uid), (snap) => setPhone(String(snap.data()?.phone ?? '')))
+  }, [user?.uid, tenantUid])
+  return phone
 }
