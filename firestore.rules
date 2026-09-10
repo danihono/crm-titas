@@ -196,12 +196,19 @@ service cloud.firestore {
       // No update a lista é de campos ALTERÁVEIS, não do documento inteiro: o daemon
       // grava waJid, historyImport, mediaRecovery e afins pelo Admin SDK, e o cliente não
       // pode encostar neles. `createdAt` fica de fora — data de criação não se reescreve.
-      allow update: if podeVer(uid) && convOk(uid)
-        && mudou().hasOnly([
+      // A ORDEM importa e o `tocou` não é enfeite. `hasOnly` é a checagem barata — nenhuma
+      // leitura — e vem primeiro para short-circuitar quando o conjunto de campos já está
+      // errado. E `convOk` só roda quando `conv` REALMENTE muda: `novo()` é o documento
+      // resultante inteiro, então todo contato que já teve conversa sempre tem `conv`, e
+      // validar sem o `tocou` gastava duas buscas em toda troca de `lastMessage` — que é o
+      // caminho mais quente do app.
+      allow update: if mudou().hasOnly([
              'name', 'company', 'initials', 'role', 'email', 'phone', 'whatsapp',
              'whatsappDigits', 'nameSource', 'unreadCount', 'lastMessage', 'lastMessageAt',
              'tagIds', 'conv', 'custom', 'photoUrl', 'photoPath', 'photoSource', 'optOut',
-           ]);
+           ])
+        && podeVer(uid)
+        && (!tocou('conv') || convOk(uid));
       allow delete: if podeGerir(uid);
     }
 
@@ -229,11 +236,15 @@ service cloud.firestore {
              'contactId', 'contactName', 'assignedTo', 'assignedName', 'sectorId',
              'tagIds', 'openedAt', 'firstResponseAt', 'closedAt', 'closedBy',
            ]);
-      allow update: if podeVer(uid) && responsavelOk(uid) && setorOk(uid)
-        && mudou().hasOnly([
+      // Mesmo motivo do contato: `markFirstResponse` só toca `firstResponseAt`, e sem o
+      // `tocou` pagava duas buscas para revalidar responsável e setor que não mudaram.
+      allow update: if mudou().hasOnly([
              'contactName', 'assignedTo', 'assignedName', 'sectorId', 'tagIds',
              'firstResponseAt', 'closedAt', 'closedBy',
-           ]);
+           ])
+        && podeVer(uid)
+        && (!tocou('assignedTo') || responsavelOk(uid))
+        && (!tocou('sectorId') || setorOk(uid));
       allow delete: if podeGerir(uid);
     }
 

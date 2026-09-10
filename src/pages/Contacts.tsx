@@ -360,15 +360,20 @@ function Atendimento() {
     // Variável escrita à mão também vale, não só a que veio de resposta rápida; e a
     // assinatura entra aqui, no envio, para não ficar no caminho de quem está digitando.
     const text = withSignature(applyVariables(raw, composeVars(active)), profile.signature)
+    // Limpa ANTES de esperar a entrega. Pelo WhatsApp o envio é uma ida e volta pelo daemon
+    // — comando na fila, Baileys, e a resposta de volta — e segurar o campo até o fim faz o
+    // clique parecer que não pegou. Se a entrega falhar, o texto volta para o campo logo
+    // abaixo: quem escreveu não perde o que escreveu.
+    setWaInput('')
+    setShowEmoji(false)
     try {
       await deliver(active.id, text)
-      setWaInput('')
-      setShowEmoji(false)
       scrollToEnd('auto')
       // Métrica de primeira resposta — depois do envio, e sem await: a mensagem já saiu,
       // e o relatório não pode segurar a UI nem falhar junto com ela.
       if (!readOnly) void markFirstResponse(active)
     } catch (e) {
+      setWaInput(raw)
       alert(e instanceof Error ? e.message : 'Falha ao enviar mensagem.')
     }
   }

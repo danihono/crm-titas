@@ -297,6 +297,20 @@ describe('M1 — validação dos dados gravados', () => {
       createdAt: new Date('2000-01-01'),
     }))
   })
+  // O atalho do `tocou`: escrita que NÃO mexe em responsável nem setor não pode pagar a
+  // revalidação deles. Estes dois cobrem os caminhos mais quentes do app — mandar mensagem
+  // (mexe em lastMessage) e marcar a primeira resposta.
+  it('mexer só em lastMessage não revalida a conversa embutida (não pode regredir)', async () => {
+    await assertSucceeds(updateDoc(doc(atendente(), `users/${TENANT_A}/contacts/c1`), {
+      lastMessage: 'oi', lastMessageAt: serverTimestamp(),
+    }))
+  })
+  it('mexer só em firstResponseAt não revalida responsável e setor (não pode regredir)', async () => {
+    await assertSucceeds(updateDoc(doc(atendente(), `users/${TENANT_A}/conversations/cv1`), {
+      firstResponseAt: serverTimestamp(),
+    }))
+  })
+
   it('atendente ainda cria contato e negócio normais (não pode regredir)', async () => {
     await assertSucceeds(addDoc(collection(atendente(), `users/${TENANT_A}/contacts`), {
       name: 'Novo Contato', phone: '11988887777', status: 'contato novo', createdAt: serverTimestamp(),
