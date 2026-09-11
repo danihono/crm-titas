@@ -11,13 +11,16 @@ import RingButton from '../components/common/RingButton'
 import ActivityModal from '../components/modals/ActivityModal'
 import TypeModal from '../components/modals/TypeModal'
 import { C, sx } from '../styles/sx'
+import { t, type Chave } from '../i18n'
 import type { Activity } from '../types'
 
-const FILTERS: { id: ActFilter; label: string }[] = [
-  { id: 'todas', label: 'Todas' },
-  { id: 'pendente', label: 'Pendentes' },
-  { id: 'atrasada', label: 'Atrasadas' },
-  { id: 'concluida', label: 'Concluídas' },
+// Chaves, não texto: a constante é de módulo e um t() aqui congelaria os
+// rótulos no idioma em que a página carregou.
+const FILTERS: { id: ActFilter; label: Chave }[] = [
+  { id: 'todas', label: 'atividades.todas' },
+  { id: 'pendente', label: 'atividades.pendentes' },
+  { id: 'atrasada', label: 'atividades.atrasadas' },
+  { id: 'concluida', label: 'atividades.concluidas' },
 ]
 
 export default function Activities() {
@@ -55,21 +58,21 @@ export default function Activities() {
                   : { background: C.surface, border: `1px solid ${C.fieldBorder}`, color: C.sub }),
               }}
             >
-              {f.label} <span style={{ opacity: 0.6 }}>{counts[f.id]}</span>
+              {t(f.label)} <span style={{ opacity: 0.6 }}>{counts[f.id]}</span>
             </RingButton>
           )
         })}
         <div style={{ flex: 1 }} />
         {!readOnly && <>
-          <button onClick={ui.openTypeModal} style={{ ...sx.btnGhost }}><MaterialIcon name="category" size={18} /> Tipos</button>
-          <RingButton radius={11} onClick={ui.openActModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="add_task" size={18} /> Nova atividade</RingButton>
+          <button onClick={ui.openTypeModal} style={{ ...sx.btnGhost }}><MaterialIcon name="category" size={18} /> {t('atividades.tipos')}</button>
+          <RingButton radius={11} onClick={ui.openActModal} style={{ ...sx.btnPrimary }}><MaterialIcon name="add_task" size={18} /> {t('atividades.nova')}</RingButton>
         </>}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         {list.map((a) => <ActivityRow key={a.id} a={a} type={typeMap[a.type]} />)}
         {list.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14, background: C.surface }}>Nenhuma atividade neste filtro.</div>
+          <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14, background: C.surface }}>{t('atividades.vazio')}</div>
         )}
       </div>
 
@@ -104,7 +107,7 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
         onClick={() => {
           if (readOnly) return
           toggleActivity(a).catch((e) => {
-            alert(e instanceof Error ? e.message : 'Falha ao atualizar a atividade.')
+            alert(e instanceof Error ? e.message : t('atividades.falhaAtualizar'))
           })
         }}
         style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, cursor: readOnly ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid ' + (a.done ? '#34c759' : '#d4cfe0'), background: a.done ? '#34c759' : 'transparent' }}
@@ -124,7 +127,7 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
           vínculo: atividade antiga guarda o nome do cliente, não o contato. */}
       {a.contactId && (
         <button
-          title="Abrir a conversa deste cliente"
+          title={t('atividades.abrirConversa')}
           onClick={() => { selectContact(a.contactId!); setContactView('chat'); navigate('/contatos') }}
           style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', color: C.purple, fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
         >

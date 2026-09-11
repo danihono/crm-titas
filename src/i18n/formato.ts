@@ -87,6 +87,15 @@ export function dataDiaMes(d: Date): string {
   return numDiaMes().format(d)
 }
 
+/**
+ * Dias curtos começando na SEGUNDA, como a grade do calendário desenha o mês.
+ * O `diaAbrev` conta a partir do domingo (igual a `Date.getDay()`); aqui a ordem
+ * é outra de propósito, e não uma variação do mesmo array.
+ */
+export function diasCurtosCalendario(): string[] {
+  return [1, 2, 3, 4, 5, 6, 0].map((d) => diaAbrev(d))
+}
+
 /** Data curta numérica (10/06/2026 | 6/10/2026). */
 export function dataCurta(d: Date): string {
   return d.toLocaleDateString(tagIntl())
