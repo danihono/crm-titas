@@ -4,6 +4,7 @@ import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import EmojiPicker from '../common/EmojiPicker'
 import { C, sx } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 import { fmtSize } from '../../lib/format'
 import { mediaTypeOf, MAX_UPLOAD_BYTES, type OutgoingMediaType } from '../../hooks/useMessages'
 
@@ -22,11 +23,11 @@ const TYPE_ICON: Record<OutgoingMediaType, string> = {
   document: 'description',
 }
 
-const TYPE_LABEL: Record<OutgoingMediaType, string> = {
-  image: 'Foto',
-  video: 'Vídeo',
-  audio: 'Áudio',
-  document: 'Documento',
+const TYPE_LABEL: Record<OutgoingMediaType, Chave> = {
+  image: 'modal.midiaFoto',
+  video: 'modal.midiaVideo',
+  audio: 'modal.midiaAudio',
+  document: 'modal.midiaDocumento',
 }
 
 interface Props {
@@ -76,7 +77,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
   return (
     <Modal width={470} onClose={sending ? () => {} : onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>Enviar {TYPE_LABEL[mediaType].toLowerCase()}</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{t('modal.enviarMidia', { tipo: t(TYPE_LABEL[mediaType]).toLowerCase() })}</div>
         {!sending && <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />}
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>
@@ -128,7 +129,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
         <button
           ref={emojiBtnRef}
           type="button"
-          title="Emojis"
+          title={t('contatos.emojis')}
           onClick={() => setShowEmoji((v) => !v)}
           style={{ width: 38, height: 38, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${C.fieldBorder}`, borderRadius: 11, background: showEmoji ? C.tintPurple : C.field, cursor: 'pointer' }}
         >
@@ -139,7 +140,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-          placeholder="Escreva uma legenda (opcional)..."
+          placeholder={t('modal.legendaPlaceholder')}
           disabled={sending}
           style={{ ...sx.input, flex: 1 }}
         />
@@ -156,7 +157,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
           disabled={sending}
           style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1 }}
         >
-          Cancelar
+          {t('comum.cancelar')}
         </button>
         <RingButton
           radius={11}
@@ -165,7 +166,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
           style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: '1px solid rgba(150,220,170,0.4)', padding: '10px 20px', color: '#ffffff', fontSize: 13, fontWeight: 700, cursor: sending || tooBig ? 'default' : 'pointer', opacity: sending || tooBig ? 0.6 : 1 }}
         >
           <MaterialIcon name={sending ? 'progress_activity' : 'send'} size={16} className={sending ? 'icon-spin' : undefined} />
-          {sending ? 'Enviando…' : 'Enviar'}
+          {t(sending ? 'comum.enviando' : 'comum.enviar')}
         </RingButton>
       </div>
     </Modal>

@@ -3,6 +3,8 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { C, sx } from '../../styles/sx'
+import { t } from '../../i18n'
+import { rotuloTipoAtividade } from '../../i18n/sistema'
 import { saveActivity, type NewActivityForm } from '../../hooks/useActivities'
 import { dateKeyOf } from '../../lib/format'
 import type { ActType } from '../../types'
@@ -53,7 +55,7 @@ export default function ActivityModal({ types, contactOptions, contatoFixo, inic
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>Nova atividade</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{t('modal.novaAtividade')}</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 
@@ -64,20 +66,20 @@ export default function ActivityModal({ types, contactOptions, contatoFixo, inic
         </div>
       )}
 
-      <label style={sx.label}>Tipo de atividade</label>
+      <label style={sx.label}>{t('modal.tipoAtividade')}</label>
       <select value={form.type} onChange={(e) => set('type')(e.target.value)} style={{ ...sx.input, margin: '6px 0 14px' }}>
-        {types.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        {types.map((tipo) => <option key={tipo.id} value={tipo.id}>{rotuloTipoAtividade(tipo)}</option>)}
       </select>
 
-      <label style={sx.label}>Título</label>
-      <input value={form.title} onChange={(e) => set('title')(e.target.value)} placeholder="Ex: Follow-up da proposta" style={{ ...sx.input, margin: '6px 0 14px' }} />
+      <label style={sx.label}>{t('modal.titulo')}</label>
+      <input value={form.title} onChange={(e) => set('title')(e.target.value)} placeholder={t('modal.tituloExemplo')} style={{ ...sx.input, margin: '6px 0 14px' }} />
 
-      <label style={sx.label}>Quem (cliente / contato)</label>
+      <label style={sx.label}>{t('modal.quem')}</label>
       {contatoFixo ? (
         <div style={{ ...sx.input, margin: '6px 0 14px', display: 'flex', alignItems: 'center', gap: 8, color: C.sub }}>
           <MaterialIcon name="link" size={16} color={C.purple} />
           <span style={{ color: C.ink, fontWeight: 600 }}>{contatoFixo.nome}</span>
-          <span style={{ fontSize: 11.5 }}>· vinculado a esta conversa</span>
+          <span style={{ fontSize: 11.5 }}>{t('modal.vinculadoConversa')}</span>
         </div>
       ) : (
         <select
@@ -95,23 +97,23 @@ export default function ActivityModal({ types, contactOptions, contatoFixo, inic
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Dia</label>
+          <label style={sx.label}>{t('modal.dia')}</label>
           <input type="date" value={form.date} onChange={(e) => set('date')(e.target.value)} style={{ ...sx.input, margin: '6px 0 18px' }} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Hora</label>
+          <label style={sx.label}>{t('modal.hora')}</label>
           <input type="time" value={form.time} onChange={(e) => set('time')(e.target.value)} style={{ ...sx.input, margin: '6px 0 18px' }} />
         </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.tintPurpleWeak, border: '1px solid rgba(150,110,200,0.18)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
         <MaterialIcon name="event_available" size={18} color={C.purple} />
-        <span style={{ fontSize: 12, color: C.sub }}>A atividade também será criada na sua <b>Agenda</b> no dia e hora escolhidos.</span>
+        <span style={{ fontSize: 12, color: C.sub }}>{t('modal.tambemNaAgenda')} <b>{t('nav.agenda')}</b> {t('modal.noDiaEHora')}</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-        <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>Criar atividade</RingButton>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('comum.cancelar')}</button>
+        <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>{t('modal.criarAtividade')}</RingButton>
       </div>
     </Modal>
   )
