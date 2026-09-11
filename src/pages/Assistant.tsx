@@ -14,28 +14,29 @@ import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import type { AgentConfig, AgentMessage, AssistantBlocks } from '../types'
 import { C } from '../styles/sx'
+import { t, type Chave as ChaveTexto } from '../i18n'
 
-const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: string; icon: string; desc: string }[] = [
-  { key: 'pipeline', label: 'Pipeline de vendas', icon: 'view_kanban', desc: 'Negócios, etapas e valores' },
-  { key: 'contatos', label: 'Contatos', icon: 'contacts', desc: 'Clientes e dados de cadastro' },
-  { key: 'atividades', label: 'Atividades', icon: 'task_alt', desc: 'Tarefas, ligações e reuniões' },
-  { key: 'conversas', label: 'Conversas (WhatsApp)', icon: 'forum', desc: 'Histórico de mensagens' },
-  { key: 'faturamento', label: 'Faturamento', icon: 'receipt_long', desc: 'Notas e status de pagamento' },
-  { key: 'agenda', label: 'Agenda', icon: 'calendar_month', desc: 'Compromissos marcados' },
+const SOURCE_DEFS: { key: keyof AgentConfig['sources']; label: ChaveTexto; icon: string; desc: ChaveTexto }[] = [
+  { key: 'pipeline', label: 'assistente.fontePipeline', icon: 'view_kanban', desc: 'assistente.fontePipelineDesc' },
+  { key: 'contatos', label: 'assistente.fonteContatos', icon: 'contacts', desc: 'assistente.fonteContatosDesc' },
+  { key: 'atividades', label: 'assistente.fonteAtividades', icon: 'task_alt', desc: 'assistente.fonteAtividadesDesc' },
+  { key: 'conversas', label: 'assistente.fonteConversas', icon: 'forum', desc: 'assistente.fonteConversasDesc' },
+  { key: 'faturamento', label: 'assistente.fonteFaturamento', icon: 'receipt_long', desc: 'assistente.fonteFaturamentoDesc' },
+  { key: 'agenda', label: 'assistente.fonteAgenda', icon: 'calendar_month', desc: 'assistente.fonteAgendaDesc' },
 ]
 
 /** Blocos do resumo diário. Deliberadamente SEPARADO de SOURCE_DEFS — ver AssistantWhatsapp. */
-const RESUMO_BLOCOS: { key: keyof AssistantBlocks; label: string; icon: string }[] = [
-  { key: 'agenda', label: 'Agenda do dia', icon: 'calendar_month' },
-  { key: 'tarefas', label: 'Tarefas e atrasos', icon: 'task_alt' },
-  { key: 'faturas', label: 'Faturas', icon: 'receipt_long' },
-  { key: 'conversas', label: 'Conversas sem resposta', icon: 'forum' },
+const RESUMO_BLOCOS: { key: keyof AssistantBlocks; label: ChaveTexto; icon: string }[] = [
+  { key: 'agenda', label: 'assistente.blocoAgenda', icon: 'calendar_month' },
+  { key: 'tarefas', label: 'assistente.blocoTarefas', icon: 'task_alt' },
+  { key: 'faturas', label: 'assistente.blocoFaturas', icon: 'receipt_long' },
+  { key: 'conversas', label: 'assistente.blocoConversas', icon: 'forum' },
 ]
-const SUGGESTIONS = ['Qual meu foco hoje?', 'Analisar a Atlas Cloud', 'Cobrar notas vencidas']
+const SUGGESTIONS: ChaveTexto[] = ['assistente.sugestao1', 'assistente.sugestao2', 'assistente.sugestao3']
 
 /** Um único aviso de falha para toda a tela — salvar config aqui nunca falha em silêncio. */
 function avisaFalha(e: unknown) {
-  alert(e instanceof Error ? e.message : 'Falha ao salvar a configuração da Assistente.')
+  alert(e instanceof Error ? e.message : t('assistente.falhaConfig'))
 }
 
 function saveAgentField(field: 'name' | 'persona' | 'instructions', value: string) {
@@ -146,7 +147,7 @@ export default function Agent() {
       try {
         // A base de conhecimento vem ANTES dos dados do CRM: é material curado pela
         // empresa, e é dela que a resposta deve sair quando houver conflito.
-        const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. Responda em português do Brasil, de forma objetiva (máx ~120 palavras).\n${knowledgeContext(knowledge)}${buildContext()}`
+        const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. ${t('ia.instrucaoIdioma')}, de forma objetiva (máx ~120 palavras).\n${knowledgeContext(knowledge)}${buildContext()}`
         const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
         reply = await callTitaIA({ system, history, question: q })
         if (!reply) reply = fallbackReply(q)
@@ -160,7 +161,7 @@ export default function Agent() {
       }
       await pushAgentMessage('agent', reply)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao enviar a mensagem ao agente.')
+      alert(e instanceof Error ? e.message : t('assistente.falhaEnviar'))
     } finally {
       setTyping(false)
     }
@@ -177,26 +178,26 @@ export default function Agent() {
             <MaterialIcon name="auto_awesome" size={24} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Assistente</div>
-            <div style={{ fontSize: 12, color: C.sub }}>Quem ela é, o que ela lê e quando ela te procura</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>{t('assistente.titulo')}</div>
+            <div style={{ fontSize: 12, color: C.sub }}>{t('assistente.subtitulo')}</div>
           </div>
         </div>
 
-        <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '24px 0 10px' }}>IDENTIDADE</div>
-        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Nome do agente</label>
+        <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '24px 0 10px' }}>{t('assistente.identidade')}</div>
+        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('assistente.nomeAgente')}</label>
         <input value={nameField.value} disabled={readOnly} onChange={(e) => nameField.onChange(e.target.value)} onBlur={nameField.onBlur} style={fieldStyle} />
-        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Função / Persona</label>
+        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('assistente.persona')}</label>
         <select value={cfg.persona} disabled={readOnly} onChange={(e) => saveAgentField('persona', e.target.value)} style={fieldStyle}>
-          <option>Consultor de Vendas</option>
-          <option>SDR / Pré-vendas</option>
-          <option>Gerente de Sucesso</option>
-          <option>Analista de Dados</option>
+          <option>{t('assistente.personaConsultor')}</option>
+          <option>{t('assistente.personaSdr')}</option>
+          <option>{t('assistente.personaSucesso')}</option>
+          <option>{t('assistente.personaAnalista')}</option>
         </select>
-        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Instruções</label>
+        <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('assistente.instrucoes')}</label>
         <textarea value={instrField.value} disabled={readOnly} onChange={(e) => instrField.onChange(e.target.value)} onBlur={instrField.onBlur} rows={4} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
 
-        <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '22px 0 10px' }}>FONTES DE CONHECIMENTO</div>
-        <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>Escolha o que o agente pode acessar. Ele lê os dados em tempo real para entender todo o seu negócio.</div>
+        <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '22px 0 10px' }}>{t('assistente.fontes')}</div>
+        <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>{t('assistente.fontesDica')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {SOURCE_DEFS.map((s) => {
             const on = !!cfg.sources[s.key] // `agenda` é opcional: ausente = desligada
@@ -207,8 +208,8 @@ export default function Agent() {
               }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? C.tintPurpleWeak : C.field, border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : C.fieldBorder), borderRadius: 12, padding: '12px 14px', cursor: readOnly ? 'default' : 'pointer' }}>
                 <MaterialIcon name={s.icon} size={20} color={on ? C.purple : C.faint} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{s.label}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>{s.desc}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{t(s.label)}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{t(s.desc)}</div>
                 </div>
                 <Chave on={on} />
               </div>
@@ -219,10 +220,9 @@ export default function Agent() {
         {/* Resumo diário no WhatsApp */}
         {podeGerir && (
           <>
-            <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '26px 0 10px' }}>RESUMO DIÁRIO NO WHATSAPP</div>
+            <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, margin: '26px 0 10px' }}>{t('assistente.resumoDiario')}</div>
             <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>
-              A Assistente te manda um resumo do dia no WhatsApp e responde ali mesmo, na
-              mesma conversa desta tela.
+              {t('assistente.resumoDica')}
             </div>
 
             <div
@@ -234,9 +234,9 @@ export default function Agent() {
             >
               <MaterialIcon name="schedule_send" size={20} color={wa.enabled ? C.purple : C.faint} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Enviar todos os dias</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{t('assistente.enviarTodoDia')}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>
-                  {wa.enabled ? `Todo dia às ${wa.sendAt}` : 'Desligado'}
+                  {wa.enabled ? t('assistente.todoDiaAs', { hora: wa.sendAt }) : t('assistente.desligado')}
                 </div>
               </div>
               <Chave on={wa.enabled} />
@@ -244,7 +244,7 @@ export default function Agent() {
 
             {wa.enabled && (
               <>
-                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Horário</label>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('assistente.horario')}</label>
                 <input
                   type="time"
                   value={wa.sendAt}
@@ -253,7 +253,7 @@ export default function Agent() {
                   style={fieldStyle}
                 />
 
-                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>WhatsApp que vai receber</label>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('assistente.whatsappRecebe')}</label>
                 <input
                   value={phoneValor}
                   disabled={readOnly}
@@ -268,7 +268,7 @@ export default function Agent() {
                   style={fieldStyle}
                 />
 
-                <div style={{ fontSize: 11, letterSpacing: '.08em', color: C.faint, fontWeight: 700, margin: '4px 0 10px' }}>O QUE VEM NO RESUMO</div>
+                <div style={{ fontSize: 11, letterSpacing: '.08em', color: C.faint, fontWeight: 700, margin: '4px 0 10px' }}>{t('assistente.oQueVem')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {RESUMO_BLOCOS.map((b) => {
                     const on = wa.blocks[b.key]
@@ -282,7 +282,7 @@ export default function Agent() {
                         style={{ display: 'flex', alignItems: 'center', gap: 12, background: on ? C.tintPurpleWeak : C.field, border: '1px solid ' + (on ? 'rgba(150,110,200,0.35)' : C.fieldBorder), borderRadius: 12, padding: '10px 14px', cursor: readOnly ? 'default' : 'pointer' }}
                       >
                         <MaterialIcon name={b.icon} size={19} color={on ? C.purple : C.faint} />
-                        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.ink }}>{b.label}</div>
+                        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.ink }}>{t(b.label)}</div>
                         <Chave on={on} />
                       </div>
                     )
@@ -291,10 +291,10 @@ export default function Agent() {
 
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6, marginTop: 14 }}>
                   {wa.optOut
-                    ? '⚠ Você respondeu SAIR no WhatsApp. Religue acima para voltar a receber.'
+                    ? t('assistente.optOut')
                     : wa.lastSentDateKey
-                      ? `Último resumo enviado em ${wa.lastSentDateKey}.`
-                      : 'Nenhum resumo enviado ainda.'}
+                      ? t('assistente.ultimoResumo', { data: wa.lastSentDateKey })
+                      : t('assistente.nenhumResumo')}
                 </div>
               </>
             )}
@@ -321,7 +321,7 @@ export default function Agent() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {chat.length === 0 && (
-            <AgentBubble text={`Olá! 👋 Eu sou o ${cfg.name}. Tenho acesso ao seu pipeline, contatos, atividades e conversas. Posso analisar seus negócios, sugerir prioridades ou redigir mensagens. Como posso ajudar hoje?`} />
+            <AgentBubble text={t('assistente.boasVindas', { nome: cfg.name })} />
           )}
           {chat.map((m) => (
             m.role === 'agent'
@@ -351,7 +351,7 @@ export default function Agent() {
         <div style={{ flexShrink: 0, padding: '8px 24px 14px' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 11, flexWrap: 'wrap' }}>
             {SUGGESTIONS.map((sg) => (
-              <button key={sg} onClick={() => send(sg)} style={{ background: C.surface, border: '1px solid #e2dcee', borderRadius: 20, padding: '7px 13px', color: C.purple, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{sg}</button>
+              <button key={sg} onClick={() => send(t(sg))} style={{ background: C.surface, border: '1px solid #e2dcee', borderRadius: 20, padding: '7px 13px', color: C.purple, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{t(sg)}</button>
             ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -359,7 +359,7 @@ export default function Agent() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') send() }}
-              placeholder="Pergunte algo sobre seu negócio..."
+              placeholder={t('assistente.perguntePlaceholder')}
               style={{ flex: 1, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: '14px 17px', color: C.ink, fontSize: 13.5, outline: 'none', boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}
             />
             <RingButton radius={14} onClick={() => send()} style={{ width: 48, height: 48, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(110,65,150,0.3)' }}>
