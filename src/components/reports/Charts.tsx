@@ -1,4 +1,5 @@
 import type { DayPoint, ReportRow } from '../../lib/reportData'
+import { t } from '../../i18n'
 
 /**
  * Paleta dos gráficos.
@@ -99,7 +100,7 @@ export function TrendArea({ points, width = 720, height = 190, svgRef, palette =
 
   return (
     <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
-      aria-label={`Conversas por dia, máximo de ${max}`}>
+      aria-label={t('grafico.conversasPorDia', { max })}>
       {[0, 0.5, 1].map((t) => (
         <line key={t} x1={padL} x2={padL + plotW} y1={padT + plotH * t} y2={padT + plotH * t}
           stroke={palette.grid} strokeWidth={1} />
@@ -153,7 +154,7 @@ export function RankedBars({ rows, width = 720, barH = 18, gap = 14, palette = C
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
-      aria-label="Conversas por linha, ordenado do maior para o menor">
+      aria-label={t('grafico.porLinha')}>
       {rows.map((r, i) => {
         const y = i * (barH + gap)
         const w = (r.total / max) * plotW
@@ -188,15 +189,15 @@ export function StatusStack({ fila, atendimento, esperando, width = 720, palette
   palette?: ChartPalette
 }) {
   const segs = [
-    { key: 'atendimento', label: 'Em atendimento', value: atendimento, color: '#2f9e6f' },
-    { key: 'esperando', label: 'Esperando cliente', value: esperando, color: '#b3801f' },
-    { key: 'fila', label: 'Na fila', value: fila, color: '#4f7fc0' },
+    { key: 'atendimento', label: t('atend.emAtendimento'), value: atendimento, color: '#2f9e6f' },
+    { key: 'esperando', label: t('atend.esperandoCliente'), value: esperando, color: '#b3801f' },
+    { key: 'fila', label: t('relatorios.naFila'), value: fila, color: '#4f7fc0' },
   ]
   const total = segs.reduce((a, s) => a + s.value, 0)
   const h = 26
 
   if (total === 0) {
-    return <div style={{ fontSize: 12.5, color: palette.muted, padding: '10px 0' }}>Nenhuma conversa aberta no momento.</div>
+    return <div style={{ fontSize: 12.5, color: palette.muted, padding: '10px 0' }}>{t('relatorios.nenhumaAberta')}</div>
   }
 
   let x = 0
@@ -210,7 +211,7 @@ export function StatusStack({ fila, atendimento, esperando, width = 720, palette
   return (
     <div>
       <svg width={width} height={h} viewBox={`0 0 ${width} ${h}`} role="img"
-        aria-label={`Fila atual: ${segs.map((s) => `${s.label} ${s.value}`).join(', ')}`}>
+        aria-label={t('grafico.filaAtual', { resumo: segs.map((s) => `${s.label} ${s.value}`).join(', ') })}>
         {placed.map((s, i) => {
           const gapAfter = i < placed.length - 1 ? 2 : 0
           const w = Math.max(s.w - gapAfter, 1)

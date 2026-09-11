@@ -3,6 +3,7 @@ import Modal from '../modals/Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
+import { t } from '../../i18n'
 import { ALL_SECTIONS, SECTION_DEFS, type ReportSections, type SectionId } from '../../lib/xlsx'
 
 const STORAGE_KEY = 'titas.report.sections'
@@ -66,7 +67,7 @@ export default function ExportModal({ onClose, onExport }: {
       onClose()
     } catch (err) {
       console.error('[ExportModal]', err)
-      alert(err instanceof Error ? err.message : 'Não foi possível gerar o relatório.')
+      alert(err instanceof Error ? err.message : t('exportar.falhaRelatorio'))
     } finally {
       setBusy(null)
     }
@@ -76,15 +77,15 @@ export default function ExportModal({ onClose, onExport }: {
     <Modal onClose={onClose} width={520}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <MaterialIcon name="download" size={22} color={C.purple} />
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>Exportar relatório</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{t('exportar.titulo')}</div>
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>
-        Escolha o que entra no arquivo. Vale para os dois formatos.
+        {t('exp.escolhaDica')}
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-        <button onClick={() => setAll(true)} style={linkBtn}>Marcar todas</button>
-        <button onClick={() => setAll(false)} style={linkBtn}>Desmarcar todas</button>
+        <button onClick={() => setAll(true)} style={linkBtn}>{t('exportar.marcarTodas')}</button>
+        <button onClick={() => setAll(false)} style={linkBtn}>{t('exportar.desmarcarTodas')}</button>
       </div>
 
       <div style={{ border: '1px solid ' + C.fieldBorder, borderRadius: 12, overflow: 'hidden' }}>
@@ -104,8 +105,8 @@ export default function ExportModal({ onClose, onExport }: {
               style={{ accentColor: C.purple, width: 16, height: 16 }}
             />
             <span style={{ flex: 1 }}>
-              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.ink }}>{d.label}</span>
-              <span style={{ display: 'block', fontSize: 11.5, color: C.sub }}>{d.hint}</span>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.ink }}>{t(d.label)}</span>
+              <span style={{ display: 'block', fontSize: 11.5, color: C.sub }}>{t(d.hint)}</span>
             </span>
           </label>
         ))}
@@ -113,19 +114,19 @@ export default function ExportModal({ onClose, onExport }: {
 
       {!anySelected && (
         <div style={{ fontSize: 12.5, color: C.rose, marginTop: 10 }}>
-          Marque ao menos uma seção para gerar o relatório.
+          {t('exp.marqueSecao')}
         </div>
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-        <button onClick={onClose} style={sx.btnGhost}>Cancelar</button>
+        <button onClick={onClose} style={sx.btnGhost}>{t('comum.cancelar')}</button>
         <button
           onClick={() => run('xlsx')}
           disabled={!anySelected || busy !== null}
           style={{ ...sx.btnGhost, opacity: anySelected && !busy ? 1 : 0.5, color: C.greenDeep, borderColor: `${C.green}55` }}
         >
           <MaterialIcon name="table_view" size={18} />
-          {busy === 'xlsx' ? 'Gerando…' : 'Excel'}
+          {busy === 'xlsx' ? t('exportar.gerando') : 'Excel'}
         </button>
         <RingButton
           radius={11}
@@ -134,12 +135,12 @@ export default function ExportModal({ onClose, onExport }: {
           style={{ ...sx.btnPrimary, opacity: anySelected && !busy ? 1 : 0.5 }}
         >
           <MaterialIcon name="picture_as_pdf" size={18} />
-          {busy === 'pdf' ? 'Abrindo…' : 'PDF'}
+          {busy === 'pdf' ? t('exportar.abrindo') : 'PDF'}
         </RingButton>
       </div>
 
       <div style={{ fontSize: 11.5, color: C.faint, marginTop: 12, lineHeight: 1.5 }}>
-        O PDF abre a caixa de impressão do navegador — escolha <b>Salvar como PDF</b>.
+        {t('exp.pdfDica')} <b>{t('exportar.salvarPdf')}</b>.
       </div>
     </Modal>
   )

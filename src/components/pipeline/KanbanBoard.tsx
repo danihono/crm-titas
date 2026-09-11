@@ -19,6 +19,8 @@ import { chipColors } from '../../lib/color'
 import { useIsDark } from '../../store/themeStore'
 import { fmtK } from '../../lib/format'
 import { C, sx } from '../../styles/sx'
+import { t } from '../../i18n'
+import { nomeQuadro } from '../../i18n/sistema'
 import type { Column as Col, Deal } from '../../types'
 
 export default function KanbanBoard() {
@@ -123,7 +125,7 @@ export default function KanbanBoard() {
   function handleMoveColumn(columnId: string, dir: 'left' | 'right') {
     if (!current) return
     moveColumn(current, columnId, dir).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao mover a etapa.')
+      alert(e instanceof Error ? e.message : t('etapa.falhaMover'))
     })
   }
 
@@ -134,7 +136,7 @@ export default function KanbanBoard() {
       await addColumn(current, n)
       setNewColName('')
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao criar a etapa.')
+      alert(e instanceof Error ? e.message : t('etapa.falhaCriar'))
     }
   }
 
@@ -147,8 +149,8 @@ export default function KanbanBoard() {
   /** Botão "Novo negócio" do topo: cai na primeira etapa do quadro atual. */
   function handleNewDeal() {
     // Sem quadro (ou sem etapa) o botão antes não fazia nada, em silêncio.
-    if (!current) { alert('Crie um quadro primeiro — use o botão "Novo quadro" acima.'); return }
-    if (!columns[0]) { alert('Este quadro ainda não tem etapas. Crie uma etapa antes de adicionar negócios.'); return }
+    if (!current) { alert(t('kanban.crieQuadro')); return }
+    if (!columns[0]) { alert(t('kanban.semEtapas')); return }
     handleAddDeal(columns[0].id)
   }
 
@@ -176,7 +178,7 @@ export default function KanbanBoard() {
   function onDrop(columnId: string) {
     if (readOnly || !dragId) return
     moveDeal(dragId, columnId, deals).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao mover o negócio.')
+      alert(e instanceof Error ? e.message : t('kanban.falhaMoverNegocio'))
     })
     setDragId(null)
   }
@@ -187,7 +189,7 @@ export default function KanbanBoard() {
     <div style={{ height: '100%', overflowY: 'auto', padding: '24px 30px 40px' }}>
       {/* Seletor de quadros */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: C.muted, marginRight: 4 }}>QUADROS</span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: C.muted, marginRight: 4 }}>{t('kanban.quadros')}</span>
         {boards.map((b) => {
           const on = b.id === boardId
           const count = allDeals.filter((d) => d.boardId === b.id).length
@@ -210,9 +212,9 @@ export default function KanbanBoard() {
               }}
             >
               <MaterialIcon name={b.icon} size={16} />
-              {b.name} <span style={{ opacity: 0.55, fontWeight: 600 }}>{count}</span>
+              {nomeQuadro(b.id, b.name)} <span style={{ opacity: 0.55, fontWeight: 600 }}>{count}</span>
               {b.system === 'leads' && (
-                <span title="Quadro do sistema — etapas fixas" style={{ display: 'flex', opacity: 0.55 }}>
+                <span title={t('kanban.quadroDoSistema')} style={{ display: 'flex', opacity: 0.55 }}>
                   <MaterialIcon name="lock" size={13} />
                 </span>
               )}
@@ -239,38 +241,38 @@ export default function KanbanBoard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
-            <span style={{ color: C.sub }}>Valor total · </span><span style={{ fontWeight: 700, color: C.ink }}>R$ {fmtK(boardTotal)}</span>
+            <span style={{ color: C.sub }}>{t('kanban.valorTotal')} </span><span style={{ fontWeight: 700, color: C.ink }}>R$ {fmtK(boardTotal)}</span>
           </div>
           <div style={{ background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '8px 15px', fontSize: 13, boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}>
-            <span style={{ color: C.sub }}>Negócios · </span><span style={{ fontWeight: 700, color: C.ink }}>{visibleDeals.length}{filtersActive > 0 && ` de ${deals.length}`}</span>
+            <span style={{ color: C.sub }}>{t('kanban.negocios')} </span><span style={{ fontWeight: 700, color: C.ink }}>{visibleDeals.length}{filtersActive > 0 && t('kanban.deTotal', { n: deals.length })}</span>
           </div>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowFilters((v) => !v)} style={{ ...sx.btnGhost, ...(filtersActive > 0 ? { color: C.purple, borderColor: 'rgba(150,110,200,0.4)', background: C.tintPurpleWeak } : {}) }}>
-            <MaterialIcon name="tune" size={18} /> Filtros{filtersActive > 0 && ` (${filtersActive})`}
+            <MaterialIcon name="tune" size={18} /> {filtersActive > 0 ? t('kanban.filtrosAtivos', { n: filtersActive }) : t('kanban.filtros')}
           </button>
           {showFilters && (
             <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, boxShadow: 'var(--c-shadow-pop)', padding: 14, zIndex: 20 }}>
-              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Buscar por empresa/contato</label>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('kanban.buscarPor')}</label>
               <input
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                placeholder="Ex.: Atlas, Marina..."
+                placeholder={t('kanban.buscarExemplo')}
                 style={{ width: '100%', margin: '6px 0 12px', background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '9px 11px', color: C.ink, fontSize: 13, outline: 'none' }}
               />
-              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>Etiqueta</label>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t('modal.etiqueta')}</label>
               <select
                 value={filterTag}
                 onChange={(e) => setFilterTag(e.target.value)}
                 style={{ width: '100%', margin: '6px 0 12px', background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '9px 11px', color: C.ink, fontSize: 13, outline: 'none' }}
               >
-                <option value="">Todas</option>
+                <option value="">{t('fatura.todas')}</option>
                 {tags.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <button onClick={() => { setFilterText(''); setFilterTag('') }} disabled={filtersActive === 0} style={{ border: 'none', background: 'transparent', color: filtersActive ? C.roseDeep : '#c4bfd0', fontSize: 12.5, fontWeight: 700, cursor: filtersActive ? 'pointer' : 'default', padding: '6px 4px' }}>Limpar filtros</button>
-                <button onClick={() => setShowFilters(false)} style={{ border: 'none', background: C.tintPurple, color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', borderRadius: 9, padding: '6px 12px' }}>Fechar</button>
+                <button onClick={() => { setFilterText(''); setFilterTag('') }} disabled={filtersActive === 0} style={{ border: 'none', background: 'transparent', color: filtersActive ? C.roseDeep : '#c4bfd0', fontSize: 12.5, fontWeight: 700, cursor: filtersActive ? 'pointer' : 'default', padding: '6px 4px' }}>{t('kanban.limparFiltros')}</button>
+                <button onClick={() => setShowFilters(false)} style={{ border: 'none', background: C.tintPurple, color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', borderRadius: 9, padding: '6px 12px' }}>{t('comum.fechar')}</button>
               </div>
             </div>
           )}
@@ -281,7 +283,7 @@ export default function KanbanBoard() {
             onClick={handleNewDeal}
             style={{ ...sx.btnPrimary }}
           >
-            <MaterialIcon name="add" size={18} /> Novo negócio
+            <MaterialIcon name="add" size={18} /> {t('kanban.novoNegocio')}
           </RingButton>
         )}
       </div>
@@ -314,7 +316,7 @@ export default function KanbanBoard() {
                 value={newColName}
                 onChange={(e) => setNewColName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddColumn() }}
-                placeholder="Nova etapa..."
+                placeholder={t('etapa.nova')}
                 style={{ flex: 1, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 12px', color: C.ink, fontSize: 13, outline: 'none' }}
               />
               <RingButton radius={11} onClick={handleAddColumn} style={{ width: 42, alignSelf: 'stretch', background: 'linear-gradient(140deg,#7a52a0,#553578)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

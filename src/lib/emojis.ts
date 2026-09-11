@@ -1,3 +1,4 @@
+import type { Chave } from '../i18n'
 // Catálogo de emojis do seletor (src/components/common/EmojiPicker.tsx).
 //
 // As categorias e a ordem seguem o teclado de emoji do iPhone. O DESENHO de cada emoji vem
@@ -18,7 +19,8 @@ export interface EmojiEntry {
 export interface EmojiCategory {
   id: string
   /** Rótulo exibido acima da grade. */
-  label: string
+  /** Chave do catálogo — o rótulo é traduzido em quem desenha o seletor. */
+  label: Chave
   /** Emoji usado como ícone da aba (mesma ideia das abas do iPhone). */
   icon: string
   items: EmojiEntry[]
@@ -27,7 +29,7 @@ export interface EmojiCategory {
 export const EMOJI_CATEGORIES: EmojiCategory[] = [
   {
     id: 'smileys',
-    label: 'Smileys e pessoas',
+    label: 'emoji.catSmileys',
     icon: '😀',
     items: [
       { e: '😀', k: 'sorriso feliz cara alegre' },
@@ -243,7 +245,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'natureza',
-    label: 'Animais e natureza',
+    label: 'emoji.catAnimais',
     icon: '🐻',
     items: [
       { e: '🐶', k: 'cachorro cao dog' },
@@ -355,7 +357,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'comida',
-    label: 'Comidas e bebidas',
+    label: 'emoji.catComidas',
     icon: '🍔',
     items: [
       { e: '🍎', k: 'maca fruta' },
@@ -458,7 +460,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'atividades',
-    label: 'Atividades',
+    label: 'emoji.catAtividades',
     icon: '⚽',
     items: [
       { e: '⚽', k: 'futebol bola' },
@@ -540,7 +542,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'viagens',
-    label: 'Viagens e lugares',
+    label: 'emoji.catViagens',
     icon: '🚗',
     items: [
       { e: '🚗', k: 'carro automovel' },
@@ -624,7 +626,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'objetos',
-    label: 'Objetos',
+    label: 'emoji.catObjetos',
     icon: '💡',
     items: [
       { e: '⌚', k: 'relogio pulso hora' },
@@ -748,7 +750,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'simbolos',
-    label: 'Símbolos',
+    label: 'emoji.catSimbolos',
     icon: '❤️',
     items: [
       { e: '✅', k: 'certo confirmado ok verde check' },
@@ -856,7 +858,7 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
   {
     id: 'bandeiras',
-    label: 'Bandeiras',
+    label: 'emoji.catBandeiras',
     icon: '🏳️',
     items: [
       { e: '🏳️', k: 'bandeira branca rendicao' },

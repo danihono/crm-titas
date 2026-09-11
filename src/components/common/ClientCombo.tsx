@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fmtPhoneBR, initialsOf, looksLikePhone, searchable } from '../../lib/format'
 import { avPalette } from '../../lib/theme'
 import { sx, C } from '../../styles/sx'
+import { t } from '../../i18n'
+import { compararTexto } from '../../i18n/formato'
 import Avatar from './Avatar'
 import MaterialIcon from './MaterialIcon'
 import type { Contact } from '../../types'
@@ -44,7 +46,7 @@ export function contactOptions(contacts: Contact[], rotulo: 'nome' | 'empresa'):
       origem: 'contato',
     })
   }
-  return [...byLabel.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+  return [...byLabel.values()].sort((a, b) => compararTexto(a.label, b.label))
 }
 
 /**
@@ -59,7 +61,7 @@ export function withLegacyNames(base: ClientOption[], nomes: string[]): ClientOp
   }
   return [...byLabel.values()].sort((a, b) =>
     a.origem === b.origem
-      ? a.label.localeCompare(b.label, 'pt-BR')
+      ? compararTexto(a.label, b.label)
       : a.origem === 'contato' ? -1 : 1)
 }
 
@@ -165,7 +167,7 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
         <button
           type="button"
           tabIndex={-1}
-          title={open ? 'Fechar' : 'Ver contatos'}
+          title={t(open ? 'combo.fechar' : 'combo.verContatos')}
           onClick={() => setOpen((v) => !v)}
           style={{
             position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
@@ -190,7 +192,7 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
         >
           {rows.length === 0 && (
             <div style={{ padding: '14px 12px', fontSize: 12.5, color: C.faint }}>
-              Nenhum contato encontrado. Digite o nome do cliente para usá-lo assim mesmo.
+              {t('combo.naoEncontrado')}
             </div>
           )}
 
@@ -204,9 +206,9 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.purple, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      Usar “{row.label}”
+                      {t('combo.usar', { nome: row.label })}
                     </div>
-                    <div style={{ fontSize: 11.5, color: C.sub }}>Cliente novo, sem contato cadastrado</div>
+                    <div style={{ fontSize: 11.5, color: C.sub }}>{t('combo.clienteNovo')}</div>
                   </div>
                 </Linha>
               )
@@ -216,7 +218,7 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
             // Contato do WhatsApp sem nome guarda o telefone no lugar do nome: mostrar o
             // número como se fosse gente é o que deixava a lista com cara de erro.
             const semNome = looksLikePhone(o.label)
-            const titulo = semNome ? 'Sem nome' : o.label
+            const titulo = semNome ? t('diretorio.semNome') : o.label
             // A segunda linha diz QUEM é: a pessoa por trás da empresa, ou o telefone. Sem ela,
             // procurar "Marina" não achava nada porque o rótulo era "Nexa Software".
             const detalhes = semNome
@@ -226,14 +228,14 @@ export default function ClientCombo({ value, options, onChange, placeholder }: {
                   o.company && o.company !== o.label && o.company !== '—' ? o.company : '',
                   o.phone ? fmtPhoneBR(o.phone) : '',
                 ].filter(Boolean)
-            const sub = detalhes.length ? detalhes.join(' · ') : (o.origem === 'nota' ? 'De uma nota anterior' : '')
+            const sub = detalhes.length ? detalhes.join(' · ') : (o.origem === 'nota' ? t('combo.deNotaAnterior') : '')
             const primeiroDaSecao = matches.findIndex((m) => m.origem === o.origem) === matches.indexOf(o)
 
             return (
               <div key={o.label + (o.contactId ?? '')}>
                 {temContato && temNota && primeiroDaSecao && (
                   <div style={{ fontSize: 10, letterSpacing: '.1em', color: C.faint, fontWeight: 700, padding: '9px 10px 5px' }}>
-                    {o.origem === 'contato' ? 'CONTATOS' : 'DE NOTAS ANTERIORES'}
+                    {t(o.origem === 'contato' ? 'combo.grupoContatos' : 'combo.grupoNotas')}
                   </div>
                 )}
                 <Linha i={i} on={on} onEnter={() => setIndex(i)} onClick={() => pick(row)}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { EMOJI_CATEGORIES, emojiByChar, searchEmojis, type EmojiEntry } from '../../lib/emojis'
 import MaterialIcon from './MaterialIcon'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 
 /**
  * Seletor de emojis no layout do teclado do iPhone: busca no topo, grade no meio e as abas
@@ -96,7 +97,9 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
     : tab === 'recentes'
       ? recents.map((c) => emojiByChar(c) ?? { e: c, k: '' })
       : (category?.items ?? [])
-  const title = searching ? `Resultados para "${query.trim()}"` : tab === 'recentes' ? 'Usados com frequência' : (category?.label ?? '')
+  const title = searching
+    ? t('emoji.resultados', { termo: query.trim() })
+    : tab === 'recentes' ? t('emoji.frequentes') : (category ? t(category.label) : '')
 
   function choose(char: string) {
     setRecents(pushRecent(char))
@@ -131,11 +134,11 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar emoji..."
+            placeholder={t('emoji.buscar')}
             style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 12.5, width: '100%' }}
           />
           {query && (
-            <button onClick={() => setQuery('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
+            <button onClick={() => setQuery('')} title={t('contatos.limparBusca')} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
               <MaterialIcon name="close" size={14} color={C.faint} />
             </button>
           )}
@@ -146,7 +149,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
         <div style={{ fontSize: 10.5, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, margin: '2px 2px 6px' }}>{title}</div>
         {items.length === 0 ? (
           <div style={{ padding: '28px 10px', textAlign: 'center', fontSize: 12.5, color: C.faint }}>
-            {searching ? 'Nenhum emoji encontrado.' : 'Os emojis que você usar aparecem aqui.'}
+            {t(searching ? 'emoji.naoEncontrado' : 'emoji.apareceAqui')}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 2 }}>
@@ -168,9 +171,9 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '6px 8px', borderTop: `1px solid ${C.lineHair}`, background: C.surfaceAlt }}>
-        <TabButton icon="🕘" label="Usados com frequência" on={!searching && tab === 'recentes'} onClick={() => selectTab('recentes')} />
+        <TabButton icon="🕘" label={t('emoji.frequentes')} on={!searching && tab === 'recentes'} onClick={() => selectTab('recentes')} />
         {EMOJI_CATEGORIES.map((c) => (
-          <TabButton key={c.id} icon={c.icon} label={c.label} on={!searching && tab === c.id} onClick={() => selectTab(c.id)} />
+          <TabButton key={c.id} icon={c.icon} label={t(c.label)} on={!searching && tab === c.id} onClick={() => selectTab(c.id)} />
         ))}
       </div>
     </div>

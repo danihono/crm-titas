@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import MaterialIcon from './MaterialIcon'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 
 /**
  * Player de áudio no estilo WhatsApp para mensagens de voz do chat.
@@ -89,7 +90,7 @@ export default function AudioMessage({ src, fromMe, downloadName }: { src: strin
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pausar' : 'Tocar'}
+        aria-label={playing ? t('audio.pausar') : t('audio.tocar')}
         style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <MaterialIcon name={playing ? 'pause' : 'play_arrow'} size={20} color={onAccent} />
@@ -105,7 +106,7 @@ export default function AudioMessage({ src, fromMe, downloadName }: { src: strin
         <div style={{ fontSize: 11, color: timeColor, fontVariantNumeric: 'tabular-nums' }}>{fmt(cur > 0 ? cur : duration)}</div>
       </div>
 
-      <a href={src} download={downloadName} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Baixar áudio" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', color: iconMuted }}>
+      <a href={src} download={downloadName} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t('audio.baixar')} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', color: iconMuted }}>
         <MaterialIcon name="download" size={17} color={iconMuted} />
       </a>
     </div>

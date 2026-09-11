@@ -6,6 +6,7 @@ import { useTenantStore } from '../../store/tenantStore'
 import { deleteFlow, renameFlow } from '../../hooks/useFlows'
 import { relativeLabel } from '../../lib/format'
 import { C, sx } from '../../styles/sx'
+import { plural, t } from '../../i18n'
 import type { Flow } from '../../types'
 
 export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWithAI }: {
@@ -19,17 +20,17 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
   const [busy, setBusy] = useState(false)
 
   function handleRename(flow: Flow) {
-    const n = window.prompt('Nome do fluxo:', flow.name)?.trim()
+    const n = window.prompt(t('fluxos.nomeDoFluxo'), flow.name)?.trim()
     if (!n || n === flow.name) return
     renameFlow(flow.id, n).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao renomear o fluxo.')
+      alert(e instanceof Error ? e.message : t('fluxos.falhaRenomear'))
     })
   }
 
   function handleDelete(flow: Flow) {
-    if (!window.confirm(`Excluir o fluxo "${flow.name}"? Isso não pode ser desfeito.`)) return
+    if (!window.confirm(t('fluxos.confirmarExcluir', { nome: flow.name }))) return
     deleteFlow(flow.id).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao excluir o fluxo.')
+      alert(e instanceof Error ? e.message : t('fluxos.falhaExcluir'))
     })
   }
 
@@ -42,33 +43,31 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
     <div style={{ height: '100%', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '24px 30px 0', marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>Fluxos</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>{t('fluxos.titulo')}</div>
           <div style={{ fontSize: 12.5, color: C.sub }}>
-            Desenhe seus processos num quadro livre — ou peça para a IA montar.
+            {t('fluxos.subtitulo')}
           </div>
         </div>
         <div style={{ flex: 1 }} />
         {!readOnly && (
           <>
             <button onClick={onCreateWithAI} style={{ ...sx.btnGhost }}>
-              <MaterialIcon name="auto_awesome" size={18} color={C.purple} /> Criar com IA
+              <MaterialIcon name="auto_awesome" size={18} color={C.purple} /> {t('fluxos.criarComIA')}
             </button>
             <RingButton radius={11} onClick={handleCreate} disabled={busy} style={{ ...sx.btnPrimary, opacity: busy ? 0.6 : 1 }}>
-              <MaterialIcon name="add" size={18} /> Novo fluxo
+              <MaterialIcon name="add" size={18} /> {t('fluxos.novo')}
             </RingButton>
           </>
         )}
       </div>
 
       {loading ? (
-        <div style={{ padding: '0 30px 40px', fontSize: 13, color: C.muted }}>Carregando...</div>
+        <div style={{ padding: '0 30px 40px', fontSize: 13, color: C.muted }}>{t('comum.carregando')}</div>
       ) : flows.length === 0 ? (
         <Placeholder
           icon="account_tree"
-          title="Nenhum fluxo por aqui ainda"
-          note={readOnly
-            ? 'Este cliente ainda não criou nenhum fluxo.'
-            : 'Crie um quadro em branco e arraste as etapas, ou descreva o processo e deixe a IA desenhar.'}
+          title={t('fluxos.vazioTitulo')}
+          note={t(readOnly ? 'fluxos.vazioCliente' : 'fluxos.vazioDica')}
         />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(268px,1fr))', gap: 14, padding: '0 30px 40px' }}>
@@ -85,7 +84,7 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, wordBreak: 'break-word' }}>{f.name}</div>
                   <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>
-                    {f.nodes.length} {f.nodes.length === 1 ? 'etapa' : 'etapas'}
+                    {plural(f.nodes.length, 'fluxos.etapa_1', 'fluxos.etapa_n')}
                     {f.updatedAt && ` · ${relativeLabel(f.updatedAt)}`}
                   </div>
                 </div>
@@ -93,8 +92,8 @@ export default function FlowsList({ flows, loading, onOpen, onCreate, onCreateWi
 
               {!readOnly && (
                 <div style={{ display: 'flex', gap: 6, paddingTop: 10, borderTop: `1px solid ${C.lineHair}` }}>
-                  <CardAction icon="edit" label="Renomear" onClick={(e) => { e.stopPropagation(); handleRename(f) }} />
-                  <CardAction icon="delete" label="Excluir" color={C.roseDeep} onClick={(e) => { e.stopPropagation(); handleDelete(f) }} />
+                  <CardAction icon="edit" label={t('fluxos.renomear')} onClick={(e) => { e.stopPropagation(); handleRename(f) }} />
+                  <CardAction icon="delete" label={t('comum.excluir')} color={C.roseDeep} onClick={(e) => { e.stopPropagation(); handleDelete(f) }} />
                 </div>
               )}
             </div>

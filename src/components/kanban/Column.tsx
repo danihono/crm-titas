@@ -4,6 +4,8 @@ import MaterialIcon from '../common/MaterialIcon'
 import Card from './Card'
 import type { Column as Col, Deal } from '../../types'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
+import { tituloEtapaLeads } from '../../i18n/sistema'
 
 interface Props {
   column: Col
@@ -48,13 +50,15 @@ export default function Column({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '2px 6px 4px' }}>
         <span style={{ width: 9, height: 9, borderRadius: 3, background: column.color }} />
-        <span style={{ fontWeight: 700, fontSize: 13.5, color: C.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{column.title}</span>
+        <span style={{ fontWeight: 700, fontSize: 13.5, color: C.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{/* `fixed` só é verdade no quadro Leads, que é do sistema: lá o
+            título traduz pelo id. Em qualquer outro quadro ele é da pessoa. */
+          fixed ? tituloEtapaLeads(column.id, column.title) : column.title}</span>
         <span style={{ fontSize: 11, color: C.sub, background: C.tintNeutral, borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>{cards.length}</span>
         {!readOnly && !fixed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <HeadAction icon="chevron_left" title="Mover para a esquerda" disabled={!canMoveLeft} onClick={() => onMove?.(column.id, 'left')} />
-            <HeadAction icon="chevron_right" title="Mover para a direita" disabled={!canMoveRight} onClick={() => onMove?.(column.id, 'right')} />
-            <HeadAction icon="edit" title="Editar etapa" onClick={() => onEdit?.(column)} />
+            <HeadAction icon="chevron_left" title={t('etapa.moverEsquerda')} disabled={!canMoveLeft} onClick={() => onMove?.(column.id, 'left')} />
+            <HeadAction icon="chevron_right" title={t('etapa.moverDireita')} disabled={!canMoveRight} onClick={() => onMove?.(column.id, 'right')} />
+            <HeadAction icon="edit" title={t('etapa.editar')} onClick={() => onEdit?.(column)} />
           </div>
         )}
       </div>

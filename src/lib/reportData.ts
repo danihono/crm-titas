@@ -1,4 +1,6 @@
 import type { Contact, ConversationRecord, Member, Sector, Tag } from '../types'
+import { t } from '../i18n'
+import { dataCurta, dataDiaMes } from '../i18n/formato'
 import { convOf } from '../hooks/useConversations'
 
 /** Uma linha de recorte (atendente, setor ou etiqueta). */
@@ -41,11 +43,11 @@ export interface ReportModel {
 export function fmtDuration(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms)) return '—'
   const min = Math.round(ms / 60000)
-  if (min < 1) return 'menos de 1 min'
-  if (min < 60) return `${min} min`
+  if (min < 1) return t('exp.menosDeUmMin')
+  if (min < 60) return t('exp.min', { n: min })
   const h = Math.floor(min / 60)
   const rest = min % 60
-  if (h < 24) return rest ? `${h}h ${rest}min` : `${h}h`
+  if (h < 24) return rest ? t('exp.horasMin', { h, m: rest }) : `${h}h`
   const d = Math.floor(h / 24)
   return `${d}d ${h % 24}h`
 }
@@ -70,7 +72,7 @@ function dayKey(d: Date): string {
 }
 
 export function fmtDate(d: Date): string {
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return dataCurta(d)
 }
 
 function rowFor(
@@ -117,7 +119,7 @@ function buildByDay(rows: ConversationRecord[], from: Date, to: Date): DayPoint[
     const k = dayKey(cursor)
     out.push({
       dateKey: k,
-      label: cursor.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      label: dataDiaMes(cursor),
       total: counts.get(k) ?? 0,
     })
     cursor.setDate(cursor.getDate() + 1)
@@ -165,7 +167,7 @@ export function buildReport(args: {
 
   const byAgent = members
     .map((m) => rowFor(m.id, m.name, '#7a52a0', conversations.filter((c) => c.assignedTo === m.id)))
-    .concat(rowFor('__sem__', 'Sem responsável', '#9c95a8', conversations.filter((c) => !c.assignedTo)))
+    .concat(rowFor('__sem__', t('exp.semResponsavel'), '#9c95a8', conversations.filter((c) => !c.assignedTo)))
     .filter((r) => r.total > 0)
     .sort((a, b) => b.total - a.total)
 

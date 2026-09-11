@@ -15,6 +15,7 @@ import {
   type TitasNode,
 } from '../../lib/flow'
 import { C, sx } from '../../styles/sx'
+import { t } from '../../i18n'
 import type { Flow, FlowNodeKind } from '../../types'
 import { chipColors } from '../../lib/color'
 import { useIsDark } from '../../store/themeStore'
@@ -121,7 +122,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
     const n = name.trim()
     if (!n || n === flow.name) { setName(flow.name); return }
     renameFlow(flow.id, n).catch((e) => {
-      alert(e instanceof Error ? e.message : 'Falha ao renomear o fluxo.')
+      alert(e instanceof Error ? e.message : t('fluxos.falhaRenomear'))
     })
   }
 
@@ -130,7 +131,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
   }
 
   const saveLabel = useMemo(() => ({
-    idle: '', saving: 'Salvando...', saved: 'Salvo', error: 'Falha ao salvar',
+    idle: '', saving: t('fluxos.salvando'), saved: t('fluxos.salvo'), error: t('fluxos.falhaSalvar'),
   }[saveState]), [saveState])
 
   const canDelete = !readOnly && (!!selectedNode || !!selectedEdge)
@@ -195,15 +196,15 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
         <div style={{ width: 288, flexShrink: 0, background: C.surface, borderLeft: `1px solid ${C.fieldBorder}`, padding: '20px 20px 30px', overflowY: 'auto' }}>
           {selectedNode ? (
             <>
-              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>ETAPA</div>
-              <label style={sx.label}>Título</label>
+              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>{t('fluxos.etapa')}</div>
+              <label style={sx.label}>{t('modal.titulo')}</label>
               <input
                 value={selectedNode.data.title}
                 disabled={readOnly}
                 onChange={(e) => updateNodeData(selectedNode.id, { title: e.target.value })}
                 style={{ ...sx.input, margin: '6px 0 14px' }}
               />
-              <label style={sx.label}>Descrição</label>
+              <label style={sx.label}>{t('comum.descricao')}</label>
               <textarea
                 value={selectedNode.data.subtitle}
                 disabled={readOnly}
@@ -211,7 +212,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
                 onChange={(e) => updateNodeData(selectedNode.id, { subtitle: e.target.value })}
                 style={{ ...sx.input, margin: '6px 0 14px', resize: 'vertical', lineHeight: 1.5 }}
               />
-              <label style={sx.label}>Tipo</label>
+              <label style={sx.label}>{t('fluxos.tipo')}</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>
                 {NODE_KINDS.map((k) => {
                   const on = k.id === selectedNode.data.kind
@@ -228,7 +229,7 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
                         color: on ? k.color : C.sub,
                       }}
                     >
-                      <MaterialIcon name={k.icon} size={15} /> {k.label}
+                      <MaterialIcon name={k.icon} size={15} /> {t(k.label)}
                     </button>
                   )
                 })}
@@ -236,17 +237,17 @@ function FlowEditorInner({ flow, onBack }: { flow: Flow; onBack: () => void }) {
             </>
           ) : selectedEdge ? (
             <>
-              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>SETA</div>
-              <label style={sx.label}>Rótulo</label>
+              <div style={{ fontSize: 11, letterSpacing: '.1em', color: C.faint, fontWeight: 700, marginBottom: 12 }}>{t('fluxos.seta')}</div>
+              <label style={sx.label}>{t('fluxos.rotulo')}</label>
               <input
                 value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''}
                 disabled={readOnly}
-                placeholder='Ex.: "sim", "recusado"...'
+                placeholder={t('fluxos.rotuloExemplo')}
                 onChange={(e) => setEdgeLabel(selectedEdge.id, e.target.value)}
                 style={{ ...sx.input, margin: '6px 0 14px' }}
               />
               <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5 }}>
-                Útil para nomear as saídas de uma decisão.
+                {t('fluxos.rotuloDica')}
               </div>
             </>
           ) : (

@@ -1,5 +1,8 @@
 import { createPortal } from 'react-dom'
 import BrandMark from '../common/BrandMark'
+import { t } from '../../i18n'
+import { dataCurta, dataHoraCurta } from '../../i18n/formato'
+import { rotuloStatusNota } from '../../i18n/sistema'
 import { fmtMoney } from '../../lib/format'
 import type { Invoice, InvoiceStatus } from '../../types'
 
@@ -69,29 +72,29 @@ export default function InvoicesDocument({ rows, orgName, recorte }: {
           <div style={{ fontFamily: "'Maharlika', Georgia, serif", fontSize: 24, fontWeight: 400, letterSpacing: '.12em', lineHeight: 1.25 }}>
             TITÃS CRM
           </div>
-          <div style={{ fontSize: 11, color: SUB }}>{orgName || 'Faturamento'}</div>
+          <div style={{ fontSize: 11, color: SUB }}>{orgName || t('doc.faturamento')}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Faturamento</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{t('doc.faturamento')}</div>
           <div style={{ fontSize: 10.5, color: SUB }}>{recorte}</div>
         </div>
       </div>
 
       <div className="print-section" style={{ display: 'flex', gap: 8, margin: '14px 0 16px' }}>
-        <Total label="Faturado (pago)" value={somaDe('Paga')} color={STATUS_COLOR.Paga} />
-        <Total label="A receber" value={somaDe('Pendente')} color={STATUS_COLOR.Pendente} />
-        <Total label="Vencido" value={somaDe('Vencida')} color={STATUS_COLOR.Vencida} />
-        <Total label="Total" value={total} color={INK} />
+        <Total label={t('fatura.faturado')} value={somaDe('Paga')} color={STATUS_COLOR.Paga} />
+        <Total label={t('fatura.aReceber')} value={somaDe('Pendente')} color={STATUS_COLOR.Pendente} />
+        <Total label={t('fatura.vencido')} value={somaDe('Vencida')} color={STATUS_COLOR.Vencida} />
+        <Total label={t('exp.total')} value={total} color={INK} />
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={th}>Nota</th>
-            <th style={th}>Cliente</th>
-            <th style={th}>Valor</th>
-            <th style={th}>Vencimento</th>
-            <th style={th}>Status</th>
+            <th style={th}>{t('exp.colNota')}</th>
+            <th style={th}>{t('exp.colCliente')}</th>
+            <th style={th}>{t('exp.colValor')}</th>
+            <th style={th}>{t('exp.colVencimento')}</th>
+            <th style={th}>{t('exp.colStatus')}</th>
           </tr>
         </thead>
         <tbody>
@@ -114,24 +117,24 @@ export default function InvoicesDocument({ rows, orgName, recorte }: {
                 {iv.paymentMethod && <div style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{iv.paymentMethod}</div>}
               </td>
               <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                {iv.dueAt.toLocaleDateString('pt-BR')}
+                {dataCurta(iv.dueAt)}
                 {iv.paidAt && (
                   <div style={{ fontSize: 9, color: STATUS_COLOR.Paga, fontWeight: 600 }}>
-                    pago {iv.paidAt.toLocaleDateString('pt-BR')}
+                    {t('fatura.pagoEm', { data: dataCurta(iv.paidAt) })}
                   </div>
                 )}
               </td>
-              <td style={{ ...td, fontWeight: 700, color: STATUS_COLOR[status], whiteSpace: 'nowrap' }}>{status}</td>
+              <td style={{ ...td, fontWeight: 700, color: STATUS_COLOR[status], whiteSpace: 'nowrap' }}>{rotuloStatusNota(status)}</td>
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td style={{ ...td, color: MUTED, fontStyle: 'italic' }} colSpan={5}>Nenhuma nota neste recorte.</td></tr>
+            <tr><td style={{ ...td, color: MUTED, fontStyle: 'italic' }} colSpan={5}>{t('doc.semNotas')}</td></tr>
           )}
         </tbody>
       </table>
 
       <div style={{ fontSize: 9.5, color: MUTED, marginTop: 14, textAlign: 'right' }}>
-        {rows.length} nota(s) · emitido em {new Date().toLocaleString('pt-BR')}
+        {t('doc.notasEmitido', { n: rows.length, data: dataHoraCurta(new Date()) })}
       </div>
     </div>
   )
