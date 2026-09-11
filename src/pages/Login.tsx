@@ -5,6 +5,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AuroraBackground } from '@/components/ui/aurora-background'
 import { useAuth } from '../contexts/AuthContext'
+import { t } from '../i18n'
 import RingButton from '../components/common/RingButton'
 import { sx } from '../styles/sx'
 
@@ -34,7 +35,7 @@ export default function Login() {
     setError('')
     setAviso('')
     if (!alvo) {
-      setError('Escreva seu e-mail primeiro e clique de novo.')
+      setError(t('login.escrevaEmail'))
       return
     }
     setBusy(true)
@@ -43,13 +44,13 @@ export default function Login() {
     } catch (err) {
       // Só erro de formato vale mostrar; o resto viraria pista sobre quem existe.
       if ((err as { code?: string })?.code === 'auth/invalid-email') {
-        setError('E-mail inválido.')
+        setError(t('login.emailInvalido'))
         setBusy(false)
         return
       }
       console.error('[sendPasswordResetEmail]', err)
     }
-    setAviso('Se houver uma conta com esse e-mail, o link de redefinição já está a caminho.')
+    setAviso(t('login.linkACaminho'))
     setBusy(false)
   }
 
@@ -116,18 +117,18 @@ export default function Login() {
         </div>
 
         <div style={{ fontSize: 18, fontWeight: 700, color: '#f1ecf5', marginBottom: 4 }}>
-          {mode === 'login' ? 'Entrar na sua conta' : 'Criar conta'}
+          {mode === 'login' ? t('login.entrarTitulo') : t('login.criarTitulo')}
         </div>
         <div style={{ fontSize: 13, color: '#8a7d97', marginBottom: 22 }}>
-          {mode === 'login' ? 'Use seu e-mail e senha.' : 'Preencha os dados para começar.'}
+          {mode === 'login' ? t('login.entrarSub') : t('login.criarSub')}
         </div>
 
         <form onSubmit={onSubmit}>
           {mode === 'signup' && (
-            <Field label="Nome" value={name} onChange={setName} placeholder="Seu nome" autoComplete="name" />
+            <Field label={t('login.nome')} value={name} onChange={setName} placeholder={t('login.nomePlaceholder')} autoComplete="name" />
           )}
-          <Field label="E-mail" type="email" value={email} onChange={setEmail} placeholder="voce@empresa.com" autoComplete="email" />
-          <Field label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+          <Field label={t('login.email')} type="email" value={email} onChange={setEmail} placeholder={t('login.emailPlaceholder')} autoComplete="email" />
+          <Field label={t('login.senha')} type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
 
           {error && (
             <div style={{ fontSize: 12.5, color: '#e58aab', background: 'rgba(217,138,171,0.12)', border: '1px solid rgba(217,138,171,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
@@ -147,7 +148,7 @@ export default function Login() {
                 onClick={() => { if (!busy) void onResetPassword() }}
                 style={{ fontSize: 12, color: '#a99fb8', cursor: busy ? 'default' : 'pointer' }}
               >
-                Esqueci minha senha
+                {t('login.esqueciSenha')}
               </span>
             </div>
           )}
@@ -169,17 +170,17 @@ export default function Login() {
               boxShadow: '0 6px 18px rgba(110,65,150,0.35)',
             }}
           >
-            {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+            {busy ? t('login.aguarde') : mode === 'login' ? t('login.entrar') : t('login.criarTitulo')}
           </RingButton>
         </form>
 
         <div style={{ fontSize: 12.5, color: '#8a7d97', marginTop: 18, textAlign: 'center' }}>
-          {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
+          {mode === 'login' ? t('login.semConta') : t('login.jaTemConta')}
           <span
             onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
             style={{ color: '#c9a6e0', fontWeight: 700, cursor: 'pointer' }}
           >
-            {mode === 'login' ? 'Criar conta' : 'Entrar'}
+            {mode === 'login' ? t('login.criarTitulo') : t('login.entrar')}
           </span>
         </div>
           </div>
@@ -229,16 +230,16 @@ function friendlyError(err: unknown): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha incorretos.'
+      return t('login.credenciaisErradas')
     case 'auth/email-already-in-use':
       // Genérica de propósito: "este e-mail já está em uso" transforma o cadastro num
       // verificador de quem tem conta. O resto do projeto já esconde isso.
-      return 'Não foi possível criar a conta com esses dados. Se você já tem cadastro, entre com sua senha.'
+      return t('login.naoDeuParaCriar')
     case 'auth/weak-password':
-      return 'A senha precisa ter pelo menos 6 caracteres.'
+      return t('login.senhaCurta')
     case 'auth/invalid-email':
-      return 'E-mail inválido.'
+      return t('login.emailInvalido')
     default:
-      return 'Não foi possível concluir. Tente novamente.'
+      return t('login.falhaGenerica')
   }
 }

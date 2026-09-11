@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { navDefs, navSoGestor, settingsNav } from '../../lib/theme'
+import { t } from '../../i18n'
 import { useTenantStore, canManage } from '../../store/tenantStore'
 import { C, FONT_DISPLAY } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
@@ -20,7 +21,7 @@ export default function Sidebar() {
   // não chegava aqui. O Auth fica como reserva enquanto o doc não carregou.
   const profile = useSelfProfile()
   const expanded = !collapsed
-  const name = profile.displayName || user?.displayName || user?.email || 'Usuário'
+  const name = profile.displayName || user?.displayName || user?.email || t('sidebar.usuario')
 
   // Contador de não lidas: saiu do sino do topo e veio para o item Contatos, que é
   // para onde o sino levava de qualquer forma.
@@ -81,14 +82,14 @@ export default function Sidebar() {
               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 400, fontSize: 21, letterSpacing: '.12em', lineHeight: 1.25, color: C.chromeInk }}>TITÃS</div>
               <div style={{ fontSize: 9, letterSpacing: '.42em', color: C.chromeLabel, marginTop: 3, fontWeight: 600 }}>C R M</div>
             </div>
-            <button onClick={toggleSidebar} title="Recolher menu" style={iconBtn}>
+            <button onClick={toggleSidebar} title={t('sidebar.recolher')} style={iconBtn}>
               <MaterialIcon name="left_panel_close" size={19} />
             </button>
           </>
         )}
       </div>
       {collapsed && (
-        <button onClick={toggleSidebar} title="Expandir menu" style={{ ...iconBtn, alignSelf: 'center', marginBottom: 14 }}>
+        <button onClick={toggleSidebar} title={t('sidebar.expandir')} style={{ ...iconBtn, alignSelf: 'center', marginBottom: 14 }}>
           <MaterialIcon name="left_panel_open" size={19} />
         </button>
       )}
@@ -100,7 +101,7 @@ export default function Sidebar() {
             <div key={d.id}>
               {abreGrupo && expanded && (
                 <div style={{ fontSize: 9.5, letterSpacing: '.16em', color: C.chromeLabel, fontWeight: 700, padding: '14px 12px 7px' }}>
-                  {d.group}
+                  {t(d.group)}
                 </div>
               )}
               {abreGrupo && collapsed && (
@@ -110,7 +111,7 @@ export default function Sidebar() {
                 {({ isActive }) => (
                   <NavItem
                     icon={d.icon}
-                    label={d.label}
+                    label={t(d.label)}
                     active={isActive}
                     collapsed={collapsed}
                     badge={d.id === 'contatos' ? unread : 0}
@@ -128,7 +129,7 @@ export default function Sidebar() {
       {/* Configurações, fixo no pé — fora da lista que rola. */}
       <div style={{ borderTop: `1px solid ${C.chromeHairline}`, paddingTop: 10, marginTop: 10 }}>
         <NavLink to={settingsNav.path} style={{ textDecoration: 'none', display: 'block' }}>
-          <NavItem icon={settingsNav.icon} label={settingsNav.label} active={emConfig} collapsed={collapsed} badge={0} />
+          <NavItem icon={settingsNav.icon} label={t(settingsNav.label)} active={emConfig} collapsed={collapsed} badge={0} />
         </NavLink>
       </div>
 

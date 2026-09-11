@@ -11,6 +11,7 @@ import {
   sectorFromDoc, tagFromDoc, quickReplyFromDoc, customFieldFromDoc, businessHoursFromDoc,
 } from '../lib/converters'
 import { useCollection } from './useCollection'
+import { diaPorExtenso } from '../i18n/formato'
 import type {
   BusinessHours, CustomField, CustomFieldType, QuickReply, Sector, Tag,
 } from '../types'
@@ -142,7 +143,14 @@ export async function setContactCustomValue(contactId: string, fieldId: string, 
 
 // ---------------------------------------------------- Horários / dados da org
 
-export const DAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+/**
+ * Dias da semana, do idioma ativo. Era um array fixo em português; agora sai do
+ * `Intl`, que também resolve a inicial maiúscula que o espanhol não usa.
+ * Índice 0 = domingo, como `Date.getDay()` e como `businessHours.days`.
+ */
+export function diasDaSemana(): string[] {
+  return Array.from({ length: 7 }, (_, i) => diaPorExtenso(i))
+}
 
 export const defaultBusinessHours: BusinessHours = {
   days: Array.from({ length: 7 }, (_, i) => ({

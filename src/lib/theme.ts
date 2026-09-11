@@ -126,19 +126,23 @@ export const defaultAgentConfig: AgentConfig = {
  * `group` vazio = item solto no topo, sem cabeçalho (o Dashboard).
  * Configurações NÃO está aqui: é fixo no rodapé da barra (ver settingsNav).
  */
+// `label` e `group` são CHAVES do catálogo, não texto: quem monta o menu passa
+// as duas por t(). O grupo vazio é o item solto do topo (o Dashboard), e por
+// isso o campo guarda a chave do cabeçalho em vez de um id à parte — não há
+// dois nomes para a mesma coisa.
 export const navDefs = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: '/', group: '' },
+  { id: 'dashboard', label: 'nav.dashboard', icon: 'dashboard', path: '/', group: '' },
 
-  { id: 'pipeline', label: 'Pipeline', icon: 'view_kanban', path: '/pipeline', group: 'OPERAÇÃO' },
-  { id: 'contatos', label: 'Contatos', icon: 'forum', path: '/contatos', group: 'OPERAÇÃO' },
-  { id: 'atividades', label: 'Atividades', icon: 'task_alt', path: '/atividades', group: 'OPERAÇÃO' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda', group: 'OPERAÇÃO' },
+  { id: 'pipeline', label: 'nav.pipeline', icon: 'view_kanban', path: '/pipeline', group: 'nav.grupoOperacao' },
+  { id: 'contatos', label: 'nav.contatos', icon: 'forum', path: '/contatos', group: 'nav.grupoOperacao' },
+  { id: 'atividades', label: 'nav.atividades', icon: 'task_alt', path: '/atividades', group: 'nav.grupoOperacao' },
+  { id: 'agenda', label: 'nav.agenda', icon: 'calendar_month', path: '/agenda', group: 'nav.grupoOperacao' },
 
-  { id: 'assistente', label: 'Assistente', icon: 'auto_awesome', path: '/assistente', group: 'CRESCIMENTO' },
-  { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas', group: 'CRESCIMENTO' },
+  { id: 'assistente', label: 'nav.assistente', icon: 'auto_awesome', path: '/assistente', group: 'nav.grupoCrescimento' },
+  { id: 'campanhas', label: 'nav.campanhas', icon: 'campaign', path: '/campanhas', group: 'nav.grupoCrescimento' },
 
-  { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento', group: 'GESTÃO' },
-  { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios', group: 'GESTÃO' },
+  { id: 'faturamento', label: 'nav.faturamento', icon: 'receipt_long', path: '/faturamento', group: 'nav.grupoGestao' },
+  { id: 'relatorios', label: 'nav.relatorios', icon: 'insights', path: '/relatorios', group: 'nav.grupoGestao' },
 ] as const
 
 /**
@@ -153,7 +157,7 @@ export const navSoGestor: readonly string[] = ['faturamento']
 /** Fixo no pé do menu, separado do resto — como na interface de referência. */
 export const settingsNav = {
   id: 'configuracoes',
-  label: 'Configurações',
+  label: 'nav.configuracoes',
   icon: 'settings',
   path: '/configuracoes',
 } as const

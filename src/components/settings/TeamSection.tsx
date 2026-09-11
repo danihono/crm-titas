@@ -4,20 +4,23 @@ import { useTenantStore } from '../../store/tenantStore'
 import { useMembers, usePendingInvites } from '../../hooks/useTeam'
 import { cancelInvite, inviteMember, setMemberActive, updateMemberRole } from '../../lib/team'
 import { sx, C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 import MaterialIcon from '../common/MaterialIcon'
 import { EmptyLine, Field, IconAction, PrimaryButton, Row, SettingsCard } from './primitives'
 import type { MemberRole } from '../../types'
 
-const ROLE_LABEL: Record<MemberRole, string> = {
-  dono: 'Dono',
-  gestor: 'Gestor',
-  atendente: 'Atendente',
+// O papel é um código ('dono'/'gestor'/'atendente') gravado no doc do membro;
+// aqui só se decide como ele é escrito na tela.
+const ROLE_LABEL: Record<MemberRole, Chave> = {
+  dono: 'equipe.dono',
+  gestor: 'equipe.gestor',
+  atendente: 'equipe.atendente',
 }
 
-const ROLE_HINT: Record<MemberRole, string> = {
-  dono: 'Acesso total, inclusive faturamento e configurações.',
-  gestor: 'Administra equipe, setores e etiquetas; atende conversas.',
-  atendente: 'Atende conversas e cuida de contatos, negócios e atividades.',
+const ROLE_HINT: Record<MemberRole, Chave> = {
+  dono: 'equipe.donoDica',
+  gestor: 'equipe.gestorDica',
+  atendente: 'equipe.atendenteDica',
 }
 
 export default function TeamSection({ canEdit }: { canEdit: boolean }) {
@@ -46,7 +49,7 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
       await inviteMember(tenantUid, tenantName, email, role)
       setEmail('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar o convite.')
+      setError(err instanceof Error ? err.message : t('equipe.falhaConvite'))
     } finally {
       setBusy(false)
     }
@@ -55,10 +58,10 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       <SettingsCard
-        title="Atendentes"
-        subtitle="Quem tem acesso a este CRM e o que cada um pode fazer."
+        title={t('equipe.titulo')}
+        subtitle={t('equipe.subtitulo')}
       >
-        {members.length === 0 && <EmptyLine>Nenhum atendente ainda.</EmptyLine>}
+        {members.length === 0 && <EmptyLine>{t('equipe.vazio')}</EmptyLine>}
         {members.map((m) => {
           // O dono não pode se rebaixar: viraria um tenant sem ninguém para administrá-lo.
           const isSelfOwner = m.id === tenantUid
@@ -73,18 +76,18 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
                       onChange={(e) => updateMemberRole(m.id, e.target.value as MemberRole)}
                       style={{ ...sx.input, width: 'auto', padding: '7px 10px', fontSize: 12.5 }}
                     >
-                      <option value="gestor">Gestor</option>
-                      <option value="atendente">Atendente</option>
+                      <option value="gestor">{t('equipe.gestor')}</option>
+                      <option value="atendente">{t('equipe.atendente')}</option>
                     </select>
                     <IconAction
                       icon={m.active ? 'toggle_on' : 'toggle_off'}
-                      title={m.active ? 'Desativar acesso' : 'Reativar acesso'}
+                      title={t(m.active ? 'equipe.desativar' : 'equipe.reativar')}
                       color={m.active ? C.green : C.faint}
                       onClick={() => setMemberActive(m.id, !m.active)}
                     />
                   </>
                 ) : (
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.purple }}>{ROLE_LABEL[m.role]}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.purple }}>{t(ROLE_LABEL[m.role])}</span>
                 )
               }
             >
@@ -92,7 +95,7 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
                 <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{m.name}</span>
                 {!m.active && (
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.rose, background: C.tintRose, borderRadius: 20, padding: '2px 9px' }}>
-                    inativo
+                    {t('equipe.inativo')}
                   </span>
                 )}
               </div>
@@ -104,44 +107,44 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
 
       {canEdit && (
         <SettingsCard
-          title="Convidar atendente"
-          subtitle="Ele entra na equipe assim que criar a conta (ou fizer login) com este e-mail."
+          title={t('equipe.convidar')}
+          subtitle={t('equipe.convidarDica')}
         >
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr auto', gap: 12, alignItems: 'end' }}>
-            <Field label="E-mail">
+            <Field label={t('comum.email')}>
               <input
                 type="email"
                 value={email}
-                placeholder="atendente@empresa.com"
+                placeholder={t('equipe.emailExemplo')}
                 onChange={(e) => setEmail(e.target.value)}
                 style={sx.input}
               />
             </Field>
-            <Field label="Papel">
+            <Field label={t('equipe.papel')}>
               <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} style={sx.input}>
-                <option value="atendente">Atendente</option>
-                <option value="gestor">Gestor</option>
+                <option value="atendente">{t('equipe.atendente')}</option>
+                <option value="gestor">{t('equipe.gestor')}</option>
               </select>
             </Field>
             <PrimaryButton icon="person_add" onClick={submitInvite} disabled={busy || !email.trim()}>
-              Convidar
+              {t('equipe.convidarBotao')}
             </PrimaryButton>
           </div>
-          <div style={{ fontSize: 12, color: C.sub, marginTop: 10 }}>{ROLE_HINT[role]}</div>
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 10 }}>{t(ROLE_HINT[role])}</div>
           {error && <div style={{ fontSize: 12.5, color: C.rose, marginTop: 8 }}>{error}</div>}
 
           {invites.length > 0 && (
             <div style={{ marginTop: 20 }}>
-              <div style={{ ...sx.label, marginBottom: 6 }}>Convites aguardando aceite</div>
+              <div style={{ ...sx.label, marginBottom: 6 }}>{t('equipe.convitesPendentes')}</div>
               {invites.map((i) => (
                 <Row
                   key={i.id}
-                  actions={<IconAction icon="close" title="Cancelar convite" onClick={() => cancelInvite(i.email)} />}
+                  actions={<IconAction icon="close" title={t('equipe.cancelarConvite')} onClick={() => cancelInvite(i.email)} />}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink }}>
                     <MaterialIcon name="mail" size={16} color={C.muted} />
                     {i.email}
-                    <span style={{ fontSize: 11.5, color: C.sub }}>· {ROLE_LABEL[i.role]}</span>
+                    <span style={{ fontSize: 11.5, color: C.sub }}>· {t(ROLE_LABEL[i.role])}</span>
                   </div>
                 </Row>
               ))}

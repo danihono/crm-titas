@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { canEditSettings, canSeeSettings, useTenantStore } from '../store/tenantStore'
 import { sx, C } from '../styles/sx'
+import { t, type Chave } from '../i18n'
 import MaterialIcon from '../components/common/MaterialIcon'
 import { ReadOnlyNote } from '../components/settings/primitives'
 import TeamSection from '../components/settings/TeamSection'
@@ -24,27 +25,42 @@ type SectionId =
   | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos'
   | 'org'
 
+/**
+ * O grupo é um ID, e não o texto do cabeçalho, porque ele decide PERMISSÃO:
+ * `visiveis` compara com 'conta' para dar ao atendente só as seções da conta
+ * dele. Amarrar essa comparação a uma chave de tradução misturaria o que se lê
+ * com o que se pode ver.
+ */
+type GroupId = 'conta' | 'atendimento' | 'organizacao' | 'automacao'
+
+const GRUPO_LABEL: Record<GroupId, Chave> = {
+  conta: 'config.grupoConta',
+  atendimento: 'config.grupoAtendimento',
+  organizacao: 'config.grupoOrganizacao',
+  automacao: 'config.grupoAutomacao',
+}
+
 interface SectionDef {
   id: SectionId
-  label: string
+  label: Chave
   icon: string
-  group: string
+  group: GroupId
 }
 
 const SECTIONS: SectionDef[] = [
-  { id: 'perfil', label: 'Perfil', icon: 'person', group: 'CONTA' },
-  { id: 'preferencias', label: 'Preferências pessoais', icon: 'tune', group: 'CONTA' },
-  { id: 'equipe', label: 'Atendentes', icon: 'badge', group: 'ATENDIMENTO' },
-  { id: 'setores', label: 'Setores', icon: 'account_tree', group: 'ATENDIMENTO' },
-  { id: 'horarios', label: 'Horários', icon: 'schedule', group: 'ATENDIMENTO' },
-  { id: 'etiquetas', label: 'Etiquetas', icon: 'label', group: 'ORGANIZAÇÃO' },
-  { id: 'campos', label: 'Campos personalizados', icon: 'list_alt', group: 'ORGANIZAÇÃO' },
-  { id: 'biblioteca', label: 'Biblioteca de mídias', icon: 'perm_media', group: 'ORGANIZAÇÃO' },
-  { id: 'org', label: 'Dados e canais', icon: 'apartment', group: 'ORGANIZAÇÃO' },
-  { id: 'respostas', label: 'Respostas rápidas', icon: 'quickreply', group: 'AUTOMAÇÃO' },
-  { id: 'variaveis', label: 'Variáveis', icon: 'data_object', group: 'AUTOMAÇÃO' },
-  { id: 'conhecimento', label: 'Bases de conhecimento', icon: 'menu_book', group: 'AUTOMAÇÃO' },
-  { id: 'agendamentos', label: 'Agendamentos', icon: 'schedule_send', group: 'AUTOMAÇÃO' },
+  { id: 'perfil', label: 'config.perfil', icon: 'person', group: 'conta' },
+  { id: 'preferencias', label: 'prefs.titulo', icon: 'tune', group: 'conta' },
+  { id: 'equipe', label: 'config.atendentes', icon: 'badge', group: 'atendimento' },
+  { id: 'setores', label: 'config.setores', icon: 'account_tree', group: 'atendimento' },
+  { id: 'horarios', label: 'config.horarios', icon: 'schedule', group: 'atendimento' },
+  { id: 'etiquetas', label: 'config.etiquetas', icon: 'label', group: 'organizacao' },
+  { id: 'campos', label: 'config.campos', icon: 'list_alt', group: 'organizacao' },
+  { id: 'biblioteca', label: 'config.biblioteca', icon: 'perm_media', group: 'organizacao' },
+  { id: 'org', label: 'config.dadosCanais', icon: 'apartment', group: 'organizacao' },
+  { id: 'respostas', label: 'config.respostas', icon: 'quickreply', group: 'automacao' },
+  { id: 'variaveis', label: 'config.variaveis', icon: 'data_object', group: 'automacao' },
+  { id: 'conhecimento', label: 'config.conhecimento', icon: 'menu_book', group: 'automacao' },
+  { id: 'agendamentos', label: 'config.agendamentos', icon: 'schedule_send', group: 'automacao' },
 ]
 
 export default function Settings() {
@@ -57,7 +73,7 @@ export default function Settings() {
   // Atendente fica só com CONTA — as seções da operação nem entram no menu, em vez de
   // aparecerem travadas prometendo um acesso que ele não tem.
   const visiveis = useMemo(
-    () => SECTIONS.filter((s) => s.group === 'CONTA' || verTenant),
+    () => SECTIONS.filter((s) => s.group === 'conta' || verTenant),
     [verTenant],
   )
 
@@ -67,18 +83,20 @@ export default function Settings() {
     if (!visiveis.some((s) => s.id === active)) setActive('perfil')
   }, [visiveis, active])
 
-  const groups = visiveis.reduce<Record<string, SectionDef[]>>((acc, s) => {
-    ;(acc[s.group] ||= []).push(s)
-    return acc
-  }, {})
+  // Ordem fixa, declarada — antes ela vinha da ordem de inserção do reduce, o que
+  // deixava a barra dependendo de como SECTIONS estava escrito lá em cima.
+  const ORDEM: GroupId[] = ['conta', 'atendimento', 'organizacao', 'automacao']
+  const groups = ORDEM
+    .map((g) => ({ group: g, items: visiveis.filter((s) => s.group === g) }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '18px 30px 40px' }}>
       <nav style={{ ...sx.card, borderRadius: 20, width: 232, flexShrink: 0, padding: '14px 10px', position: 'sticky', top: 0 }}>
-        {Object.entries(groups).map(([group, items]) => (
+        {groups.map(({ group, items }) => (
           <div key={group} style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 10, letterSpacing: '.16em', color: C.faint, fontWeight: 700, padding: '6px 12px 8px' }}>
-              {group}
+              {t(GRUPO_LABEL[group])}
             </div>
             {items.map((s) => {
               const on = s.id === active
@@ -96,7 +114,7 @@ export default function Settings() {
                   }}
                 >
                   <MaterialIcon name={s.icon} size={18} />
-                  {s.label}
+                  {t(s.label)}
                 </button>
               )
             })}
@@ -106,7 +124,7 @@ export default function Settings() {
         {/* Versão publicada. Serve para saber, num relance, se o que está no ar é o que
             está no git — sem precisar caçar diferença de tela para descobrir isso. */}
         <div style={{ fontSize: 10.5, color: C.faint, padding: '10px 12px 2px', borderTop: '1px solid ' + C.lineSoft, marginTop: 4 }}>
-          versão {__BUILD_ID__}
+          {t('config.versao', { build: __BUILD_ID__ })}
         </div>
       </nav>
 
@@ -115,9 +133,7 @@ export default function Settings() {
             para quem só visualiza a operação de outra pessoa. */}
         {!canEdit && active !== 'perfil' && active !== 'preferencias' && (
           <ReadOnlyNote>
-            {readOnly
-              ? 'Você está visualizando o CRM de um cliente — as configurações são somente leitura.'
-              : 'Somente o dono do ambiente altera as configurações — você pode consultar.'}
+            {t(readOnly ? 'config.somenteLeituraCliente' : 'config.somenteLeituraPapel')}
           </ReadOnlyNote>
         )}
 
