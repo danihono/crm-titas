@@ -616,4 +616,67 @@ export const CATALOGO = {
   'contatos.semArquivos': ['Nenhum arquivo ainda. Clique em "Adicionar arquivo" para armazenar documentos deste cliente.', 'Todavía no hay archivos. Haz clic en "Añadir archivo" para guardar documentos de este cliente.', 'No files yet. Click "Add file" to store documents for this client.'],
   'contatos.agendadoEm': ['{data} {hora}', '{data} {hora}', '{data} {hora}'],
   'contatos.agendadoEmLongo': ['{data} às {hora}', '{data} a las {hora}', '{data} at {hora}'],
+
+  // ── Atendimento · barra da conversa e agenda do contato ───────────────
+  'atend.finalizar': ['Finalizar', 'Finalizar', 'Close'],
+  'atend.semResponsavel': ['Sem responsável', 'Sin responsable', 'No owner'],
+  'atend.semSetor': ['Sem setor', 'Sin sector', 'No sector'],
+  'atend.etiquetarConversa': ['Etiquetar conversa', 'Etiquetar conversación', 'Tag conversation'],
+  'atend.etiquetar': ['Etiquetar', 'Etiquetar', 'Tag'],
+  'atend.optOut': ['Pediu para não receber campanhas (respondeu SAIR/PARE)', 'Pidió no recibir campañas (respondió SALIR/PARAR)', 'Asked not to receive campaigns (replied STOP)'],
+  'atend.voltarCampanhas': ['Voltar a incluir em campanhas', 'Volver a incluir en campañas', 'Include in campaigns again'],
+  'atend.emAtendimento': ['Em atendimento', 'En atención', 'In progress'],
+  'atend.esperandoCliente': ['Esperando cliente', 'Esperando al cliente', 'Waiting on client'],
+  'atend.finalizado': ['Finalizado', 'Finalizado', 'Closed'],
+  'agendaContato.semFuncao': ['A função sugerirTarefaIA ainda não foi publicada neste projeto.', 'La función sugerirTarefaIA todavía no se publicó en este proyecto.', 'The sugerirTarefaIA function hasn\'t been deployed in this project yet.'],
+  'agendaContato.semIA': ['Não deu para falar com o Titã IA agora. Crie a tarefa à mão.', 'No se pudo hablar con Titã IA ahora. Crea la tarea a mano.', 'Couldn\'t reach Titã AI right now. Create the task by hand.'],
+  'agendaContato.dicaIA': ['O Titã IA lê a conversa e propõe o próximo passo', 'Titã IA lee la conversación y propone el próximo paso', 'Titã AI reads the conversation and proposes the next step'],
+  'agendaContato.semMensagens': ['Sem mensagens para a IA ler', 'Sin mensajes para que la IA lea', 'No messages for the AI to read'],
+  'agendaContato.lendo': ['Lendo...', 'Leyendo...', 'Reading...'],
+  'agendaContato.sugerir': ['Sugerir', 'Sugerir', 'Suggest'],
+  'agendaContato.emAberto': ['Em aberto', 'Abiertas', 'Open'],
+  'agendaContato.vazio': ['Nenhuma tarefa marcada para este cliente.', 'Ninguna tarea marcada para este cliente.', 'No tasks scheduled for this client.'],
+  'agendaContato.concluidas': ['Concluídas', 'Completadas', 'Done'],
+  'agendaContato.reabrir': ['Reabrir', 'Reabrir', 'Reopen'],
+  'agendaContato.marcarConcluida': ['Marcar como concluída', 'Marcar como completada', 'Mark as done'],
+  'inbox.entrada': ['Entrada', 'Entrada', 'Inbox'],
+  'inbox.esperando': ['Esperando', 'Esperando', 'Waiting'],
+  'inbox.finalizados': ['Finalizados', 'Finalizados', 'Closed'],
+  'diretorio.colContato': ['Contato', 'Contacto', 'Contact'],
+  'diretorio.colEmpresa': ['Empresa', 'Empresa', 'Company'],
+  'diretorio.colTelefone': ['TELEFONE', 'TELÉFONO', 'PHONE'],
+  'diretorio.colEtiquetas': ['ETIQUETAS', 'ETIQUETAS', 'TAGS'],
+  'diretorio.buscarPlaceholder': ['Buscar por nome, empresa, e-mail ou telefone...', 'Buscar por nombre, empresa, correo o teléfono...', 'Search by name, company, email or phone...'],
+  'diretorio.deTotal': [' de {n}', ' de {n}', ' of {n}'],
+  'diretorio.carregando': ['Carregando contatos...', 'Cargando contactos...', 'Loading contacts...'],
+  'diretorio.semBusca': ['Nenhum contato encontrado para', 'No se encontró ningún contacto para', 'No contacts found for'],
+  'diretorio.vazio': ['Nenhum contato cadastrado ainda. Crie o primeiro no botão acima.', 'Todavía no hay contactos registrados. Crea el primero con el botón de arriba.', 'No contacts on record yet. Create the first one with the button above.'],
+  'diretorio.semNome': ['Sem nome', 'Sin nombre', 'No name'],
+  'diretorio.abrirConversa': ['Abrir conversa', 'Abrir conversación', 'Open conversation'],
+  'diretorio.editarContato': ['Editar contato', 'Editar contacto', 'Edit contact'],
+  'diretorio.criarLead': ['Criar lead com este contato', 'Crear lead con este contacto', 'Create a lead from this contact'],
+
+  // ── Atendimento · complemento ─────────────────────────────────────────
+  'atend.semCampanhas': ['Sem campanhas', 'Sin campañas', 'No campaigns'],
+
+  // ── Abas de Pipeline e Relatórios ─────────────────────────────────────
+  'pipeline.abaKanban': ['Kanban', 'Kanban', 'Kanban'],
+  'pipeline.abaFluxos': ['Fluxos', 'Flujos', 'Flows'],
+  'relatorios.abaGeral': ['Geral', 'General', 'Overview'],
+  'relatorios.abaAgora': ['Agora', 'Ahora', 'Right now'],
+  'relatorios.abaAtendentes': ['Atendentes', 'Agentes', 'Agents'],
+  'relatorios.abaSetores': ['Setores', 'Sectores', 'Sectors'],
+  'relatorios.abaEtiquetas': ['Etiquetas', 'Etiquetas', 'Tags'],
+
+  // ── Agenda do contato · atrasadas ─────────────────────────────────────
+  'agendaContato.atrasada_1': ['{n} atrasada', '{n} atrasada', '{n} overdue'],
+  'agendaContato.atrasada_n': ['{n} atrasadas', '{n} atrasadas', '{n} overdue'],
+
+  // ── Diretório de contatos · complemento ───────────────────────────────
+  'diretorio.contato_1': [' contato', ' contacto', ' contact'],
+  'diretorio.contato_n': [' contatos', ' contactos', ' contacts'],
+  'diretorio.colUltimoContato': ['Último contato', 'Último contacto', 'Last contact'],
+
+  // ── Diretório · novo contato ──────────────────────────────────────────
+  'diretorio.novoContato': ['Novo contato', 'Nuevo contacto', 'New contact'],
 } satisfies Record<string, Tri>

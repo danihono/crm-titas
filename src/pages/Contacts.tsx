@@ -49,8 +49,8 @@ import type { Chave } from '../i18n'
 import { plural, t } from '../i18n'
 
 const CONTACT_TABS: TabDef<ContactsView>[] = [
-  { id: 'atendimento', label: t('contatos.abaAtendimento'), icon: 'forum' },
-  { id: 'cadastro', label: t('contatos.abaContatos'), icon: 'contacts' },
+  { id: 'atendimento', label: 'contatos.abaAtendimento', icon: 'forum' },
+  { id: 'cadastro', label: 'contatos.abaContatos', icon: 'contacts' },
 ]
 
 const WA_DOT: Record<string, string> = {

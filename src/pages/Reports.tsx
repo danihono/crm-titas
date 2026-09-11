@@ -17,11 +17,11 @@ import { useIsDark } from '../store/themeStore'
 type ReportTab = 'geral' | 'agora' | 'atendentes' | 'setores' | 'etiquetas'
 
 const TABS: TabDef<ReportTab>[] = [
-  { id: 'geral', label: 'Geral', icon: 'insights' },
-  { id: 'agora', label: 'Agora', icon: 'bolt' },
-  { id: 'atendentes', label: 'Atendentes', icon: 'badge' },
-  { id: 'setores', label: 'Setores', icon: 'account_tree' },
-  { id: 'etiquetas', label: 'Etiquetas', icon: 'label' },
+  { id: 'geral', label: 'relatorios.abaGeral', icon: 'insights' },
+  { id: 'agora', label: 'relatorios.abaAgora', icon: 'bolt' },
+  { id: 'atendentes', label: 'relatorios.abaAtendentes', icon: 'badge' },
+  { id: 'setores', label: 'relatorios.abaSetores', icon: 'account_tree' },
+  { id: 'etiquetas', label: 'relatorios.abaEtiquetas', icon: 'label' },
 ]
 
 const RANGES = [

@@ -11,15 +11,17 @@ import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import ContactModal from '../modals/ContactModal'
 import { sx, C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
+import { compararTexto } from '../../i18n/formato'
 import type { Contact } from '../../types'
 import { chipColors } from '../../lib/color'
 import { useIsDark } from '../../store/themeStore'
 
 type Ordem = 'nome' | 'empresa' | 'recente'
 
-const COLUNAS: { id: Ordem; label: string; largura: string }[] = [
-  { id: 'nome', label: 'Contato', largura: 'minmax(220px,2fr)' },
-  { id: 'empresa', label: 'Empresa', largura: 'minmax(150px,1.2fr)' },
+const COLUNAS: { id: Ordem; label: Chave; largura: string }[] = [
+  { id: 'nome', label: 'diretorio.colContato', largura: 'minmax(220px,2fr)' },
+  { id: 'empresa', label: 'diretorio.colEmpresa', largura: 'minmax(150px,1.2fr)' },
 ]
 
 /** Data que responde "quando falei com essa pessoa pela última vez". */
@@ -58,8 +60,8 @@ export default function ContactsDirectory() {
           || searchable(c.phone || c.whatsapp).includes(q))
       : contacts
     const ordenados = [...filtrados]
-    if (ordem === 'nome') ordenados.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-    else if (ordem === 'empresa') ordenados.sort((a, b) => a.company.localeCompare(b.company, 'pt-BR'))
+    if (ordem === 'nome') ordenados.sort((a, b) => compararTexto(a.name, b.name))
+    else if (ordem === 'empresa') ordenados.sort((a, b) => compararTexto(a.company, b.company))
     else ordenados.sort((a, b) => (ultimoContato(b)?.getTime() ?? 0) - (ultimoContato(a)?.getTime() ?? 0))
     return ordenados
   }, [contacts, q, ordem])
@@ -79,11 +81,11 @@ export default function ContactsDirectory() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome, empresa, e-mail ou telefone..."
+            placeholder={t('diretorio.buscarPlaceholder')}
             style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%' }}
           />
           {busca && (
-            <button onClick={() => setBusca('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
+            <button onClick={() => setBusca('')} title={t('contatos.limparBusca')} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
               <MaterialIcon name="close" size={15} color={C.faint} />
             </button>
           )}
@@ -91,15 +93,15 @@ export default function ContactsDirectory() {
 
         <div style={{ fontSize: 12.5, color: C.sub }}>
           <b style={{ color: C.ink }}>{lista.length}</b>
-          {lista.length === 1 ? ' contato' : ' contatos'}
-          {q && contacts.length !== lista.length && ` de ${contacts.length}`}
+          {t(lista.length === 1 ? 'diretorio.contato_1' : 'diretorio.contato_n')}
+          {q && contacts.length !== lista.length && t('diretorio.deTotal', { n: contacts.length })}
         </div>
 
         <div style={{ flex: 1 }} />
 
         {!readOnly && (
           <RingButton radius={11} onClick={ui.openContactModal} style={{ ...sx.btnPrimary }}>
-            <MaterialIcon name="person_add" size={18} /> Novo contato
+            <MaterialIcon name="person_add" size={18} /> {t('diretorio.novoContato')}
           </RingButton>
         )}
       </div>
@@ -123,12 +125,12 @@ export default function ContactsDirectory() {
                 color: ordem === col.id ? C.purple : C.muted,
               }}
             >
-              {col.label.toUpperCase()}
+              {t(col.label).toUpperCase()}
               {ordem === col.id && <MaterialIcon name="arrow_downward" size={13} />}
             </button>
           ))}
-          <span>TELEFONE</span>
-          <span>ETIQUETAS</span>
+          <span>{t('diretorio.colTelefone')}</span>
+          <span>{t('diretorio.colEtiquetas')}</span>
           <button
             onClick={() => setOrdem('recente')}
             style={{
@@ -137,20 +139,20 @@ export default function ContactsDirectory() {
               color: ordem === 'recente' ? C.purple : C.muted,
             }}
           >
-            ÚLTIMO CONTATO
+            {t('diretorio.colUltimoContato').toUpperCase()}
             {ordem === 'recente' && <MaterialIcon name="arrow_downward" size={13} />}
           </button>
         </div>
 
         {loading && (
-          <div style={{ padding: '26px 18px', fontSize: 13, color: C.faint }}>Carregando contatos...</div>
+          <div style={{ padding: '26px 18px', fontSize: 13, color: C.faint }}>{t('diretorio.carregando')}</div>
         )}
 
         {!loading && lista.length === 0 && (
           <div style={{ padding: '30px 18px', fontSize: 13, color: C.faint, lineHeight: 1.6 }}>
             {q
-              ? <>Nenhum contato encontrado para <b style={{ color: C.sub }}>{busca}</b>.</>
-              : 'Nenhum contato cadastrado ainda. Crie o primeiro no botão acima.'}
+              ? <>{t('diretorio.semBusca')} <b style={{ color: C.sub }}>{busca}</b>.</>
+              : t('diretorio.vazio')}
           </div>
         )}
 
@@ -174,7 +176,7 @@ export default function ContactsDirectory() {
                 <Avatar initials={c.initials || initialsOf(c.name) || '?'} photoUrl={c.photoUrl} size={32} bg={avPalette[i % avPalette.length]} fontSize={12} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {c.name || 'Sem nome'}
+                    {c.name || t('diretorio.semNome')}
                   </div>
                   {c.email && (
                     <div style={{ fontSize: 11.5, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -208,13 +210,13 @@ export default function ContactsDirectory() {
                 <span style={{ fontSize: 11.5, color: C.faint, flex: 1, minWidth: 0 }}>
                   {quando ? relativeLabel(quando) : '—'}
                 </span>
-                <RowAction icon="chat" title="Abrir conversa" onClick={() => abrirConversa(c)} />
+                <RowAction icon="chat" title={t('diretorio.abrirConversa')} onClick={() => abrirConversa(c)} />
                 {!readOnly && (
                   <>
-                    <RowAction icon="edit" title="Editar contato" onClick={() => setEditando(c)} />
+                    <RowAction icon="edit" title={t('diretorio.editarContato')} onClick={() => setEditando(c)} />
                     <RowAction
                       icon="filter_alt"
-                      title="Criar lead com este contato"
+                      title={t('diretorio.criarLead')}
                       onClick={() => {
                         ui.pedirNovoLead({
                           contact: c.name,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { setContactCustomValue } from '../../hooks/useSettings'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import MaterialIcon from '../common/MaterialIcon'
 import type { Contact, CustomField } from '../../types'
 
@@ -32,7 +33,7 @@ export default function CustomFieldsCard({ contact, fields, canEdit }: {
     <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid ' + C.lineSoft }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, color: C.sub, marginBottom: 12 }}>
         <MaterialIcon name="list_alt" size={16} color={C.muted} />
-        Campos personalizados
+        {t('campos.titulo')}
       </div>
       <div style={{ display: 'grid', gap: 12 }}>
         {fields.map((f) => (
@@ -116,8 +117,8 @@ function FieldRow({ field, contactId, value, canEdit }: {
           }}
         >
           <option value="">—</option>
-          <option value="sim">Sim</option>
-          <option value="nao">Não</option>
+          <option value="sim">{t('comum.sim')}</option>
+          <option value="nao">{t('comum.nao')}</option>
         </select>
       ) : (
         <input
