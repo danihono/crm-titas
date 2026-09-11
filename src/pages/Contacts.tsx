@@ -44,10 +44,13 @@ import type { Contact, Message, ScheduledMessage, HistoryImportStatus, MediaReco
 import { C } from '../styles/sx'
 import { chipColors } from '../lib/color'
 import { useIsDark } from '../store/themeStore'
+import { dataDiaMes } from '../i18n/formato'
+import type { Chave } from '../i18n'
+import { plural, t } from '../i18n'
 
 const CONTACT_TABS: TabDef<ContactsView>[] = [
-  { id: 'atendimento', label: 'Atendimento', icon: 'forum' },
-  { id: 'cadastro', label: 'Contatos', icon: 'contacts' },
+  { id: 'atendimento', label: t('contatos.abaAtendimento'), icon: 'forum' },
+  { id: 'cadastro', label: t('contatos.abaContatos'), icon: 'contacts' },
 ]
 
 const WA_DOT: Record<string, string> = {
@@ -374,7 +377,7 @@ function Atendimento() {
       if (!readOnly) void markFirstResponse(active)
     } catch (e) {
       setWaInput(raw)
-      alert(e instanceof Error ? e.message : 'Falha ao enviar mensagem.')
+      alert(e instanceof Error ? e.message : t('contatos.falhaEnviarMensagem'))
     }
   }
 
@@ -412,7 +415,7 @@ function Atendimento() {
       setPendingMedia(null)
       scrollToEnd('auto')
     } catch (err) {
-      setMediaSendError(err instanceof Error ? err.message : 'Falha ao enviar o anexo.')
+      setMediaSendError(err instanceof Error ? err.message : t('contatos.falhaAnexo'))
     } finally {
       setMediaSending(false)
     }
@@ -430,7 +433,7 @@ function Atendimento() {
     try {
       await fetchWhatsappHistory(active.id, maxDays)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao recuperar histórico.')
+      alert(e instanceof Error ? e.message : t('contatos.falhaHistorico'))
     } finally {
       setHistBusy(false)
     }
@@ -451,13 +454,10 @@ function Atendimento() {
       const legacy = typeof res.legacy === 'number' ? res.legacy : 0
       const eligible = typeof res.eligible === 'number' ? res.eligible : 0
       if (!eligible && legacy) {
-        alert(
-          `Estas ${legacy} mídias falharam antes do serviço passar a guardar o material de ` +
-            'retentativa, então não há como baixá-las de novo.',
-        )
+        alert(t('contatos.midiasLegadas', { n: legacy }))
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao recuperar as mídias.')
+      alert(e instanceof Error ? e.message : t('contatos.falhaMidias'))
     } finally {
       setMediaBusy(false)
     }
@@ -470,7 +470,7 @@ function Atendimento() {
     try {
       await uploadContactFile(active.id, f)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao enviar o arquivo.')
+      alert(err instanceof Error ? err.message : t('contatos.falhaArquivo'))
     }
   }
 
@@ -478,12 +478,12 @@ function Atendimento() {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f || !active || photoBusy) return
-    if (!f.type.startsWith('image/')) { alert('Selecione um arquivo de imagem.'); return }
+    if (!f.type.startsWith('image/')) { alert(t('contatos.selecioneImagem')); return }
     setPhotoBusy(true)
     try {
       await uploadContactPhoto(active.id, f, active.photoPath || undefined)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao enviar a foto.')
+      alert(err instanceof Error ? err.message : t('contatos.falhaFoto'))
     } finally {
       setPhotoBusy(false)
     }
@@ -491,12 +491,12 @@ function Atendimento() {
 
   async function handleRemovePhoto() {
     if (!active || photoBusy) return
-    if (!confirm('Remover a foto deste contato? Ele volta a exibir as iniciais.')) return
+    if (!confirm(t('contatos.confirmarRemoverFoto'))) return
     setPhotoBusy(true)
     try {
       await removeContactPhoto(active.id, active.photoPath || undefined)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao remover a foto.')
+      alert(err instanceof Error ? err.message : t('contatos.falhaRemoverFoto'))
     } finally {
       setPhotoBusy(false)
     }
@@ -507,9 +507,9 @@ function Atendimento() {
     setPhotoBusy(true)
     try {
       const r = await refreshWhatsappPhoto(active.id)
-      if (r && r.found === false) alert('Este contato não tem foto de perfil visível no WhatsApp.')
+      if (r && r.found === false) alert(t('contatos.semFotoWa'))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao puxar a foto do WhatsApp.')
+      alert(err instanceof Error ? err.message : t('contatos.falhaPuxarFoto'))
     } finally {
       setPhotoBusy(false)
     }
@@ -517,7 +517,7 @@ function Atendimento() {
 
   async function handleDeleteContact() {
     if (!active || !podeApagar) return
-    if (!confirm(`Apagar o contato "${active.name}" e TODO o histórico dele (mensagens, arquivos e mídias)?`)) return
+    if (!confirm(t('contatos.confirmarApagarContato', { nome: active.name }))) return
     const next = contacts.find((c) => c.id !== active.id)
     try {
       // Expurgo completo via daemon: Firestore recursivo + Storage por prefixo (pega até
@@ -528,7 +528,7 @@ function Atendimento() {
       try {
         await deleteContact(active.id, active.photoPath || undefined) // daemon fora do ar
       } catch (e) {
-        alert(e instanceof Error ? e.message : 'Falha ao apagar o contato.')
+        alert(e instanceof Error ? e.message : t('contatos.falhaApagarContato'))
         return
       }
     }
@@ -537,7 +537,7 @@ function Atendimento() {
 
   async function handleClearConversation() {
     if (!active || convBusy || !podeApagar) return
-    if (!confirm(`Limpar TODA a conversa com "${active.name}"? Mensagens, arquivos e mídias serão apagados — o contato continua no CRM.`)) return
+    if (!confirm(t('contatos.confirmarLimparConversa', { nome: active.name }))) return
     setConvBusy(true)
     try {
       if (waOnline) await purgeWhatsappContact(active.id, true)
@@ -546,7 +546,7 @@ function Atendimento() {
       try {
         await clearConversationLocal(active.id) // daemon fora do ar
       } catch (e) {
-        alert(e instanceof Error ? e.message : 'Falha ao limpar a conversa.')
+        alert(e instanceof Error ? e.message : t('contatos.falhaLimparConversa'))
       }
     } finally {
       setConvBusy(false)
@@ -569,7 +569,7 @@ function Atendimento() {
   }
 
   async function handleDeleteSchedule(schedule: ScheduledMessage) {
-    if (!confirm(`Excluir a mensagem agendada para ${scheduleLong(schedule)}?`)) return
+    if (!confirm(t('contatos.excluirAgendadaPara', { quando: scheduleLong(schedule) }))) return
     await deleteScheduledMessage(schedule.id, schedule.eventId)
     setEditingSchedule(null)
   }
@@ -580,10 +580,10 @@ function Atendimento() {
       <div style={{ width: 320, flexShrink: 0, background: C.surface, borderRight: `1px solid ${C.fieldBorder}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 18px 14px', borderBottom: `1px solid ${C.lineSoft}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: C.ink }}>Contatos</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.ink }}>{t('contatos.abaContatos')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               {waEnabled && (
-                <button onClick={ui.openWhatsappModal} title="Conectar WhatsApp" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.greenDeep, background: 'rgba(52,199,89,0.12)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={ui.openWhatsappModal} title={t('contatos.conectarWhatsapp')} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.greenDeep, background: 'rgba(52,199,89,0.12)', border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: WA_DOT[wa.status] ?? '#a39bb0' }} />
                   <MaterialIcon name="chat" size={16} /> WhatsApp
                 </button>
@@ -597,9 +597,9 @@ function Atendimento() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 10, padding: '8px 11px' }}>
             <MaterialIcon name="search" size={17} color={C.faint} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar contato..." style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%' }} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('contatos.buscarPlaceholder')} style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%' }} />
             {search && (
-              <button onClick={() => setSearch('')} title="Limpar busca" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
+              <button onClick={() => setSearch('')} title={t('contatos.limparBusca')} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex' }}>
                 <MaterialIcon name="close" size={15} color={C.faint} />
               </button>
             )}
@@ -676,12 +676,12 @@ function Atendimento() {
           {shownContacts.length === 0 && (
             <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: C.faint, lineHeight: 1.6 }}>
               {q
-                ? `Nenhum contato encontrado para "${search}".`
+                ? t('contatos.semResultado', { termo: search })
                 : inbox === 'entrada'
-                  ? 'Nenhuma conversa na entrada.'
+                  ? t('contatos.entradaVazia')
                   : inbox === 'esperando'
-                    ? 'Nenhuma conversa aguardando retorno do cliente.'
-                    : 'Nenhum atendimento finalizado ainda.'}
+                    ? t('contatos.esperandoVazia')
+                    : t('contatos.finalizadosVazio')}
             </div>
           )}
         </div>
@@ -703,10 +703,10 @@ function Atendimento() {
                       </button>
                       {!readOnly && (
                         <>
-                          <button title="Editar agendamento" onClick={() => openScheduleEdit(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.amberDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button title={t('contatos.editarAgendamento')} onClick={() => openScheduleEdit(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.amberDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialIcon name="edit" size={13} />
                           </button>
-                          <button title="Excluir agendamento" onClick={() => handleDeleteSchedule(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.roseDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button title={t('contatos.excluirAgendamento')} onClick={() => handleDeleteSchedule(activeSchedule)} style={{ width: 22, height: 22, border: 'none', borderRadius: '50%', background: 'rgba(255,255,255,0.64)', color: C.roseDeep, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialIcon name="delete" size={13} />
                           </button>
                         </>
@@ -726,7 +726,7 @@ function Atendimento() {
               tags={tags}
               canWrite={!readOnly}
               meUid={user?.uid ?? ''}
-              meName={profile.displayName || user?.displayName || user?.email || 'Atendente'}
+              meName={profile.displayName || user?.displayName || user?.email || t('contatos.atendentePadrao')}
               closingMessage={
                 profile.closingEnabled
                   ? applyVariables(profile.closingMessage, composeVars(active))
@@ -737,16 +737,16 @@ function Atendimento() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', flexShrink: 0, background: C.surface, borderBottom: `1px solid ${C.fieldBorder}` }}>
-              <Tab label="Mensagens" icon="chat" on={ui.contactView === 'chat'} onClick={() => ui.setContactView('chat')} />
-              <Tab label="Informações" icon="badge" on={ui.contactView === 'info'} onClick={() => ui.setContactView('info')} />
+              <Tab label={t('contatos.abaMensagens')} icon="chat" on={ui.contactView === 'chat'} onClick={() => ui.setContactView('chat')} />
+              <Tab label={t('contatos.abaInformacoes')} icon="badge" on={ui.contactView === 'info'} onClick={() => ui.setContactView('info')} />
               <Tab
-                label="Agenda"
+                label={t('contatos.abaAgenda')}
                 icon="event_available"
                 on={ui.contactView === 'agenda'}
                 onClick={() => ui.setContactView('agenda')}
                 badge={agendaDoContato(activities, active).abertas.length}
               />
-              <Tab label="Arquivos" icon="folder" on={ui.contactView === 'files'} onClick={() => ui.setContactView('files')} />
+              <Tab label={t('contatos.abaArquivos')} icon="folder" on={ui.contactView === 'files'} onClick={() => ui.setContactView('files')} />
             </div>
 
             {/* CHAT */}
@@ -760,7 +760,7 @@ function Atendimento() {
                     onScroll={(e) => markPosition(e.currentTarget)}
                     style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
-                    <div style={{ alignSelf: 'center', fontSize: 10.5, color: C.sub, background: C.tintNeutral, borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>Conversa</div>
+                    <div style={{ alignSelf: 'center', fontSize: 10.5, color: C.sub, background: C.tintNeutral, borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>{t('contatos.conversa')}</div>
                     {waEnabled && wa.status === 'connected' && active.whatsapp && (
                       <HistoryBar
                         status={active.historyImport?.status}
@@ -786,7 +786,7 @@ function Atendimento() {
                           <div ref={unreadMarkRef} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 2px' }}>
                             <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
                             <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: C.greenDeep, background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
-                              {openUnread === 1 ? '1 mensagem não lida' : `${openUnread} mensagens não lidas`}
+                              {plural(openUnread, 'contatos.naoLida_1', 'contatos.naoLida_n')}
                             </span>
                             <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
                           </div>
@@ -810,7 +810,7 @@ function Atendimento() {
                   {!atBottom && (
                     <button
                       onClick={() => scrollToEnd()}
-                      title="Ir para o final da conversa"
+                      title={t('contatos.irParaFinal')}
                       style={{ position: 'absolute', right: 22, bottom: 16, display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: unreadSeen || openUnread === 0 ? 0 : '0 14px 0 12px', width: unreadSeen || openUnread === 0 ? 40 : undefined, justifyContent: 'center', borderRadius: 999, border: `1px solid ${C.fieldBorder}`, background: C.surface, color: C.greenDeep, cursor: 'pointer', boxShadow: '0 6px 18px rgba(28,20,50,0.16)', zIndex: 3 }}
                     >
                       <MaterialIcon name="keyboard_double_arrow_down" size={21} color={C.greenDeep} />
@@ -823,14 +823,14 @@ function Atendimento() {
 
                 {!readOnly && (
                   <div style={{ position: 'relative', flexShrink: 0, padding: '14px 22px 18px', borderTop: `1px solid ${C.fieldBorder}`, background: C.surface, display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <ComposerAction btnRef={emojiBtnRef} icon="mood" title="Emojis" on={showEmoji} onClick={() => { setShowAttach(false); setShowEmoji((v) => !v) }} />
-                    <ComposerAction btnRef={attachBtnRef} icon="attach_file" title="Anexar arquivo" on={showAttach} onClick={() => { setShowEmoji(false); setShowAttach((v) => !v) }} />
+                    <ComposerAction btnRef={emojiBtnRef} icon="mood" title={t('contatos.emojis')} on={showEmoji} onClick={() => { setShowAttach(false); setShowEmoji((v) => !v) }} />
+                    <ComposerAction btnRef={attachBtnRef} icon="attach_file" title={t('contatos.anexar')} on={showAttach} onClick={() => { setShowEmoji(false); setShowAttach((v) => !v) }} />
                     <input
                       ref={waInputRef}
                       value={waInput}
                       onChange={(e) => { setWaInput(e.target.value); setQuickReplyOff(false) }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !quickReplyOptions) handleSend() }}
-                      placeholder={quickReplies.length ? 'Digite uma mensagem... (/ para respostas rápidas)' : 'Digite uma mensagem...'}
+                      placeholder={t(quickReplies.length ? 'contatos.digiteComAtalho' : 'contatos.digitePlaceholder')}
                       style={{ flex: 1, background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 13, padding: '12px 16px', color: C.ink, fontSize: 13.5, outline: 'none' }}
                     />
                     <button onClick={handleSend} style={{ width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(40,170,80,0.3)' }}>
@@ -875,10 +875,10 @@ function Atendimento() {
                       <Avatar photoUrl={active.photoUrl} initials={active.initials} size={60} bg={avPalette[activeIdx % avPalette.length]} fontSize={21} />
                       {!readOnly && (
                         <div style={{ display: 'flex', gap: 5 }}>
-                          <PhotoAction icon="photo_camera" title={active.photoUrl ? 'Trocar foto' : 'Adicionar foto'} onClick={() => photoInput.current?.click()} disabled={photoBusy} />
-                          {active.photoUrl && <PhotoAction icon="delete" title="Remover foto" onClick={handleRemovePhoto} disabled={photoBusy} rose />}
+                          <PhotoAction icon="photo_camera" title={t(active.photoUrl ? 'perfil.trocarFoto' : 'perfil.adicionarFoto')} onClick={() => photoInput.current?.click()} disabled={photoBusy} />
+                          {active.photoUrl && <PhotoAction icon="delete" title={t('perfil.removerFoto')} onClick={handleRemovePhoto} disabled={photoBusy} rose />}
                           {waEnabled && wa.status === 'connected' && active.whatsapp && (
-                            <PhotoAction icon="sync" title="Puxar foto do WhatsApp" onClick={handleRefreshPhoto} disabled={photoBusy} busy={photoBusy} green />
+                            <PhotoAction icon="sync" title={t('contatos.puxarFotoWa')} onClick={handleRefreshPhoto} disabled={photoBusy} busy={photoBusy} green />
                           )}
                         </div>
                       )}
@@ -897,8 +897,8 @@ function Atendimento() {
                             é de quem administra o ambiente. Editar segue com o atendente. */}
                         {podeApagar && (
                           <>
-                            <button onClick={handleClearConversation} disabled={convBusy} title="Apaga todas as mensagens e mídias, mas mantém o contato" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: C.amberDeep, fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
-                              <MaterialIcon name="delete_sweep" size={17} /> Limpar conversa
+                            <button onClick={handleClearConversation} disabled={convBusy} title={t('contatos.limparConversaDica')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.3)', borderRadius: 11, padding: '8px 14px', color: C.amberDeep, fontSize: 13, fontWeight: 700, cursor: convBusy ? 'wait' : 'pointer', opacity: convBusy ? 0.6 : 1 }}>
+                              <MaterialIcon name="delete_sweep" size={17} /> {t('contatos.limparConversa')}
                             </button>
                             <button onClick={handleDeleteContact} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '8px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                               <MaterialIcon name="delete" size={17} /> Apagar
@@ -908,10 +908,10 @@ function Atendimento() {
                       </div>
                     )}
                   </div>
-                  <InfoRow icon="mail" color={C.purple} bg="rgba(150,110,200,0.12)" label="E-mail" value={active.email} />
-                  <InfoRow icon="call" color={C.blue} bg="rgba(111,155,207,0.16)" label="Telefone" value={active.phone} />
+                  <InfoRow icon="mail" color={C.purple} bg="rgba(150,110,200,0.12)" label={t('comum.email')} value={active.email} />
+                  <InfoRow icon="call" color={C.blue} bg="rgba(111,155,207,0.16)" label={t('comum.telefone')} value={active.phone} />
                   <InfoRow icon="chat" color={C.greenDeep} bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
-                  <InfoRow icon="business" color={C.amber} bg="rgba(216,169,96,0.18)" label="Empresa" value={active.company} />
+                  <InfoRow icon="business" color={C.amber} bg="rgba(216,169,96,0.18)" label={t('comum.empresa')} value={active.company} />
                   <CustomFieldsCard contact={active} fields={customFields} canEdit={!readOnly} />
                   {waEnabled && wa.status === 'connected' && active.whatsapp && (
                     <div style={{ marginTop: 18 }}>
@@ -952,7 +952,7 @@ function Atendimento() {
                   )}
                   <input ref={fileInput} type="file" hidden onChange={onPickFile} />
                 </div>
-                <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 18 }}>Documentos, propostas e contratos armazenados deste cliente.</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 18 }}>{t('contatos.arquivosSub')}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 13 }}>
                   {files.map((f) => {
                     const [icon, color, bg] = fileTypeMap[f.type] || fileTypeMap.doc
@@ -971,7 +971,7 @@ function Atendimento() {
                   })}
                   {files.length === 0 && (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14 }}>
-                      Nenhum arquivo ainda. Clique em "Adicionar arquivo" para armazenar documentos deste cliente.
+                      {t('contatos.semArquivos')}
                     </div>
                   )}
                 </div>
@@ -1015,7 +1015,7 @@ function Atendimento() {
             time: novaAtividade.sugestao.time,
           }}
           nota={novaAtividade.sugestao?.motivo
-            ? `Sugestão do Titã IA: ${novaAtividade.sugestao.motivo} Confira antes de salvar.`
+            ? t('contatos.sugestaoIA', { motivo: novaAtividade.sugestao.motivo })
             : undefined}
           onClose={() => setNovaAtividade(null)}
           onSaved={() => setNovaAtividade(null)}
@@ -1104,9 +1104,9 @@ function AttachMenu({ anchorRef, onClose, onPhoto, onDoc, onAudio }: { anchorRef
   }, [onClose, anchorRef])
 
   const options: { icon: string; label: string; hint: string; color: string; bg: string; onClick: () => void }[] = [
-    { icon: 'photo_library', label: 'Foto ou vídeo', hint: 'Da galeria do computador', color: C.purple, bg: 'rgba(150,110,200,0.12)', onClick: onPhoto },
-    { icon: 'description', label: 'Documento', hint: 'PDF, planilha, contrato', color: C.blue, bg: 'rgba(111,155,207,0.16)', onClick: onDoc },
-    { icon: 'graphic_eq', label: 'Áudio', hint: 'Arquivo de áudio', color: C.greenDeep, bg: 'rgba(52,199,89,0.14)', onClick: onAudio },
+    { icon: 'photo_library', label: t('contatos.fotoOuVideo'), hint: t('contatos.daGaleria'), color: C.purple, bg: 'rgba(150,110,200,0.12)', onClick: onPhoto },
+    { icon: 'description', label: t('contatos.documento'), hint: t('contatos.documentoSub'), color: C.blue, bg: 'rgba(111,155,207,0.16)', onClick: onDoc },
+    { icon: 'graphic_eq', label: t('contatos.audio'), hint: t('contatos.audioSub'), color: C.greenDeep, bg: 'rgba(52,199,89,0.14)', onClick: onAudio },
   ]
 
   return (
@@ -1138,11 +1138,11 @@ function AttachMenu({ anchorRef, onClose, onPhoto, onDoc, onAudio }: { anchorRef
 function historyErrorLabel(code?: string): string {
   switch (code) {
     case 'history_timeout':
-      return 'O WhatsApp não respondeu a tempo. Tente novamente.'
+      return t('contatos.waSemResposta')
     case 'whatsapp_not_connected':
-      return 'WhatsApp desconectado. Reconecte e tente de novo.'
+      return t('contatos.waDesconectado')
     default:
-      return code || 'erro desconhecido'
+      return code || t('contatos.erroDesconhecido')
   }
 }
 
@@ -1154,22 +1154,22 @@ function HistoryBar({ status, imported, error, at, busy, onFetch }: { status?: H
   const done = status === 'done'
   const isError = status === 'error'
   const subtitle = isError
-    ? `Não foi possível recuperar: ${historyErrorLabel(error)}`
+    ? t('contatos.naoRecuperou', { motivo: historyErrorLabel(error) })
     : done
-      ? `Histórico recuperado${imported ? ` · ${imported} mensagens` : ''}. Você pode buscar mensagens ainda mais antigas.`
-      : 'Traz as mensagens antigas desta conversa que o WhatsApp ainda tiver — pode não vir tudo.'
+      ? t('contatos.historicoRecuperado', { extra: imported ? t('contatos.mensagensExtra', { n: imported }) : '' })
+      : t('contatos.historicoDica')
   return (
     <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
       <MaterialIcon name={loading ? 'sync' : isError ? 'error_outline' : 'history'} size={19} color={isError ? C.rose : C.purple} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{loading ? 'Recuperando histórico…' : 'Histórico antigo do WhatsApp'}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{t(loading ? 'contatos.recuperandoHistorico' : 'contatos.historicoAntigo')}</div>
         <div style={{ fontSize: 11.5, color: isError ? C.roseDeep : C.sub, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {loading ? (imported ? `${imported} mensagens até agora…` : 'Buscando no WhatsApp…') : subtitle}
+          {loading ? (imported ? t('contatos.mensagensAteAgora', { n: imported }) : t('contatos.buscandoNoWa')) : subtitle}
         </div>
       </div>
       {!loading && (
         <button onClick={onFetch} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          <MaterialIcon name="history" size={16} /> {done ? 'Buscar mais antigas' : 'Recuperar histórico'}
+          <MaterialIcon name="history" size={16} /> {t(done ? 'contatos.buscarMaisAntigas' : 'contatos.recuperarHistorico')}
         </button>
       )}
     </div>
@@ -1191,18 +1191,18 @@ function MediaBar({ broken, recovery, busy, onRetry }: { broken: number; recover
   const expired = recovery?.error === 'wa_media_expired'
 
   const subtitle = loading
-    ? `${recovery?.recovered ?? 0} de ${recovery?.total ?? broken} recuperadas…`
+    ? t('contatos.recuperadasDe', { n: recovery?.recovered ?? 0, total: recovery?.total ?? broken })
     : denied
-      ? 'O serviço ainda está sem permissão para salvar arquivos — tentar de novo não vai adiantar.'
+      ? t('contatos.semPermissaoSalvar')
       : expired
-        ? 'O WhatsApp não tem mais alguns destes arquivos.'
-        : `${broken} ${broken === 1 ? 'arquivo desta conversa não foi salvo' : 'arquivos desta conversa não foram salvos'}.`
+        ? t('contatos.waSemAlguns')
+        : plural(broken, 'contatos.naoSalvo_1', 'contatos.naoSalvo_n')
 
   return (
     <div style={{ alignSelf: 'stretch', display: 'flex', gap: 11, alignItems: 'center', background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: '10px 13px', marginBottom: 2 }}>
       <MaterialIcon name={loading ? 'sync' : denied ? 'error_outline' : 'image_not_supported'} size={19} color={denied ? C.rose : C.purple} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{loading ? 'Recuperando mídias…' : 'Mídias não baixadas'}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{t(loading ? 'contatos.recuperandoMidias' : 'contatos.midiasNaoBaixadas')}</div>
         <div style={{ fontSize: 11.5, color: denied ? C.roseDeep : C.sub, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
       </div>
       {!loading && (
@@ -1237,11 +1237,11 @@ function ScheduledBanner({ schedule, readOnly, onEdit, onDelete }: { schedule: S
 }
 
 function scheduleShort(s: ScheduledMessage): string {
-  return `${s.dueAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${s.time}`
+  return t('contatos.agendadoEm', { data: dataDiaMes(s.dueAt), hora: s.time })
 }
 
 function scheduleLong(s: ScheduledMessage): string {
-  return `${s.dueAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${s.time}`
+  return t('contatos.agendadoEmLongo', { data: dataDiaMes(s.dueAt), hora: s.time })
 }
 
 function MessageBody({ message: m }: { message: Message }) {
@@ -1254,11 +1254,11 @@ function MessageBody({ message: m }: { message: Message }) {
     <div style={{ fontSize: 13.5, lineHeight: 1.45, color: textColor }}>
       {hasRenderableMedia && m.mediaType === 'image' && (
         <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'block', margin: '-2px -4px 7px', color: 'inherit' }}>
-          <img src={m.mediaUrl} alt={m.caption || m.fileName || 'Imagem do WhatsApp'} style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, objectFit: 'cover', borderRadius: 10 }} />
+          <img src={m.mediaUrl} alt={m.caption || m.fileName || t('contatos.imagemWa')} style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, objectFit: 'cover', borderRadius: 10 }} />
         </a>
       )}
       {hasRenderableMedia && m.mediaType === 'sticker' && (
-        <img src={m.mediaUrl} alt={m.caption || 'Figurinha do WhatsApp'} style={{ display: 'block', width: 140, height: 140, objectFit: 'contain', margin: '-2px 0 5px' }} />
+        <img src={m.mediaUrl} alt={m.caption || t('contatos.figurinhaWa')} style={{ display: 'block', width: 140, height: 140, objectFit: 'contain', margin: '-2px 0 5px' }} />
       )}
       {hasRenderableMedia && m.mediaType === 'video' && (
         <video src={m.mediaUrl} controls preload="metadata" style={{ display: 'block', width: '100%', maxWidth: 330, maxHeight: 360, borderRadius: 10, margin: '-2px -4px 7px', background: '#0d0a12' }} />
@@ -1300,17 +1300,18 @@ function MessageBody({ message: m }: { message: Message }) {
  * não pôde salvar" pedem providências opostas — a segunda é problema de infraestrutura, e
  * ficar tentando de novo não resolve.
  */
-const MEDIA_ERROR_LABELS: Record<string, string> = {
-  view_once_unsupported: 'Mídia de visualização única não importada',
-  download_failed: 'Não foi possível baixar a mídia do WhatsApp',
-  wa_media_expired: 'O WhatsApp não tem mais este arquivo',
-  storage_denied: 'A mídia chegou, mas o serviço não pôde salvá-la',
-  storage_failed: 'A mídia chegou, mas falhou ao salvar o arquivo',
+const MEDIA_ERROR_LABELS: Record<string, Chave> = {
+  view_once_unsupported: 'contatos.midiaUnica',
+  download_failed: 'contatos.midiaNaoBaixouWa',
+  wa_media_expired: 'contatos.waSemEsteArquivo',
+  storage_denied: 'contatos.midiaNaoSalva',
+  storage_failed: 'contatos.midiaFalhouSalvar',
 }
 
 /** O fallback preserva os docs gravados antes desta lista existir. */
 function mediaErrorLabel(code: string): string {
-  return MEDIA_ERROR_LABELS[code] || 'Não foi possível baixar a mídia'
+  const chave = MEDIA_ERROR_LABELS[code]
+  return chave ? t(chave) : t('contatos.midiaNaoBaixou')
 }
 
 function isMediaPlaceholder(text: string): boolean {

@@ -80,6 +80,13 @@ export function dataCompletaCurta(d: Date): string {
   return diaCompletoCurto().format(d)
 }
 
+/** Dia e mês numéricos (10/06 | 6/10) — o carimbo curto de um agendamento. */
+const numDiaMes = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { day: '2-digit', month: '2-digit' }))
+
+export function dataDiaMes(d: Date): string {
+  return numDiaMes().format(d)
+}
+
 /** Data curta numérica (10/06/2026 | 6/10/2026). */
 export function dataCurta(d: Date): string {
   return d.toLocaleDateString(tagIntl())
