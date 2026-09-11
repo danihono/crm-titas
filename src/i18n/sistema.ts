@@ -41,6 +41,15 @@ export function tituloEtapa(boardId: string, coluna: Column): string {
   return chave ? t(chave) : coluna.title
 }
 
+/**
+ * A etapa do funil do painel, que sempre lê o quadro Leads. Mesma regra do
+ * `tituloEtapa`, sem precisar repetir o id do quadro em cada chamada.
+ */
+export function tituloEtapaLeads(id: string, titulo: string): string {
+  const chave = ETAPAS_LEADS[id]
+  return chave ? t(chave) : titulo
+}
+
 /** Nome do quadro: só o Leads é do sistema. */
 export function nomeQuadro(id: string, nome: string): string {
   return id === LEADS_BOARD_ID ? t('sistema.leads.quadro') : nome

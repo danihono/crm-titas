@@ -10,6 +10,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { t } from '../i18n'
 import { uid as tenantUid } from './paths'
 
 /**
@@ -205,13 +206,13 @@ async function runCommand(
   queueUid?: string,
 ): Promise<Record<string, unknown>> {
   if (WHATSAPP_KILL_SWITCH) {
-    throw new Error('O WhatsApp está temporariamente desativado.')
+    throw new Error(t('wa.desativado'))
   }
-  if (!auth.currentUser) throw new Error('Sem usuário autenticado.')
+  if (!auth.currentUser) throw new Error(t('wa.semUsuario'))
 
   // Falha rápida quando sabemos que não há daemon: evita esperar o timeout inteiro.
   if (heartbeatKnown() && !daemonOnline()) {
-    throw waErr('daemon_offline', 'O serviço de WhatsApp está fora do ar. Inicie-o e tente de novo.')
+    throw waErr('daemon_offline', t('wa.daemonOffline'))
   }
 
   // A fila é do AMBIENTE, não da pessoa: o número de WhatsApp é o da empresa, e a sessão
@@ -255,7 +256,7 @@ async function runCommand(
     timer = setTimeout(() => {
       void cancelIfPending(ref).finally(() =>
         settle(
-          () => reject(waErr('timeout', 'O serviço de WhatsApp demorou a responder. Tente novamente.', true)),
+          () => reject(waErr('timeout', t('wa.demorou'), true)),
           false,
         ),
       )
@@ -274,7 +275,7 @@ async function runCommand(
         if (data.status === 'error') {
           const code = data.error?.code as string | undefined
           settle(
-            () => reject(waErr(code, data.error?.message ?? 'Falha no serviço de WhatsApp.', code === 'photo_timeout')),
+            () => reject(waErr(code, data.error?.message ?? t('wa.falhaGenerica'), code === 'photo_timeout')),
             true,
           )
         }

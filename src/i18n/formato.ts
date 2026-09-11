@@ -73,6 +73,13 @@ export function dataPorExtenso(d: Date): string {
   return limpar(dataCompleta().format(d))
 }
 
+/** 'sexta-feira, 26 de set' — o carimbo de hoje no cabeçalho do painel. */
+const diaCompletoCurto = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { weekday: 'long', day: '2-digit', month: 'short' }))
+
+export function dataCompletaCurta(d: Date): string {
+  return diaCompletoCurto().format(d)
+}
+
 /** Data curta numérica (10/06/2026 | 6/10/2026). */
 export function dataCurta(d: Date): string {
   return d.toLocaleDateString(tagIntl())

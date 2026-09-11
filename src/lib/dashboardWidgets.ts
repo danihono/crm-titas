@@ -1,4 +1,5 @@
 import type { Accent, DashboardLayout, DashboardWidget } from '../types'
+import type { Chave } from '../i18n'
 
 /**
  * O catálogo do painel: que blocos existem, quanto ocupam e de que dado vivem.
@@ -27,8 +28,9 @@ export type Fonte =
 
 export interface WidgetDef {
   type: string
-  nome: string
-  descricao: string
+  /** Chaves do catálogo de tradução, não texto — quem monta a tela passa por t(). */
+  nome: Chave
+  descricao: Chave
   icone: string
   /** Abaixo disto o gráfico não cabe — medido, não chutado (ver o plano). */
   minCols: number
@@ -45,32 +47,32 @@ export interface WidgetDef {
 
 export const CATALOGO: WidgetDef[] = [
   // ── Pipeline ────────────────────────────────────────────────────────────
-  { type: 'pipeline', nome: 'Pipeline ativo', descricao: 'Soma dos negócios abertos, com o pipeline novo por semana.', icone: 'payments', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
-  { type: 'negocios', nome: 'Negócios ativos', descricao: 'Quantos negócios estão abertos, e quantos nascem por semana.', icone: 'handshake', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
-  { type: 'ticket', nome: 'Ticket médio', descricao: 'Valor médio por negócio aberto. Sem série: o valor do negócio não é versionado.', icone: 'request_quote', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
-  { type: 'novosLeads', nome: 'Novos leads', descricao: 'Leads parados na etapa de entrada, e quantos entraram por semana.', icone: 'person_add', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios', 'quadros'], unico: true },
-  { type: 'funil', nome: 'Funil de Leads', descricao: 'Os leads do período seguidos etapa a etapa, com conversão e tempo.', icone: 'filter_alt', minCols: 2, minRows: 2, cols: 2, rows: 2, colorivel: false, fontes: ['negocios', 'quadros'], unico: true },
-  { type: 'origem', nome: 'Origem dos leads', descricao: 'De onde vieram os leads, por etiqueta.', icone: 'donut_small', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
+  { type: 'pipeline', nome: 'widget.pipeline', descricao: 'widget.pipelineDesc', icone: 'payments', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
+  { type: 'negocios', nome: 'widget.negocios', descricao: 'widget.negociosDesc', icone: 'handshake', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
+  { type: 'ticket', nome: 'widget.ticket', descricao: 'widget.ticketDesc', icone: 'request_quote', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
+  { type: 'novosLeads', nome: 'widget.novosLeads', descricao: 'widget.novosLeadsDesc', icone: 'person_add', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios', 'quadros'], unico: true },
+  { type: 'funil', nome: 'widget.funil', descricao: 'widget.funilDesc', icone: 'filter_alt', minCols: 2, minRows: 2, cols: 2, rows: 2, colorivel: false, fontes: ['negocios', 'quadros'], unico: true },
+  { type: 'origem', nome: 'widget.origem', descricao: 'widget.origemDesc', icone: 'donut_small', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
 
   // ── Dia a dia ───────────────────────────────────────────────────────────
-  { type: 'agendaHoje', nome: 'Agenda hoje', descricao: 'O próximo compromisso de hoje.', icone: 'event', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['eventos'], unico: true },
-  { type: 'tarefasHoje', nome: 'Tarefas hoje', descricao: 'Quantas tarefas vencem hoje, e qual é a próxima.', icone: 'task_alt', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['atividades'], unico: true },
-  { type: 'atividade', nome: 'Atividade recente', descricao: 'As últimas atividades registradas.', icone: 'history', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['atividades', 'tipos'], unico: true },
-  { type: 'proximasTarefas', nome: 'Próximas tarefas', descricao: 'A lista do que vence, com link para a conversa do cliente.', icone: 'checklist', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['atividades', 'tipos'], unico: true },
-  { type: 'proximosCompromissos', nome: 'Próximos compromissos', descricao: 'Os compromissos da agenda daqui para a frente.', icone: 'calendar_month', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['eventos'], unico: true },
+  { type: 'agendaHoje', nome: 'widget.agendaHoje', descricao: 'widget.agendaHojeDesc', icone: 'event', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['eventos'], unico: true },
+  { type: 'tarefasHoje', nome: 'widget.tarefasHoje', descricao: 'widget.tarefasHojeDesc', icone: 'task_alt', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['atividades'], unico: true },
+  { type: 'atividade', nome: 'widget.atividade', descricao: 'widget.atividadeDesc', icone: 'history', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['atividades', 'tipos'], unico: true },
+  { type: 'proximasTarefas', nome: 'widget.proximasTarefas', descricao: 'widget.proximasTarefasDesc', icone: 'checklist', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['atividades', 'tipos'], unico: true },
+  { type: 'proximosCompromissos', nome: 'widget.proximosCompromissos', descricao: 'widget.proximosCompromissosDesc', icone: 'calendar_month', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['eventos'], unico: true },
 
   // ── Conversas ───────────────────────────────────────────────────────────
-  { type: 'calor', nome: 'Quando o cliente procura', descricao: 'Mapa de calor das conversas por dia da semana e hora.', icone: 'grid_on', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['conversas'], unico: true },
-  { type: 'conversasDia', nome: 'Conversas por dia', descricao: 'Quantas conversas abriram a cada dia do período.', icone: 'show_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['conversas'], unico: true },
-  { type: 'filaAgora', nome: 'Fila agora', descricao: 'Como as conversas abertas estão divididas neste momento.', icone: 'inbox', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['contatos'], unico: true },
-  { type: 'rankAtendentes', nome: 'Por atendente', descricao: 'Ranking de conversas por atendente no período.', icone: 'groups', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
-  { type: 'rankSetores', nome: 'Por setor', descricao: 'Ranking de conversas por setor no período.', icone: 'account_tree', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
-  { type: 'rankEtiquetas', nome: 'Por etiqueta', descricao: 'Ranking de conversas por etiqueta no período.', icone: 'sell', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
+  { type: 'calor', nome: 'widget.calor', descricao: 'widget.calorDesc', icone: 'grid_on', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['conversas'], unico: true },
+  { type: 'conversasDia', nome: 'widget.conversasDia', descricao: 'widget.conversasDiaDesc', icone: 'show_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['conversas'], unico: true },
+  { type: 'filaAgora', nome: 'widget.filaAgora', descricao: 'widget.filaAgoraDesc', icone: 'inbox', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['contatos'], unico: true },
+  { type: 'rankAtendentes', nome: 'widget.rankAtendentes', descricao: 'widget.rankAtendentesDesc', icone: 'groups', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
+  { type: 'rankSetores', nome: 'widget.rankSetores', descricao: 'widget.rankSetoresDesc', icone: 'account_tree', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
+  { type: 'rankEtiquetas', nome: 'widget.rankEtiquetas', descricao: 'widget.rankEtiquetasDesc', icone: 'sell', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
 
   // ── Faturamento (fora do padrão, mas disponível a quem quiser) ──────────
-  { type: 'aReceber', nome: 'A receber', descricao: 'Saldo em aberto e ainda no prazo, semana a semana.', icone: 'hourglass_top', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['notas'], unico: true },
-  { type: 'notasVencidas', nome: 'Notas vencidas', descricao: 'Quantas notas passaram do vencimento sem pagamento.', icone: 'error', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['notas'], unico: true },
-  { type: 'receita', nome: 'Receita recebida', descricao: 'Notas pagas nos últimos 12 meses.', icone: 'trending_up', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['notas'], unico: true },
+  { type: 'aReceber', nome: 'widget.aReceber', descricao: 'widget.aReceberDesc', icone: 'hourglass_top', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['notas'], unico: true },
+  { type: 'notasVencidas', nome: 'widget.notasVencidas', descricao: 'widget.notasVencidasDesc', icone: 'error', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['notas'], unico: true },
+  { type: 'receita', nome: 'widget.receita', descricao: 'widget.receitaDesc', icone: 'trending_up', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['notas'], unico: true },
 ]
 
 const PORTIPO = new Map(CATALOGO.map((d) => [d.type, d]))

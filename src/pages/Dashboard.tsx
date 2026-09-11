@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { C, FONT_DISPLAY } from '../styles/sx'
+import { plural, t } from '../i18n'
+import { dataCompletaCurta } from '../i18n/formato'
 import { useAuth } from '../contexts/AuthContext'
 import { useSelfProfile, saveSelfPrefs } from '../hooks/useProfile'
 import { useTenantStore } from '../store/tenantStore'
@@ -93,13 +95,13 @@ export default function Dashboard() {
       setRascunho(null)
       setSelecionado(null)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Não foi possível salvar o painel.')
+      alert(e instanceof Error ? e.message : t('painel.falhaSalvar'))
     } finally {
       setSalvando(false)
     }
   }
 
-  const dateLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' }).format(now)
+  const dateLabel = dataCompletaCurta(now)
 
   return (
     // O painel cabe numa tela só: altura fixa, cabeçalho e uma GRADE EXPLÍCITA de
@@ -115,10 +117,10 @@ export default function Dashboard() {
           </h1>
           <div style={{ fontSize: 12.5, color: C.sub, marginTop: 3 }}>
             {editando
-              ? 'Arraste os blocos para trocar de lugar. Clique num deles para mudar tamanho e cor.'
+              ? t('painel.arrasteDica')
               : dados.pendencias > 0
-                ? `Você tem ${dados.pendencias} ${dados.pendencias === 1 ? 'compromisso' : 'compromissos'} hoje.`
-                : 'Nada marcado para hoje.'}
+                ? plural(dados.pendencias, 'painel.compromisso_1', 'painel.compromisso_n')
+                : t('painel.nadaHoje')}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
@@ -134,13 +136,13 @@ export default function Dashboard() {
                 borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
               }}
             >
-              {d === 365 ? '12 meses' : `${d} dias`}
+              {d === 365 ? t('painel.dozeMeses') : t('painel.dias', { n: d })}
             </button>
           ))}
           {!editando && !readOnly && (
             <button
               onClick={abrirEdicao}
-              title="Montar o painel do meu jeito"
+              title={t('painel.montarMeuJeito')}
               style={{
                 width: 34, height: 34, borderRadius: 10, background: C.surface,
                 border: `1px solid ${C.fieldBorder}`, color: C.sub, cursor: 'pointer',

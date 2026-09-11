@@ -4,6 +4,7 @@ import { useTenantStore } from '../store/tenantStore'
 import { useActivities, useActTypes, statusOf, toggleActivity } from '../hooks/useActivities'
 import { useContacts } from '../hooks/useContacts'
 import { activityBadgeMap } from '../lib/theme'
+import { rotuloStatusAtividade } from '../i18n/sistema'
 import { dueInfo } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
@@ -94,7 +95,8 @@ function ActivityRow({ a, type }: { a: Activity; type?: { icon: string; color: s
   const ic = type ?? { icon: 'event', color: C.purple, bg: 'rgba(150,110,200,0.14)' }
   const di = dueInfo(a.dueAt, a.done)
   const accent = a.done ? '#34c759' : di.overdue ? '#d98aab' : '#9a6fb8'
-  const [badgeColor, badgeBg, badgeLabel] = activityBadgeMap[status]
+  const [badgeColor, badgeBg] = activityBadgeMap[status]
+  const badgeLabel = rotuloStatusAtividade(status)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: C.surface, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 14, padding: '15px 18px', boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 4px 14px rgba(28,20,50,0.04)' }}>

@@ -77,14 +77,29 @@ export const invoiceStatusMap: Record<string, [string, string]> = {
   Vencida: ['#c14d77', 'rgba(217,138,171,0.16)'],
 }
 
-/** status da atividade -> [cor, fundo, label] (renderActivities). */
-export const activityBadgeMap: Record<string, [string, string, string]> = {
-  pendente: ['#7a52a0', 'rgba(150,110,200,0.12)', 'Pendente'],
-  atrasada: ['#c14d77', 'rgba(217,138,171,0.16)', 'Atrasada'],
-  concluida: ['#2f9e6f', 'rgba(95,201,166,0.16)', 'Concluída'],
+/**
+ * status da atividade -> [cor, fundo] (renderActivities).
+ *
+ * O rótulo saiu da tupla: ele agora vem de `rotuloStatusAtividade`
+ * (src/i18n/sistema.ts), junto dos outros rótulos que o sistema escreve. Cor é
+ * constante, texto é idioma — misturar os dois num lugar só fazia o arquivo de
+ * paletas virar catálogo de tradução.
+ */
+export const activityBadgeMap: Record<string, [string, string]> = {
+  pendente: ['#7a52a0', 'rgba(150,110,200,0.12)'],
+  atrasada: ['#c14d77', 'rgba(217,138,171,0.16)'],
+  concluida: ['#2f9e6f', 'rgba(95,201,166,0.16)'],
 }
 
-/** Tipos de atividade padrão (semeados em users/{uid}/actTypes). */
+/**
+ * Tipos de atividade padrão (semeados em users/{uid}/actTypes).
+ *
+ * Ficam em português PORQUE SÃO DADO: são gravados uma vez, no cadastro, e a
+ * partir dali a pessoa pode renomeá-los. Quem decide como aparecem na tela é
+ * `rotuloTipoAtividade` (src/i18n/sistema.ts), que traduz pelo id enquanto o
+ * texto gravado ainda for o que foi semeado — e cala assim que alguém escrever
+ * outro nome por cima.
+ */
 export const defaultActTypes: ActType[] = [
   { id: 'call', label: 'Ligação', icon: 'call', color: '#2f9e6f', bg: 'rgba(95,201,166,0.16)', evColor: '#5fc9a6' },
   { id: 'meeting', label: 'Reunião', icon: 'groups', color: '#4f7fc0', bg: 'rgba(111,155,207,0.16)', evColor: '#6f9bcf' },
@@ -113,8 +128,12 @@ export const defaultAssistantWhatsapp: AssistantWhatsapp = {
 export const defaultAgentConfig: AgentConfig = {
   name: 'Assistente',
   persona: 'Consultor de Vendas',
+  // Sem instrução de idioma aqui: quem manda no idioma da resposta é a
+  // preferência da pessoa, passada à callable e aplicada em functions/src/idioma.ts.
+  // Deixar "fale em português do Brasil" cravado no padrão faria a Assistente
+  // responder em português para quem pôs a tela em inglês.
   instructions:
-    'Você é o assistente comercial da Titãs CRM. Analise o pipeline, contatos, atividades e conversas para sugerir próximos passos, priorizar negócios e redigir mensagens. Seja objetivo, estratégico e fale em português do Brasil.',
+    'Você é o assistente comercial da Titãs CRM. Analise o pipeline, contatos, atividades e conversas para sugerir próximos passos, priorizar negócios e redigir mensagens. Seja objetivo e estratégico.',
   sources: { pipeline: true, contatos: true, atividades: true, conversas: true, faturamento: false, agenda: true },
   whatsapp: defaultAssistantWhatsapp,
 }

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { shade } from '../../lib/color'
 import { BRAND, C } from '../../styles/sx'
 import { useIsDark } from '../../store/themeStore'
-import { DIAS, type Heatmap } from '../../lib/dashboardData'
+import { t } from '../../i18n'
+import { diasCurtos, type Heatmap } from '../../lib/dashboardData'
 
 /** Horas mostradas. Fora dessa faixa o movimento é resíduo e só espremia a grade. */
 const H0 = 7
@@ -38,11 +39,12 @@ function corDaCelula(n: number, peak: number, dark: boolean): string {
  */
 export default function ConversationHeatmap({ data }: { data: Heatmap }) {
   const dark = useIsDark()
+  const DIAS = diasCurtos()
   const [hover, setHover] = useState<{ dia: number; hora: number } | null>(null)
   const horas = Array.from({ length: H1 - H0 + 1 }, (_, i) => H0 + i)
 
   if (data.total === 0) {
-    return <div style={{ padding: '28px 4px', color: C.faint, fontSize: 13 }}>Nenhuma conversa neste período.</div>
+    return <div style={{ padding: '28px 4px', color: C.faint, fontSize: 13 }}>{t('calor.vazio')}</div>
   }
 
   const atual = hover ? data.grid[hover.dia][hover.hora] : 0
@@ -77,7 +79,7 @@ export default function ConversationHeatmap({ data }: { data: Heatmap }) {
                       key={hora}
                       onMouseEnter={() => setHover({ dia, hora })}
                       onMouseLeave={() => setHover(null)}
-                      title={`${DIAS[dia]} ${String(hora).padStart(2, '0')}h · ${n} conversa(s)`}
+                      title={t('calor.celula', { dia: DIAS[dia], hora: String(hora).padStart(2, '0'), n })}
                       style={{
                         flex: 1, minWidth: 14, height: 14, borderRadius: 3,
                         background: corDaCelula(n, data.peak, dark),
@@ -97,18 +99,18 @@ export default function ConversationHeatmap({ data }: { data: Heatmap }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 10.5, color: C.faint }}>menos</span>
+          <span style={{ fontSize: 10.5, color: C.faint }}>{t('calor.menos')}</span>
           {[0.2, 0.4, 0.6, 0.9].map((t) => (
             <span key={t} style={{ width: 13, height: 13, borderRadius: 3, background: corDaCelula(t * data.peak, data.peak, dark) }} />
           ))}
-          <span style={{ fontSize: 10.5, color: C.faint }}>mais</span>
+          <span style={{ fontSize: 10.5, color: C.faint }}>{t('calor.mais')}</span>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 11.5, color: C.sub }}>
           {hover
-            ? <>{DIAS[hover.dia]}, {String(hover.hora).padStart(2, '0')}h · <b style={{ color: C.ink }}>{atual}</b> conversa(s)</>
+            ? <>{t('calor.hover', { dia: DIAS[hover.dia], hora: String(hover.hora).padStart(2, '0') })} <b style={{ color: C.ink }}>{atual}</b> {t('calor.conversas')}</>
             : data.pico
-              ? <>Pico: <b style={{ color: C.ink }}>{DIAS[data.pico.dia]}, {String(data.pico.hora).padStart(2, '0')}h</b> ({data.pico.n})</>
+              ? <>{t('calor.pico')} <b style={{ color: C.ink }}>{DIAS[data.pico.dia]}, {String(data.pico.hora).padStart(2, '0')}h</b> ({data.pico.n})</>
               : null}
         </div>
       </div>

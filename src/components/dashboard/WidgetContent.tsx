@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useElementWidth } from '../../hooks/useElementWidth'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import { fmtK, fmtMoney, dueInfo, relativeLabel, chatTimeLabel, dateKeyOf } from '../../lib/format'
 import { useUIStore } from '../../store/uiStore'
 import { useIsDark } from '../../store/themeStore'
@@ -36,84 +37,84 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
     // ── Pipeline ────────────────────────────────────────────────────────
     case 'pipeline':
       return stat({
-        label: 'Pipeline ativo', value: `R$ ${fmtK(dados.pipelineTotal)}`,
-        sub: 'Soma de hoje. A linha é o pipeline novo por semana.',
+        label: t('widget.pipeline'), value: `R$ ${fmtK(dados.pipelineTotal)}`,
+        sub: t('painel.somaHoje'),
         icon: 'payments', accent: 'green', series: dados.serieNovoPipeline,
-        info: 'O número é a soma de todos os negócios abertos agora; a linha, o valor criado em cada uma das últimas 12 semanas.',
-        linkLabel: 'Ver pipeline', onLink: () => navigate('/pipeline'),
+        info: t('painel.pipelineInfo'),
+        linkLabel: t('painel.verPipeline'), onLink: () => navigate('/pipeline'),
       })
 
     case 'negocios':
       return stat({
-        label: 'Negócios ativos', value: String(dados.deals.length), sub: 'Criados por semana.',
+        label: t('widget.negocios'), value: String(dados.deals.length), sub: t('painel.criadosSemana'),
         icon: 'handshake', accent: 'purple', series: dados.serieNegocios,
-        linkLabel: 'Ver quadro', onLink: () => navigate('/pipeline'),
+        linkLabel: t('painel.verQuadro'), onLink: () => navigate('/pipeline'),
       })
 
     case 'ticket':
       return stat({
-        label: 'Ticket médio', value: `R$ ${fmtMoney(dados.ticket)}`,
-        sub: `Média entre ${dados.deals.length} negócio(s) aberto(s).`,
+        label: t('widget.ticket'), value: `R$ ${fmtMoney(dados.ticket)}`,
+        sub: t('painel.mediaEntre', { n: dados.deals.length }),
         icon: 'request_quote', accent: 'amber',
         // Sem série: é razão de duas séries sem passado — `updateDeal` sobrescreve
         // o valor do negócio sem versionar.
-        linkLabel: 'Ver pipeline', onLink: () => navigate('/pipeline'),
+        linkLabel: t('painel.verPipeline'), onLink: () => navigate('/pipeline'),
       })
 
     case 'novosLeads':
       return stat({
-        label: 'Novos leads', value: String(dados.leadsNovos), sub: 'Aguardando primeiro contato.',
+        label: t('widget.novosLeads'), value: String(dados.leadsNovos), sub: t('painel.aguardandoContato'),
         icon: 'person_add', accent: 'green', series: dados.serieLeads,
-        info: 'Leads parados na etapa de entrada do quadro LEADS. A linha conta quantos entraram por semana.',
-        linkLabel: 'Ver funil', onLink: () => { setActiveBoard(LEADS_BOARD_ID); navigate('/pipeline') },
+        info: t('painel.novosLeadsInfo'),
+        linkLabel: t('painel.verFunil'), onLink: () => { setActiveBoard(LEADS_BOARD_ID); navigate('/pipeline') },
       })
 
     // ── Dia a dia ───────────────────────────────────────────────────────
     case 'agendaHoje':
       return stat({
-        label: 'Agenda hoje',
+        label: t('widget.agendaHoje'),
         value: dados.todayEvents.length ? dados.todayEvents[0].time : '—',
-        sub: dados.todayEvents[0]?.title ?? 'Agenda livre hoje.',
+        sub: dados.todayEvents[0]?.title ?? t('painel.agendaLivre'),
         icon: 'event', accent: 'blue',
-        linkLabel: 'Ver agenda', onLink: () => navigate('/agenda'),
+        linkLabel: t('painel.verAgenda'), onLink: () => navigate('/agenda'),
       })
 
     case 'tarefasHoje':
       return stat({
-        label: 'Tarefas hoje', value: String(dados.pendingToday.length),
+        label: t('widget.tarefasHoje'), value: String(dados.pendingToday.length),
         sub: dados.nextPending
           ? `${dados.nextPending.title} · ${dueInfo(dados.nextPending.dueAt, dados.nextPending.done).text}`
-          : 'Nada pendente para hoje.',
+          : t('painel.nadaPendenteHoje'),
         icon: 'task_alt', accent: 'purple',
-        linkLabel: 'Ver tarefas', onLink: () => navigate('/atividades'),
+        linkLabel: t('painel.verTarefas'), onLink: () => navigate('/atividades'),
       })
 
     // ── Faturamento ─────────────────────────────────────────────────────
     case 'aReceber':
       return stat({
-        label: 'A receber', value: `R$ ${fmtK(dados.aReceber)}`, sub: 'Em aberto e ainda no prazo.',
+        label: t('widget.aReceber'), value: `R$ ${fmtK(dados.aReceber)}`, sub: t('painel.emAbertoNoPrazo'),
         icon: 'hourglass_top', accent: 'blue', series: dados.serieAReceber,
-        info: 'Saldo em aberto e dentro do prazo no fim de cada semana. Nota paga sem data de baixa conta como paga desde sempre.',
-        linkLabel: 'Ver notas', onLink: () => navigate('/faturamento'),
+        info: t('painel.aReceberInfo'),
+        linkLabel: t('painel.verNotas'), onLink: () => navigate('/faturamento'),
       })
 
     case 'notasVencidas':
       return stat({
-        label: 'Notas vencidas', value: String(dados.vencidas),
-        sub: dados.vencidas ? `R$ ${fmtMoney(dados.vencidoSum)} em atraso` : 'Faturamento em dia.',
+        label: t('widget.notasVencidas'), value: String(dados.vencidas),
+        sub: dados.vencidas ? `R$ ${fmtMoney(dados.vencidoSum)} em atraso` : t('painel.faturamentoEmDia'),
         icon: 'error', accent: 'rose', series: dados.serieVencidas,
-        linkLabel: 'Ver faturamento', onLink: () => navigate('/faturamento'),
+        linkLabel: t('painel.verFaturamento'), onLink: () => navigate('/faturamento'),
       })
 
     case 'receita': {
       const r = dados.receita
       return (
         <ChartCard
-          title="Receita recebida"
-          sub="Notas pagas · últimos 12 meses"
+          title={t('widget.receita')}
+          sub={t('painel.notasPagas12m')}
           right={<span style={{ fontSize: 18, fontWeight: 800, color: C.ink, letterSpacing: '-.02em' }}>R$ {fmtK(r.total)}</span>}
         >
-          {!r.hasData && <Vazio>Nenhuma nota paga nos últimos 12 meses.</Vazio>}
+          {!r.hasData && <Vazio>{t('painel.semNotasPagas')}</Vazio>}
           {r.hasData && (
             <>
               <svg viewBox="0 0 560 170" preserveAspectRatio="none" style={{ width: '100%', height: '78%', minHeight: 70, display: 'block' }}>
@@ -138,21 +139,21 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
     // ── Gráficos ────────────────────────────────────────────────────────
     case 'funil':
       return (
-        <ChartCard title="Funil de Leads" sub="Os leads criados no período, seguidos etapa a etapa" style={{ }}>
+        <ChartCard title={t('widget.funil')} sub={t('painel.funilSub')} style={{ }}>
           <LeadFunnel dados={dados.funil} />
         </ChartCard>
       )
 
     case 'calor':
       return (
-        <ChartCard title="Quando o cliente procura" sub="Conversas abertas por dia da semana e hora">
+        <ChartCard title={t('widget.calor')} sub={t('painel.calorSub')}>
           <ConversationHeatmap data={dados.heat} />
         </ChartCard>
       )
 
     case 'origem':
       return (
-        <ChartCard title="Origem dos leads" sub="Todos os leads cadastrados">
+        <ChartCard title={t('widget.origem')} sub={t('painel.origemSub')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
             <div style={{ width: 96, height: 96, flexShrink: 0, borderRadius: '50%', background: dados.donutGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: C.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -168,7 +169,7 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
                   <span style={{ fontWeight: 700, color: C.ink }}>{s.pct}%</span>
                 </div>
               ))}
-              {dados.origens.length === 0 && <Vazio>Nenhum lead cadastrado ainda.</Vazio>}
+              {dados.origens.length === 0 && <Vazio>{t('painel.semLeads')}</Vazio>}
             </div>
           </div>
         </ChartCard>
@@ -176,45 +177,45 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
 
     case 'conversasDia':
       return (
-        <ChartCard title="Conversas por dia" sub="Quantas conversas abriram a cada dia do período">
+        <ChartCard title={t('widget.conversasDia')} sub={t('painel.conversasDiaSub')}>
           {dados.relatorio
             ? <Fluido>{(w) => <TrendArea points={dados.relatorio!.byDay} width={w} height={150} palette={paleta} />}</Fluido>
-            : <Vazio>Sem dados de conversa no período.</Vazio>}
+            : <Vazio>{t('painel.semConversasPeriodo')}</Vazio>}
         </ChartCard>
       )
 
     case 'filaAgora':
       return (
-        <ChartCard title="Fila agora" sub="Como as conversas abertas estão divididas neste momento">
+        <ChartCard title={t('widget.filaAgora')} sub={t('painel.filaAgoraSub')}>
           <Fluido>{(w) => <StatusStack {...dados.fila} width={w} palette={paleta} />}</Fluido>
         </ChartCard>
       )
 
     case 'rankAtendentes':
-      return <Ranking titulo="Por atendente" sub="Conversas no período" linhas={dados.relatorio?.byAgent} paleta={paleta} />
+      return <Ranking titulo={t('widget.rankAtendentes')} sub={t('painel.conversasNoPeriodo')} linhas={dados.relatorio?.byAgent} paleta={paleta} />
     case 'rankSetores':
-      return <Ranking titulo="Por setor" sub="Conversas no período" linhas={dados.relatorio?.bySector} paleta={paleta} />
+      return <Ranking titulo={t('widget.rankSetores')} sub={t('painel.conversasNoPeriodo')} linhas={dados.relatorio?.bySector} paleta={paleta} />
     case 'rankEtiquetas':
-      return <Ranking titulo="Por etiqueta" sub="Conversas no período" linhas={dados.relatorio?.byTag} paleta={paleta} />
+      return <Ranking titulo={t('widget.rankEtiquetas')} sub={t('painel.conversasNoPeriodo')} linhas={dados.relatorio?.byTag} paleta={paleta} />
 
     // ── Listas ──────────────────────────────────────────────────────────
     case 'atividade':
       return (
         <ChartCard
-          title="Atividade recente"
+          title={t('widget.atividade')}
           right={<VerTudo onClick={() => navigate('/atividades')} />}
         >
           {dados.feed.map((a) => (
             <LinhaAtividade key={a.id} a={a} t={dados.typeMap[a.type]} quando={a.createdAt ? relativeLabel(a.createdAt) : ''} />
           ))}
-          {dados.feed.length === 0 && <Vazio>Sem atividades ainda.</Vazio>}
+          {dados.feed.length === 0 && <Vazio>{t('painel.semAtividades')}</Vazio>}
         </ChartCard>
       )
 
     case 'proximasTarefas':
       return (
         <ChartCard
-          title="Próximas tarefas"
+          title={t('widget.proximasTarefas')}
           right={<VerTudo onClick={() => navigate('/atividades')} />}
         >
           {dados.pendentes.slice(0, 10).map((a) => (
@@ -226,25 +227,25 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
               atrasada={dueInfo(a.dueAt, a.done).overdue}
             />
           ))}
-          {dados.pendentes.length === 0 && <Vazio>Nada pendente. Bom sinal.</Vazio>}
+          {dados.pendentes.length === 0 && <Vazio>{t('painel.nadaPendenteBom')}</Vazio>}
         </ChartCard>
       )
 
     case 'proximosCompromissos':
       return (
         <ChartCard
-          title="Próximos compromissos"
+          title={t('widget.proximosCompromissos')}
           right={<VerTudo onClick={() => navigate('/agenda')} />}
         >
           {dados.proximosEventos.slice(0, 10).map((e) => <LinhaEvento key={e.id} e={e} />)}
-          {dados.proximosEventos.length === 0 && <Vazio>Nenhum compromisso marcado.</Vazio>}
+          {dados.proximosEventos.length === 0 && <Vazio>{t('painel.semCompromissos')}</Vazio>}
         </ChartCard>
       )
 
     default:
       // Tipo desconhecido não deveria chegar aqui (o converter filtra), mas um
       // card em branco é melhor que a tela toda quebrada.
-      return <ChartCard title="Widget desconhecido"><Vazio>Este bloco não existe mais.</Vazio></ChartCard>
+      return <ChartCard title={t('painel.widgetDesconhecido')}><Vazio>{t('painel.blocoSumiu')}</Vazio></ChartCard>
   }
 }
 
@@ -258,7 +259,7 @@ function Ranking({ titulo, sub, linhas, paleta }: {
     <ChartCard title={titulo} sub={sub}>
       {linhas && linhas.length > 0
         ? <Fluido>{(w) => <RankedBars rows={linhas.slice(0, 6)} width={w} palette={paleta} />}</Fluido>
-        : <Vazio>Nenhuma conversa no período.</Vazio>}
+        : <Vazio>{t('painel.semConversasNoPeriodo')}</Vazio>}
     </ChartCard>
   )
 }
@@ -305,7 +306,7 @@ function LinhaAtividade({ a, t, quando, atrasada }: {
 /** "Hoje" / "Ter" / "12 Set" — nunca a hora, que já vai na linha de baixo. */
 function diaDoEvento(d: Date): string {
   const hoje = new Date()
-  if (dateKeyOf(d) === dateKeyOf(hoje)) return 'Hoje'
+  if (dateKeyOf(d) === dateKeyOf(hoje)) return t('comum.hoje')
   return chatTimeLabel(d)
 }
 

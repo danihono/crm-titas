@@ -1,4 +1,5 @@
 import type { Column, ConversationRecord, Deal, Invoice } from '../types'
+import { diaAbrev } from '../i18n/formato'
 import type { Semana } from './sparkline'
 
 /**
@@ -139,7 +140,10 @@ export interface Heatmap {
   pico: { dia: number; hora: number; n: number } | null
 }
 
-export const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+/** Dias curtos do idioma ativo, domingo primeiro — como `Date.getDay()`. */
+export function diasCurtos(): string[] {
+  return Array.from({ length: 7 }, (_, i) => diaAbrev(i))
+}
 
 /**
  * Quando as conversas chegam, em grade 7 dias × 24 horas.
