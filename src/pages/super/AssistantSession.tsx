@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import SuperShell from './SuperShell'
+import { t, type Chave } from '../../i18n'
 import { useAssistantStatus, useAssistantOutbox } from '../../hooks/useAssistantSession'
 import { useDaemonOnline } from '../../hooks/useDaemonOnline'
 import { connectAssistant, disconnectAssistant, giveAssistantConsent } from '../../lib/whatsapp'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import { FONT_DISPLAY } from '../../styles/sx'
 
-const ROTULO: Record<string, string> = {
-  disconnected: 'Desconectado',
-  qr: 'Aguardando leitura do QR',
-  connecting: 'Conectando…',
-  connected: 'Conectado',
-  loggedOut: 'Sessão encerrada no celular',
+const ROTULO: Record<string, Chave> = {
+  disconnected: 'wa.desconectado',
+  qr: 'wa.aguardandoQr',
+  connecting: 'wa.conectandoReticencias',
+  connected: 'wa.conectado',
+  loggedOut: 'super.sessaoEncerrada',
 }
 
 const COR: Record<string, string> = {
@@ -46,50 +47,46 @@ export default function AssistantSession() {
       await giveAssistantConsent()
       await connectAssistant()
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Falha ao conectar o número da Assistente.')
+      setErro(e instanceof Error ? e.message : t('super.falhaConectarAssistente'))
     } finally {
       setOcupado(false)
     }
   }
 
   async function desconectar() {
-    if (!window.confirm(
-      'Desconectar o número da Assistente?\n\nO resumo diário para de sair para TODOS os clientes até o número ser pareado de novo.',
-    )) return
+    if (!window.confirm(t('super.confirmarDesconectarAssistente'))) return
     setOcupado(true)
     setErro(null)
     try {
       await disconnectAssistant()
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Falha ao desconectar.')
+      setErro(e instanceof Error ? e.message : t('wa.falhaDesconectar'))
     } finally {
       setOcupado(false)
     }
   }
 
   return (
-    <SuperShell title="Assistente" back>
+    <SuperShell title={t('assistente.titulo')} back>
       <div className="flex items-center gap-3 mb-4">
-        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6]">Número da Assistente</h1>
+        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6]">{t('super.numeroAssistente')}</h1>
         <div className="flex-1" />
         <span className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: COR[st.status] ?? '#c98aab' }}>
           <span className="w-2 h-2 rounded-full" style={{ background: COR[st.status] ?? '#c98aab' }} />
-          {ROTULO[st.status] ?? st.status}
+          {ROTULO[st.status] ? t(ROTULO[st.status]) : st.status}
         </span>
       </div>
 
       <div className="flex items-start gap-2 rounded-xl px-4 py-3 mb-6 bg-[rgba(150,110,200,0.10)] border border-[rgba(150,110,200,0.22)] text-[12.5px] text-[#c3aad6]">
         <MaterialIcon name="smartphone" size={17} color="#c9a6e0" />
         <span>
-          Use um <b>chip só da Assistente</b> — não o seu número pessoal nem o de atendimento
-          de um cliente. É deste número que sai o resumo diário de todos os ambientes, e é
-          nele que os donos respondem.
+          {t('super.chipAviso1')} <b>{t('super.chipSoAssistente')}</b> {t('super.chipAviso2')}
         </span>
       </div>
 
       {!daemonOn && (
         <div className="rounded-xl px-4 py-3 mb-6 bg-[rgba(201,138,171,0.12)] border border-[rgba(201,138,171,0.3)] text-[12.5px] text-[#e3b9cc]">
-          O serviço de WhatsApp está fora do ar. Sem ele nada é enviado — suba o daemon antes de parear.
+          {t('super.daemonForaDoAr')}
         </div>
       )}
 
@@ -102,20 +99,20 @@ export default function AssistantSession() {
           {st.qr ? (
             <>
               <div className="text-[13px] text-[#c3aad6] mb-3">
-                Abra o WhatsApp do chip da Assistente → <b>Aparelhos conectados</b> → <b>Conectar aparelho</b>.
+                {t('super.abraWhatsappChip')} <b>{t('wa.aparelhosConectados')}</b> → <b>{t('wa.conectarAparelho')}</b>.
               </div>
-              <img src={st.qr} alt="QR para parear o número da Assistente" className="w-full max-w-[280px] rounded-xl bg-white p-2" />
+              <img src={st.qr} alt={t('super.qrAlt')} className="w-full max-w-[280px] rounded-xl bg-white p-2" />
             </>
           ) : (
             <div className="text-[13px] text-[#8a7d97] py-6">
               {st.status === 'connected'
-                ? `Número pareado${st.phoneNumber ? `: ${st.phoneNumber}` : ''}.`
-                : 'Nenhum QR no momento. Clique em conectar para gerar um.'}
+                ? (st.phoneNumber ? t('super.numeroPareadoCom', { numero: st.phoneNumber }) : t('super.numeroPareadoSimples'))
+                : t('super.semQr')}
             </div>
           )}
 
           {st.lastError && (
-            <div className="mt-4 text-[12px] text-[#c98aab]">Último erro: {st.lastError}</div>
+            <div className="mt-4 text-[12px] text-[#c98aab]">{t('campanhas.ultimoErro')} {st.lastError}</div>
           )}
 
           <div className="flex gap-2 mt-5">
@@ -125,21 +122,21 @@ export default function AssistantSession() {
               className="h-10 px-4 rounded-xl text-[13px] font-semibold text-[#f4eefa] disabled:opacity-40"
               style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)' }}
             >
-              {ocupado ? 'Aguarde…' : 'Conectar número'}
+              {t(ocupado ? 'super.aguarde' : 'super.conectarNumero')}
             </button>
             <button
               onClick={desconectar}
               disabled={ocupado || st.status === 'disconnected'}
               className="h-10 px-4 rounded-xl text-[13px] font-semibold bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] text-[#b9aec6] disabled:opacity-40"
             >
-              Desconectar
+              {t('wa.desconectar')}
             </button>
           </div>
         </div>
 
         <div className="rounded-2xl p-6 border border-[rgba(176,148,210,0.12)] bg-[rgba(255,255,255,0.03)]">
-          <div className="text-[13px] font-semibold text-[#e8e2ee] mb-3">Últimas saídas</div>
-          {envios.length === 0 && <div className="text-[12.5px] text-[#8a7d97]">Nada enviado ainda.</div>}
+          <div className="text-[13px] font-semibold text-[#e8e2ee] mb-3">{t('super.ultimasSaidas')}</div>
+          {envios.length === 0 && <div className="text-[12.5px] text-[#8a7d97]">{t('super.nadaEnviado')}</div>}
           <div className="flex flex-col gap-2">
             {envios.map((e) => (
               <div key={e.id} className="flex items-center gap-3 text-[12px]">

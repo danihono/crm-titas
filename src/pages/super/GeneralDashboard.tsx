@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SuperShell from './SuperShell'
+import { t } from '../../i18n'
 import { useOwnerStats } from '../../hooks/useOwnerStats'
 import { useClients } from '../../hooks/useClients'
 import { brandGradient } from '../../lib/clientBrand'
@@ -14,14 +15,14 @@ export default function GeneralDashboard() {
   const { clients } = useClients()
 
   const kpis = [
-    { icon: 'groups', c: '#7a52a0', label: 'Clientes', value: String(clients.length) },
-    { icon: 'payments', c: '#2f9e6f', label: 'Pipeline total', value: fmtBRL(stats.pipelineTotal) },
-    { icon: 'handshake', c: '#b3801f', label: 'Negócios ativos', value: String(stats.dealCount) },
-    { icon: 'hourglass_top', c: '#4f7fc0', label: 'A receber', value: fmtBRL(stats.aReceber) },
-    { icon: 'warning', c: '#c14d77', label: 'Vencido', value: fmtBRL(stats.vencido) },
-    { icon: 'paid', c: '#2f9e6f', label: 'Faturado (pago)', value: fmtBRL(stats.faturado) },
-    { icon: 'forum', c: '#4f7fc0', label: 'Contatos', value: String(stats.contactsCount) },
-    { icon: 'task_alt', c: '#b3801f', label: 'Atividades', value: String(stats.activitiesCount) },
+    { icon: 'groups', c: '#7a52a0', label: t('super.clientes'), value: String(clients.length) },
+    { icon: 'payments', c: '#2f9e6f', label: t('super.pipelineTotal'), value: fmtBRL(stats.pipelineTotal) },
+    { icon: 'handshake', c: '#b3801f', label: t('super.negociosAtivos'), value: String(stats.dealCount) },
+    { icon: 'hourglass_top', c: '#4f7fc0', label: t('fatura.aReceber'), value: fmtBRL(stats.aReceber) },
+    { icon: 'warning', c: '#c14d77', label: t('fatura.vencido'), value: fmtBRL(stats.vencido) },
+    { icon: 'paid', c: '#2f9e6f', label: t('fatura.faturado'), value: fmtBRL(stats.faturado) },
+    { icon: 'forum', c: '#4f7fc0', label: t('nav.contatos'), value: String(stats.contactsCount) },
+    { icon: 'task_alt', c: '#b3801f', label: t('nav.atividades'), value: String(stats.activitiesCount) },
   ]
 
   const ranking = clients
@@ -31,9 +32,9 @@ export default function GeneralDashboard() {
   const maxPipe = Math.max(1, ...ranking.map((r) => r.pipeline))
 
   return (
-    <SuperShell title="Visão Geral" back>
-      <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6] mb-1">Panorama de todos os clientes</h1>
-      <p className="text-[#8a7d97] text-sm mb-6">Métricas agregadas em tempo real {stats.loading && '· carregando…'}</p>
+    <SuperShell title={t('super.visaoGeral')} back>
+      <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6] mb-1">{t('super.panorama')}</h1>
+      <p className="text-[#8a7d97] text-sm mb-6">{t('super.metricasAgregadas')}{stats.loading && t('super.carregando')}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {kpis.map((k, i) => (
