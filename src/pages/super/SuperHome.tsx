@@ -44,7 +44,7 @@ export default function SuperHome() {
         <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[38px] font-normal text-[#f3eef6] leading-snug">
           O que você quer ver hoje?
         </h1>
-        <p className="text-[#8a7d97] mt-1 max-w-xl">Como dono do sistema, você pode olhar o panorama geral de todos os clientes ou entrar no CRM de um cliente específico.</p>
+        <p className="text-[#8a7d97] mt-1 max-w-xl">{t('super.homeDica')}</p>
       </motion.div>
 
       <div className="grid sm:grid-cols-2 gap-5 mt-8">

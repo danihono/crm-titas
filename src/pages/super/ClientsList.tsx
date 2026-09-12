@@ -83,11 +83,11 @@ export default function ClientsList() {
               <div className="flex gap-2 mb-4">
                 <div className="flex-1 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(176,148,210,0.10)] p-2.5">
                   <div className="text-[15px] font-extrabold text-[#ece6f0]">R$ {fmtMoney(pc?.pipeline ?? 0)}</div>
-                  <div className="text-[10.5px] text-[#9a8fa8]">pipeline</div>
+                  <div className="text-[10.5px] text-[#9a8fa8]">{t('super.pipelineMin')}</div>
                 </div>
                 <div className="flex-1 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(176,148,210,0.10)] p-2.5">
                   <div className="text-[15px] font-extrabold text-[#ece6f0]">{pc?.deals ?? 0}</div>
-                  <div className="text-[10.5px] text-[#9a8fa8]">negócios</div>
+                  <div className="text-[10.5px] text-[#9a8fa8]">{t('super.negociosMin')}</div>
                 </div>
               </div>
               <RingButton

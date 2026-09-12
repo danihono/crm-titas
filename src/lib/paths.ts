@@ -1,5 +1,6 @@
 import { collection, doc } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { t } from '../i18n'
 import { useTenantStore } from '../store/tenantStore'
 
 /**
@@ -11,7 +12,7 @@ export function uid(): string {
   const tenant = useTenantStore.getState().tenantUid
   if (tenant) return tenant
   const u = auth.currentUser
-  if (!u) throw new Error('Sem usuário autenticado')
+  if (!u) throw new Error(t('erro.semUsuario'))
   return u.uid
 }
 
@@ -39,6 +40,6 @@ export function userRef() {
  */
 export function selfRef() {
   const u = auth.currentUser
-  if (!u) throw new Error('Sem usuário autenticado')
+  if (!u) throw new Error(t('erro.semUsuario'))
   return doc(db, 'users', u.uid)
 }

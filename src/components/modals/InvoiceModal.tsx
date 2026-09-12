@@ -5,6 +5,7 @@ import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
 import { t, type Chave } from '../../i18n'
 import { dataCurta } from '../../i18n/formato'
+import { rotuloPagamento } from '../../i18n/sistema'
 import {
   saveInvoice, updateInvoice, deleteInvoice, deleteInvoiceSeries, billingPreview,
   PAYMENT_METHODS, type Billing, type InvoiceForm,
@@ -200,7 +201,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
           <label style={sx.label}>{t('nota.formaPagamento')}</label>
           <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod | '')} style={{ ...sx.input, margin: '6px 0 14px' }}>
             <option value="">{t('nota.naoDefinida')}</option>
-            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{rotuloPagamento(m)}</option>)}
           </select>
         </div>
       </div>

@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useLocaleStore } from '../../src/store/localeStore'
 import { plural, t } from '../../src/i18n'
 import { lerNumero, separadorDecimal } from '../../src/i18n/formato'
-import { fmtBRL, fmtMoney, parseValueBR } from '../../src/lib/format'
+import { ehPlaceholderMidia, fmtBRL, fmtMoney, mediaLabel, parseValueBR, placeholderMidia } from '../../src/lib/format'
 import { rotuloStatusNota, rotuloTipoAtividade, tituloEtapa } from '../../src/i18n/sistema'
 import { prefsFromDoc } from '../../src/lib/converters'
 import type { Idioma } from '../../src/types'
@@ -191,5 +191,34 @@ describe('interpolação', () => {
   it('token sem valor volta como veio, em vez de virar "undefined"', () => {
     em('pt')
     expect(t('teste.ola')).toBe('Olá, {nome}!')
+  })
+})
+
+describe('o marcador de mídia gravado no histórico', () => {
+  it('é sempre o canônico em português, em qualquer idioma', () => {
+    // Este texto vai PARA o Firestore quando o CRM cria a mensagem sozinho, e é
+    // o mesmo que o daemon grava na ingestão. Traduzi-lo deixaria o histórico
+    // com marcadores em três idiomas, misturados por quem estava com qual tela
+    // aberta — e a comparação de baixo passaria a falhar fora do português.
+    for (const i of IDIOMAS) {
+      em(i)
+      expect(placeholderMidia('image')).toBe('[imagem]')
+      expect(placeholderMidia('audio')).toBe('[áudio]')
+    }
+  })
+
+  it('o rótulo DE TELA segue o idioma, e é outro', () => {
+    em('en')
+    expect(mediaLabel('image')).toBe('[image]')
+    expect(placeholderMidia('image')).toBe('[imagem]')
+  })
+
+  it('reconhece o marcador gravado mesmo com a tela em outro idioma', () => {
+    // O defeito que isto impede: com a tela em inglês, a legenda seria comparada
+    // com '[image]', nunca casaria, e a tela repetiria "[imagem]" embaixo da
+    // própria imagem.
+    em('en')
+    expect(ehPlaceholderMidia('[imagem]')).toBe(true)
+    expect(ehPlaceholderMidia('Olha essa foto')).toBe(false)
   })
 })

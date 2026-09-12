@@ -11,6 +11,8 @@
  * pessoa ver um erro em português; lá é a trava de verdade.
  */
 
+import { t } from '../i18n'
+
 /** Teto do navegador. O mesmo número está em storage.rules. */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -71,10 +73,10 @@ export function validarAnexo(file: File, maxBytes = MAX_UPLOAD_BYTES): string {
   }
   const mime = (file.type || '').toLowerCase()
   if (!mime) {
-    throw new Error('Não foi possível identificar o tipo deste arquivo. Converta para PDF ou imagem e tente de novo.')
+    throw new Error(t('erro.tipoArquivoDesconhecido'))
   }
   if (!ehAnexoAceito(mime)) {
-    throw new Error('Tipo de arquivo não aceito. Envie imagem, áudio, vídeo, PDF, documento do Office, TXT ou CSV.')
+    throw new Error(t('erro.tipoNaoAceito'))
   }
   return mime
 }
@@ -86,7 +88,7 @@ export function validarImagem(file: File, maxBytes = MAX_IMAGEM_BYTES): string {
   }
   const mime = (file.type || '').toLowerCase()
   if (!ehImagem(mime)) {
-    throw new Error('Escolha uma imagem PNG, JPG, GIF, WEBP ou HEIC.')
+    throw new Error(t('erro.escolhaImagem'))
   }
   return mime
 }

@@ -1,6 +1,6 @@
 import { downloadBlob } from './download'
 import { t } from '../i18n'
-import { rotuloStatusNota } from '../i18n/sistema'
+import { rotuloPagamento, rotuloStatusNota } from '../i18n/sistema'
 import { brandTitle, dataRow, tableHeader, PURPLE, SUB } from './xlsxStyle'
 import { invoiceStatus } from '../hooks/useInvoices'
 import type { Invoice } from '../types'
@@ -51,7 +51,7 @@ export async function exportInvoicesXlsx(invoices: Invoice[], orgName: string, s
         iv.dueAt,
         rotuloStatusNota(st),
         iv.paidAt ?? '',
-        iv.paymentMethod ?? '',
+        iv.paymentMethod ? rotuloPagamento(iv.paymentMethod) : '',
         iv.installment ? `${iv.installment.n}/${iv.installment.of}` : '',
       ], i % 2 === 1)
       ws.getCell(headerRow + 1 + i, 4).numFmt = 'R$ #,##0'

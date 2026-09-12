@@ -6,6 +6,7 @@ import { auth, db, storage } from '../lib/firebase'
 import { selfRef } from '../lib/paths'
 import { safeFileName, validarImagem } from '../lib/upload'
 import { prefsFromDoc } from '../lib/converters'
+import { t } from '../i18n'
 import { useThemeStore } from '../store/themeStore'
 import { useLocaleStore } from '../store/localeStore'
 import { useAuth } from '../contexts/AuthContext'
@@ -116,7 +117,7 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 /** uid da CONTA logada — a foto é da pessoa, não do tenant que ela está atendendo. */
 function selfUid(): string {
   const u = auth.currentUser
-  if (!u) throw new Error('Sem usuário autenticado')
+  if (!u) throw new Error(t('erro.semUsuario'))
   return u.uid
 }
 

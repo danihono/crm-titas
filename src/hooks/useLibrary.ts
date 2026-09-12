@@ -1,6 +1,7 @@
 import {
   addDoc, collection, deleteDoc, orderBy, query, serverTimestamp, updateDoc,
 } from 'firebase/firestore'
+import { t } from '../i18n'
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
@@ -33,7 +34,7 @@ export function normalizeVarKey(v: string): string {
 
 export async function addVariable(key: string, value: string, description: string): Promise<string> {
   const clean = normalizeVarKey(key)
-  if (!clean) throw new Error('Informe uma chave válida.')
+  if (!clean) throw new Error(t('erro.chaveInvalida'))
   const r = await addDoc(col('variables'), {
     key: clean,
     value,

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import { sparkline } from '../../lib/sparkline'
 import MaterialIcon from '../common/MaterialIcon'
 
@@ -160,7 +161,7 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
   const cor = featured ? (sobe ? '#6fd7ae' : '#f0a0bd') : sobe ? C.green : C.rose
   return (
     <span
-      title="Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação."
+      title={t('painel.semanaFechada')}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

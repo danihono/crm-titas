@@ -7,6 +7,7 @@ import { col, ref, uid } from '../lib/paths'
 import { boardFromDoc, dealFromDoc, leadFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
 import { LEADS_BOARD_ID } from '../lib/theme'
+import { t } from '../i18n'
 import { useCollection } from './useCollection'
 import type { Board, Column, Deal } from '../types'
 
@@ -45,10 +46,10 @@ export function funnelColumns(board: Board): Column[] {
 }
 
 /** Mensagem única para as tentativas de mexer no quadro fixo. */
-const FIXO = 'O quadro Leads é fixo. Crie outro quadro para ter etapas próprias.'
+const FIXO = () => t('erro.quadroFixo')
 
 function travaQuadroFixo(boardId: string): void {
-  if (boardId === LEADS_BOARD_ID) throw new Error(FIXO)
+  if (boardId === LEADS_BOARD_ID) throw new Error(FIXO())
 }
 
 /**
@@ -255,8 +256,10 @@ function dealFields(form: DealForm) {
   const company = form.company.trim()
   const contact = form.contact.trim()
   return {
-    company: company || 'Novo negócio',
-    contact: contact || 'Definir contato',
+    // Escrito no idioma de quem está criando: é dado, gravado uma vez, e a
+    // pessoa renomeia depois. Mesma lógica dos tipos de atividade semeados.
+    company: company || t('sistema.negocioSemNome'),
+    contact: contact || t('sistema.contatoADefinir'),
     value: Number.isFinite(form.value) && form.value > 0 ? Math.round(form.value) : 0,
     initials: initialsOf(contact || company) || '?',
     tag: form.tag || 'Novo',

@@ -4,7 +4,7 @@ import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
 import { safeFileName, validarAnexo } from '../lib/upload'
 import { messageFromDoc } from '../lib/converters'
-import { mediaLabel } from '../lib/format'
+import { placeholderMidia } from '../lib/format'
 import { useCollection } from './useCollection'
 import type { OutgoingMedia } from '../lib/whatsapp'
 import type { Message } from '../types'
@@ -80,7 +80,9 @@ export async function uploadOutgoingMedia(contactId: string, file: File, caption
  * (ou o daemon está fora do ar), espelhando o que `sendMessage` já faz com texto.
  */
 export async function sendLocalMediaMessage(contactId: string, media: OutgoingMedia): Promise<void> {
-  const preview = media.caption?.trim() || mediaLabel(media.mediaType)
+  // `placeholderMidia`, e não o rótulo traduzido: este texto é GRAVADO, e o
+  // histórico não pode depender do idioma de quem estava com a tela aberta.
+  const preview = media.caption?.trim() || placeholderMidia(media.mediaType)
   const batch = writeBatch(db)
   const msgRef = doc(col(`contacts/${contactId}/messages`))
   batch.set(msgRef, {

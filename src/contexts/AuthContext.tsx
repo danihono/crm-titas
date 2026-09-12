@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { t } from '../i18n'
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -149,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Reenvia a confirmação de e-mail para quem tem convite travado esperando por ela. */
   async function reenviarVerificacao() {
     const u = auth.currentUser
-    if (!u) throw new Error('Sem usuário autenticado.')
+    if (!u) throw new Error(t('erro.semUsuario'))
     await sendEmailVerification(u)
   }
 

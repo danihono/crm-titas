@@ -14,7 +14,7 @@ import InvoicesDocument from '../components/invoices/InvoicesDocument'
 import { sx, C } from '../styles/sx'
 import { t, type Chave } from '../i18n'
 import { compararTexto, dataCurta } from '../i18n/formato'
-import { rotuloStatusNota } from '../i18n/sistema'
+import { rotuloPagamento, rotuloStatusNota } from '../i18n/sistema'
 import type { Invoice, InvoiceStatus } from '../types'
 
 type StatusFilter = 'todas' | InvoiceStatus
@@ -271,7 +271,7 @@ export default function Invoices() {
               </div>
               <div>
                 <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700 }}>R$ {fmtMoney(iv.value)}</div>
-                {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{iv.paymentMethod}</div>}
+                {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{rotuloPagamento(iv.paymentMethod)}</div>}
               </div>
               <div>
                 <div style={{ fontSize: 12.5, color: C.sub }}>{dataCurta(iv.dueAt)}</div>

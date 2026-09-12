@@ -150,14 +150,14 @@ export default function Agent() {
         const system = `${cfg.instructions}\nVocê é "${cfg.name}", persona: ${cfg.persona}.\nUse os dados reais do CRM abaixo para responder de forma concreta. ${t('ia.instrucaoIdioma')}, de forma objetiva (máx ~120 palavras).\n${knowledgeContext(knowledge)}${buildContext()}`
         const history = chat.slice(-8).map((m) => ({ role: (m.role === 'agent' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text }))
         reply = await callTitaIA({ system, history, question: q })
-        if (!reply) reply = fallbackReply(q)
+        if (!reply) reply = fallbackReply()
       } catch (err) {
         // Engolir o erro aqui escondia a causa: a tela dizia "modo offline" e o console
         // ficava limpo, entao nao dava para saber se a funcao nao estava publicada ou se
         // o App Check estava barrando. Agora o motivo vai para o console E para a resposta.
         const code = errorCode(err)
         console.error('[callTitaIA]', code || err, err)
-        reply = fallbackReply(q) + agentErrorHint(code)
+        reply = fallbackReply() + agentErrorHint(code)
       }
       await pushAgentMessage('agent', reply)
     } catch (e) {

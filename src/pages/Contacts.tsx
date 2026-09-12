@@ -25,7 +25,7 @@ import { agendaDoContato } from '../lib/contactAgenda'
 import type { TarefaSugerida } from '../hooks/useTaskSuggestion'
 import { useAuth } from '../contexts/AuthContext'
 import { avPalette, fileTypeMap } from '../lib/theme'
-import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel } from '../lib/format'
+import { chatTimeLabel, timeHHMM, relativeLabel, fmtSize, mediaLabel, placeholderMidia, ehPlaceholderMidia } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import Avatar from '../components/common/Avatar'
 import PhotoAction from '../components/common/PhotoAction'
@@ -1248,7 +1248,7 @@ function MessageBody({ message: m }: { message: Message }) {
   const textColor = m.fromMe ? '#f5f0fa' : C.ink
   const muted = m.fromMe ? 'rgba(240,230,250,0.78)' : C.sub
   const hasRenderableMedia = !!m.mediaType && !!m.mediaUrl && !m.mediaError
-  const legacyMediaPlaceholder = !m.mediaType && m.pending && isMediaPlaceholder(m.text)
+  const legacyMediaPlaceholder = !m.mediaType && m.pending && ehPlaceholderMidia(m.text)
 
   return (
     <div style={{ fontSize: 13.5, lineHeight: 1.45, color: textColor }}>
@@ -1285,7 +1285,10 @@ function MessageBody({ message: m }: { message: Message }) {
           <span>{m.text} sem arquivo salvo</span>
         </div>
       )}
-      {!legacyMediaPlaceholder && (!hasRenderableMedia || m.text !== mediaLabel(m.mediaType)) && m.text && (
+      {/* Compara com o marcador CANÔNICO, não com o traduzido: o `text` gravado
+          está sempre em português, e comparar com a versão traduzida faria a tela
+          repetir "[imagem]" embaixo da própria imagem fora do pt-BR. */}
+      {!legacyMediaPlaceholder && (!hasRenderableMedia || m.text !== placeholderMidia(m.mediaType)) && m.text && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: hasRenderableMedia && (m.mediaType === 'image' || m.mediaType === 'video') ? 0 : undefined }}>
           {m.pending && !m.mediaError && <MaterialIcon name="attach_file" size={15} color={muted} />}
           <span style={{ fontStyle: m.pending && !m.mediaUrl ? 'italic' : 'normal', opacity: m.pending && !m.mediaUrl ? 0.9 : 1 }}>{m.text}</span>
@@ -1312,10 +1315,6 @@ const MEDIA_ERROR_LABELS: Record<string, Chave> = {
 function mediaErrorLabel(code: string): string {
   const chave = MEDIA_ERROR_LABELS[code]
   return chave ? t(chave) : t('contatos.midiaNaoBaixou')
-}
-
-function isMediaPlaceholder(text: string): boolean {
-  return ['[imagem]', '[vídeo]', '[áudio]', '[documento]', '[figurinha]'].includes(text)
 }
 
 function RowAction({ icon, color, bg, onClick }: { icon: string; color: string; bg: string; onClick: (e: React.MouseEvent) => void }) {

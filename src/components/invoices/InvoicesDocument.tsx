@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import BrandMark from '../common/BrandMark'
 import { t } from '../../i18n'
 import { dataCurta, dataHoraCurta } from '../../i18n/formato'
-import { rotuloStatusNota } from '../../i18n/sistema'
+import { rotuloPagamento, rotuloStatusNota } from '../../i18n/sistema'
 import { fmtMoney } from '../../lib/format'
 import type { Invoice, InvoiceStatus } from '../../types'
 
@@ -114,7 +114,7 @@ export default function InvoicesDocument({ rows, orgName, recorte }: {
               </td>
               <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>
                 R$ {fmtMoney(iv.value)}
-                {iv.paymentMethod && <div style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{iv.paymentMethod}</div>}
+                {iv.paymentMethod && <div style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{rotuloPagamento(iv.paymentMethod)}</div>}
               </td>
               <td style={{ ...td, whiteSpace: 'nowrap' }}>
                 {dataCurta(iv.dueAt)}

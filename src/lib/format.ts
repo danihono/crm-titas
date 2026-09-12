@@ -167,16 +167,47 @@ export function extToType(name: string): 'pdf' | 'doc' | 'img' | 'xls' {
   return 'doc'
 }
 
+export type MidiaTipo = 'image' | 'video' | 'audio' | 'document' | 'sticker'
+
 /**
- * Rótulo curto de uma mídia — vira o `text` da mensagem quando não há legenda, e é o que
- * aparece no preview da lista de contatos. Espelha os rótulos que o daemon já grava na
- * ingestão (whatsapp-daemon/src/messages.ts, MEDIA_META).
+ * O rótulo CANÔNICO de uma mídia — em português, sempre, em qualquer idioma.
  *
- * O rótulo GRAVADO pelo daemon fica em português: é dado, escrito uma vez na
- * chegada da mensagem, e reescrevê-lo mudaria histórico. Este aqui é o
- * derivado, calculado na hora de mostrar — esse segue o idioma.
+ * É o valor que o daemon grava na ingestão (whatsapp-daemon/src/messages.ts,
+ * MEDIA_META) quando a mensagem chega sem legenda, e por isso ele é DADO, não
+ * texto de tela. Serve para duas coisas, e só para essas duas:
+ *
+ *  1. GRAVAR, quando o CRM cria a mensagem sozinho (sem WhatsApp conectado);
+ *  2. COMPARAR com o que está gravado, para saber se o `text` é só o marcador
+ *     da mídia ou uma legenda de verdade.
+ *
+ * Traduzir isto seria um defeito silencioso: o histórico ficaria com marcadores
+ * em três idiomas, misturados por quem estava com qual tela aberta, e a
+ * comparação do item 2 passaria a falhar fora do português — a tela repetiria
+ * "[imagem]" embaixo da própria imagem.
  */
-export function mediaLabel(type?: 'image' | 'video' | 'audio' | 'document' | 'sticker'): string {
+const MIDIA_CANONICA: Record<MidiaTipo, string> = {
+  image: '[imagem]',
+  video: '[vídeo]',
+  audio: '[áudio]',
+  document: '[documento]',
+  sticker: '[figurinha]',
+}
+
+export function placeholderMidia(type?: MidiaTipo): string {
+  return type ? MIDIA_CANONICA[type] : ''
+}
+
+/** O `text` gravado é só o marcador da mídia, e não uma legenda? */
+export function ehPlaceholderMidia(text: string): boolean {
+  return Object.values(MIDIA_CANONICA).includes(text)
+}
+
+/**
+ * Rótulo de uma mídia PARA MOSTRAR — este sim segue o idioma. É o que aparece
+ * no preview da lista de conversas e no lugar do nome de um arquivo sem nome.
+ * Nunca vai para o Firestore: para gravar, use `placeholderMidia`.
+ */
+export function mediaLabel(type?: MidiaTipo): string {
   if (type === 'image') return t('formato.midiaImagem')
   if (type === 'video') return t('formato.midiaVideo')
   if (type === 'audio') return t('formato.midiaAudio')

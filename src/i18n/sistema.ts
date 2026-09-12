@@ -1,6 +1,6 @@
 import { t, type Chave } from '.'
 import { LEADS_BOARD_ID } from '../lib/theme'
-import type { ActType, ActivityStatus, Column, InvoiceStatus } from '../types'
+import type { ActType, ActivityStatus, Column, InvoiceStatus, PaymentMethod } from '../types'
 
 /**
  * A fronteira entre o que o SISTEMA escreveu e o que a PESSOA escreveu.
@@ -88,6 +88,23 @@ const NOTA: Record<InvoiceStatus, Chave> = {
 
 export function rotuloStatusNota(status: InvoiceStatus): string {
   return t(NOTA[status])
+}
+
+/**
+ * Forma de pagamento. Como no status da nota, a palavra em português É o valor
+ * gravado (`PaymentMethod`) — traduz-se o rótulo, nunca o dado.
+ */
+const PAGAMENTO: Record<PaymentMethod, Chave> = {
+  Pix: 'sistema.pagPix',
+  Boleto: 'sistema.pagBoleto',
+  'Cartão': 'sistema.pagCartao',
+  'Transferência': 'sistema.pagTransferencia',
+  Dinheiro: 'sistema.pagDinheiro',
+  Outro: 'sistema.pagOutro',
+}
+
+export function rotuloPagamento(metodo: PaymentMethod): string {
+  return t(PAGAMENTO[metodo])
 }
 
 /** Status da atividade — derivado na hora, nada gravado. */

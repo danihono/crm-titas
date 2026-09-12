@@ -1326,4 +1326,47 @@ export const CATALOGO = {
 
   // ── SUPER TITAN · edição do cliente ───────────────────────────────────
   'super.limiteLogo': ['PNG, JPG ou SVG · até 2 MB', 'PNG, JPG o SVG · hasta 2 MB', 'PNG, JPG or SVG · up to 2 MB'],
+
+  // ── Erros de sistema e validações ─────────────────────────────────────
+  'erro.semUsuario': ['Sem usuário autenticado.', 'Sin usuario autenticado.', 'No signed-in user.'],
+  'erro.tipoArquivoDesconhecido': ['Não foi possível identificar o tipo deste arquivo. Converta para PDF ou imagem e tente de novo.', 'No se pudo identificar el tipo de este archivo. Conviértelo a PDF o imagen e inténtalo de nuevo.', 'We couldn\'t identify this file\'s type. Convert it to PDF or an image and try again.'],
+  'erro.tipoNaoAceito': ['Tipo de arquivo não aceito. Envie imagem, áudio, vídeo, PDF, documento do Office, TXT ou CSV.', 'Tipo de archivo no aceptado. Envía imagen, audio, vídeo, PDF, documento de Office, TXT o CSV.', 'File type not accepted. Send an image, audio, video, PDF, Office document, TXT or CSV.'],
+  'erro.escolhaImagem': ['Escolha uma imagem PNG, JPG, GIF, WEBP ou HEIC.', 'Elige una imagen PNG, JPG, GIF, WEBP o HEIC.', 'Pick a PNG, JPG, GIF, WEBP or HEIC image.'],
+  'erro.chaveInvalida': ['Informe uma chave válida.', 'Indica una clave válida.', 'Enter a valid key.'],
+  'erro.quadroFixo': ['O quadro Leads é fixo. Crie outro quadro para ter etapas próprias.', 'El tablero Leads es fijo. Crea otro tablero para tener etapas propias.', 'The Leads board is fixed. Create another board to have your own stages.'],
+  'ia.semFuncaoPublicada': ['a Cloud Function askTitaIA não está publicada neste projeto — falta `firebase deploy --only functions`.', 'la Cloud Function askTitaIA no está publicada en este proyecto — falta `firebase deploy --only functions`.', 'the askTitaIA Cloud Function isn\'t deployed in this project — `firebase deploy --only functions` is missing.'],
+  'ia.sessaoExpirada': ['sessão expirada ou sem permissão — saia e entre de novo. Se o App Check tiver sido religado, recarregue a página.', 'sesión expirada o sin permiso — sal y vuelve a entrar. Si el App Check se reactivó, recarga la página.', 'session expired or unauthorized — sign out and back in. If App Check was re-enabled, reload the page.'],
+  'ia.falhouPorDentro': ['a função falhou por dentro — veja `firebase functions:log`.', 'la función falló por dentro — mira `firebase functions:log`.', 'the function failed internally — check `firebase functions:log`.'],
+  'ia.regiaoErrada': ['não foi possível alcançar a função — verifique a região configurada.', 'no se pudo alcanzar la función — verifica la región configurada.', 'the function couldn\'t be reached — check the configured region.'],
+  'ia.offlinePadrao': ['Analisei os dados do seu CRM. Posso priorizar seu dia, analisar um negócio específico, cobrar notas vencidas ou redigir uma mensagem — só dizer.', 'Analicé los datos de tu CRM. Puedo priorizar tu día, analizar un negocio específico, reclamar facturas vencidas o redactar un mensaje — solo dime.', 'I\'ve looked at your CRM data. I can prioritise your day, analyse a specific deal, chase overdue invoices or draft a message — just say the word.'],
+  'clientes.semFuncaoExcluir': ['A Cloud Function excluirCliente não está publicada neste projeto — falta `firebase deploy --only functions`.', 'La Cloud Function excluirCliente no está publicada en este proyecto — falta `firebase deploy --only functions`.', 'The excluirCliente Cloud Function isn\'t deployed in this project — `firebase deploy --only functions` is missing.'],
+  'clientes.barrada': ['A chamada foi barrada (App Check ou conta sem permissão de dono do sistema).', 'La llamada fue bloqueada (App Check o cuenta sin permiso de dueño del sistema).', 'The call was blocked (App Check, or an account without system-owner permission).'],
+  'clientes.naoPodeExcluir': ['Esta conta não pode ser excluída.', 'Esta cuenta no se puede eliminar.', 'This account can\'t be deleted.'],
+  'clientes.falhouNoServidor': ['A exclusão falhou no servidor. Confira os logs da função excluirCliente.', 'La eliminación falló en el servidor. Revisa los logs de la función excluirCliente.', 'The deletion failed server-side. Check the excluirCliente function\'s logs.'],
+  'clientes.falhaExcluir': ['Não foi possível excluir o cliente agora.', 'No se pudo eliminar el cliente ahora.', 'The client couldn\'t be deleted right now.'],
+  'super.verTodos': ['Ver todos', 'Ver todos', 'See all'],
+  'super.semClientes': ['Nenhum cliente com dados ainda.', 'Todavía ningún cliente con datos.', 'No client has data yet.'],
+  'super.negociosMin': ['negócios', 'negocios', 'deals'],
+  'super.homeDica': ['Como dono do sistema, você pode olhar o panorama geral de todos os clientes ou entrar no CRM de um deles.', 'Como dueño del sistema, puedes ver el panorama general de todos los clientes o entrar en el CRM de uno de ellos.', 'As the system owner, you can look at the overview across every client or step into one client\'s CRM.'],
+
+  // ── Assistente · modo offline ─────────────────────────────────────────
+  'ia.cotaEsgotada': ['cota da API do Gemini esgotada.', 'cuota de la API de Gemini agotada.', 'the Gemini API quota is exhausted.'],
+  'ia.diagnostico': ['\n\n_(Diagnóstico: {texto})_', '\n\n_(Diagnóstico: {texto})_', '\n\n_(Diagnostics: {texto})_'],
+  'ia.modoOffline': ['Não consegui falar com a IA agora, então não tenho como olhar os seus dados para responder isso. O que já está na tela continua valendo — pipeline, atividades e faturamento estão todos atualizados. Tente de novo em instantes.', 'No pude hablar con la IA ahora, así que no puedo mirar tus datos para responder eso. Lo que ya está en pantalla sigue valiendo — pipeline, actividades y facturación están actualizados. Inténtalo de nuevo en un momento.', 'I couldn\'t reach the AI just now, so I can\'t look at your data to answer that. What\'s already on screen still holds — pipeline, activities and billing are all up to date. Try again in a moment.'],
+
+  // ── Padrões escritos pelo sistema e formas de pagamento ───────────────
+  'sistema.negocioSemNome': ['Novo negócio', 'Nuevo negocio', 'New deal'],
+  'sistema.contatoADefinir': ['Definir contato', 'Definir contacto', 'Set contact'],
+  'sistema.pagPix': ['Pix', 'Pix', 'Pix'],
+  'sistema.pagBoleto': ['Boleto', 'Boleto', 'Bank slip'],
+  'sistema.pagCartao': ['Cartão', 'Tarjeta', 'Card'],
+  'sistema.pagTransferencia': ['Transferência', 'Transferencia', 'Transfer'],
+  'sistema.pagDinheiro': ['Dinheiro', 'Efectivo', 'Cash'],
+  'sistema.pagOutro': ['Outro', 'Otro', 'Other'],
+
+  // ── Painel do dashboard · nota da semana ──────────────────────────────
+  'painel.semanaFechada': ['Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação.', 'Semana cerrada contra la anterior — la semana en curso todavía va a mitad y distorsionaría la comparación.', 'Last complete week against the one before — the current week is only half done and would skew the comparison.'],
+
+  // ── SUPER TITAN · rótulos do cartão ───────────────────────────────────
+  'super.pipelineMin': ['pipeline', 'pipeline', 'pipeline'],
 } satisfies Record<string, Tri>
