@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  agoraNoFuso, hhmmParaMinutos, dentroDaJanela, blocosPermitidos, montarResumo,
+  agoraNoFuso, hhmmParaMinutos, dentroDaJanela, blocosPermitidos, montarResumo, rodape,
   type BlocosResumo, type DadosResumo,
 } from '../../functions/src/resumo'
 
@@ -147,5 +147,42 @@ describe('montagem do texto', () => {
     expect(texto).toContain('AGENDA DE HOJE* (12)')
     expect(texto).toContain('…e mais 4')
     expect(texto).not.toContain('Evento 11')
+  })
+})
+
+describe('o resumo nos três idiomas', () => {
+  const comDado: DadosResumo = {
+    ...VAZIO,
+    agenda: [{ time: '09:00', title: 'Reunião' }],
+    faturasVencidas: [{ num: 'NF-102', client: 'Atlas', value: 4200, diasVencida: 4 }],
+  }
+
+  it('sai no idioma de quem RECEBE, não no de quem programou', () => {
+    // Sem isto, quem pôs o CRM em inglês recebia o resumo diário em português
+    // no WhatsApp — e o resumo é justamente o que chega sem ninguém no meio.
+    expect(montarResumo(comDado, TODOS, 'en')).toContain("TODAY'S CALENDAR")
+    expect(montarResumo(comDado, TODOS, 'es')).toContain('AGENDA DE HOY')
+    expect(montarResumo(comDado, TODOS, 'pt')).toContain('AGENDA DE HOJE')
+  })
+
+  it('sem idioma, continua em português — o chamador antigo não muda', () => {
+    expect(montarResumo(comDado, TODOS)).toContain('AGENDA DE HOJE')
+  })
+
+  it('o dia vazio fala o idioma certo', () => {
+    expect(montarResumo(VAZIO, TODOS, 'en')).toContain('Nothing pending')
+    expect(montarResumo(VAZIO, TODOS, 'es')).toContain('Nada pendiente')
+  })
+
+  it('a moeda continua em real nos três — o dinheiro é do negócio', () => {
+    for (const i of ['pt', 'es', 'en'] as const) {
+      expect(montarResumo(comDado, TODOS, i)).toMatch(/R\$/)
+    }
+  })
+
+  it('o rodapé pede a palavra de saída no idioma da mensagem', () => {
+    expect(rodape('pt')).toContain('SAIR')
+    expect(rodape('es')).toContain('SALIR')
+    expect(rodape('en')).toContain('STOP')
   })
 })

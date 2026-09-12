@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { msg, normalizarIdioma } from './idioma'
 import { defineSecret } from 'firebase-functions/params'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
@@ -51,33 +52,37 @@ export const askTitaIA = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
+      throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
     await consomeCota(request.auth.uid)
     const { system, history, question } = (request.data || {}) as AskData
     // O corte de verdade acontece em ./ia; aqui é só para um array absurdo não chegar a
     // ser percorrido — recusar é mais barato do que cortar.
     if (Array.isArray(history) && history.length > 200) {
-      throw new HttpsError('invalid-argument', 'Histórico grande demais.')
+      throw new HttpsError('invalid-argument', msg('historicoGrande', idioma))
     }
     if (!question || !question.trim()) {
-      throw new HttpsError('invalid-argument', 'Pergunta vazia.')
+      throw new HttpsError('invalid-argument', msg('perguntaVazia', idioma))
     }
     if (question.length > MAX_CONTENT_CHARS) {
-      throw new HttpsError('invalid-argument', 'Pergunta longa demais.')
+      throw new HttpsError('invalid-argument', msg('perguntaLonga', idioma))
     }
 
     try {
-      const reply = await perguntar(GEMINI_API_KEY.value(), { system, history, question })
+      const reply = await perguntar(GEMINI_API_KEY.value(), { system, history, question, idioma })
       return { reply }
     } catch (err) {
       if (err instanceof RespostaVazia) {
         console.warn('[askTitaIA]', err.message)
-        throw new HttpsError('internal', 'O Titã IA não conseguiu responder isso. Tente reformular a pergunta.')
+        throw new HttpsError('internal', msg('naoRespondeu', idioma))
       }
       console.error('[askTitaIA] erro Gemini:', err)
-      throw new HttpsError('internal', 'Não foi possível consultar o Titã IA agora.')
+      throw new HttpsError('internal', msg('naoConsultou', idioma))
     }
   },
 )
@@ -109,23 +114,27 @@ export const sugerirTarefaIA = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
+      throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
     await consomeCota(request.auth.uid)
     const { mensagens, tipos, cliente, hoje } = (request.data || {}) as SugerirData
 
     if (!Array.isArray(mensagens) || mensagens.length === 0) {
-      throw new HttpsError('invalid-argument', 'Conversa vazia — não há o que sugerir.')
+      throw new HttpsError('invalid-argument', msg('conversaVazia', idioma))
     }
     if (mensagens.length > 500) {
-      throw new HttpsError('invalid-argument', 'Conversa grande demais.')
+      throw new HttpsError('invalid-argument', msg('conversaGrande', idioma))
     }
     if (!Array.isArray(tipos) || tipos.length === 0) {
-      throw new HttpsError('invalid-argument', 'Nenhum tipo de atividade disponível.')
+      throw new HttpsError('invalid-argument', msg('semTipos', idioma))
     }
     if (typeof hoje !== 'string' || !DIA_RE.test(hoje)) {
-      throw new HttpsError('invalid-argument', 'Data de hoje ausente ou fora do formato.')
+      throw new HttpsError('invalid-argument', msg('hojeInvalido', idioma))
     }
 
     // Defesa de custo: o cliente legítimo manda no máximo o teto; o resto é corte.
@@ -137,7 +146,7 @@ export const sugerirTarefaIA = onCall(
         return [{ de: m?.de === 'cliente' ? ('cliente' as const) : ('atendente' as const), texto }]
       })
     if (limpas.length === 0) {
-      throw new HttpsError('invalid-argument', 'Conversa sem texto — não há o que sugerir.')
+      throw new HttpsError('invalid-argument', msg('conversaSemTexto', idioma))
     }
 
     const tiposLimpos = tipos
@@ -148,7 +157,7 @@ export const sugerirTarefaIA = onCall(
         return [{ id, label: typeof t?.label === 'string' ? t.label.trim().slice(0, 60) : id }]
       })
     if (tiposLimpos.length === 0) {
-      throw new HttpsError('invalid-argument', 'Nenhum tipo de atividade válido.')
+      throw new HttpsError('invalid-argument', msg('semTiposValidos', idioma))
     }
 
     try {
@@ -157,15 +166,16 @@ export const sugerirTarefaIA = onCall(
         tipos: tiposLimpos,
         cliente: typeof cliente === 'string' ? cliente.trim().slice(0, 120) : 'o cliente',
         hoje,
+        idioma,
       })
       return { tarefa }
     } catch (err) {
       if (err instanceof RespostaVazia) {
         console.warn('[sugerirTarefaIA]', err.message)
-        throw new HttpsError('internal', 'O Titã IA não conseguiu sugerir uma tarefa para esta conversa.')
+        throw new HttpsError('internal', msg('naoSugeriu', idioma))
       }
       console.error('[sugerirTarefaIA] erro Gemini:', err)
-      throw new HttpsError('internal', 'Não foi possível consultar o Titã IA agora.')
+      throw new HttpsError('internal', msg('naoConsultou', idioma))
     }
   },
 )
@@ -183,27 +193,31 @@ export const gerarFluxoIA = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para usar o Titã IA.')
+      throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
     await consomeCota(request.auth.uid)
     const { descricao } = (request.data || {}) as { descricao?: string }
     if (!descricao || !descricao.trim()) {
-      throw new HttpsError('invalid-argument', 'Descreva o fluxo que você quer.')
+      throw new HttpsError('invalid-argument', msg('descrevaFluxo', idioma))
     }
     if (descricao.length > MAX_DESC_CHARS) {
-      throw new HttpsError('invalid-argument', 'Descrição longa demais.')
+      throw new HttpsError('invalid-argument', msg('descricaoLonga', idioma))
     }
 
     try {
-      return await montarFluxo(GEMINI_API_KEY.value(), descricao)
+      return await montarFluxo(GEMINI_API_KEY.value(), descricao, idioma)
     } catch (err) {
       if (err instanceof RespostaVazia) {
         console.warn('[gerarFluxoIA]', err.message)
-        throw new HttpsError('internal', 'O Titã IA não conseguiu montar o fluxo agora.')
+        throw new HttpsError('internal', msg('naoMontouFluxo', idioma))
       }
       console.error('[gerarFluxoIA] erro Gemini:', err)
-      throw new HttpsError('internal', 'Não foi possível gerar o fluxo agora.')
+      throw new HttpsError('internal', msg('naoGerouFluxo', idioma))
     }
   },
 )
@@ -247,20 +261,24 @@ export const excluirCliente = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+      throw new HttpsError('unauthenticated', msg('facaLoginSimples', idioma))
     }
     const callerEmail = String(request.auth.token.email || '').toLowerCase()
     if (!OWNER_EMAILS.includes(callerEmail)) {
-      throw new HttpsError('permission-denied', 'Apenas o dono do sistema pode excluir clientes.')
+      throw new HttpsError('permission-denied', msg('soDonoExclui', idioma))
     }
 
     const uid = String((request.data || {}).uid || '').trim()
     if (!uid) {
-      throw new HttpsError('invalid-argument', 'uid do cliente não informado.')
+      throw new HttpsError('invalid-argument', msg('uidAusente', idioma))
     }
     if (uid === request.auth.uid) {
-      throw new HttpsError('failed-precondition', 'Você não pode excluir a própria conta por aqui.')
+      throw new HttpsError('failed-precondition', msg('naoExcluiPropria', idioma))
     }
 
     const db = getFirestore()
@@ -275,7 +293,7 @@ export const excluirCliente = onCall(
       targetEmail = String(snap.data()?.email || '').toLowerCase()
     }
     if (targetEmail && OWNER_EMAILS.includes(targetEmail)) {
-      throw new HttpsError('failed-precondition', 'Contas de dono do sistema não podem ser excluídas por aqui.')
+      throw new HttpsError('failed-precondition', msg('naoExcluiDono', idioma))
     }
 
     await step('storage', async () => {
@@ -344,12 +362,16 @@ export const estatisticasClientes = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+      throw new HttpsError('unauthenticated', msg('facaLoginSimples', idioma))
     }
     const callerEmail = String(request.auth.token.email || '').toLowerCase()
     if (!OWNER_EMAILS.includes(callerEmail)) {
-      throw new HttpsError('permission-denied', 'Apenas o dono do sistema vê estas métricas.')
+      throw new HttpsError('permission-denied', msg('soDonoVeMetricas', idioma))
     }
 
     const db = getFirestore()
@@ -437,8 +459,12 @@ export const revogarAcesso = onCall(
     cors: true,
   },
   async (request) => {
+    // O idioma vem do payload e serve para duas coisas: escolher a mensagem
+    // de erro (que chega à tela pelo alert) e dizer ao modelo em que idioma
+    // responder. Payload torto cai no português.
+    const idioma = normalizarIdioma((request.data || {}).idioma)
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Faça login para continuar.')
+      throw new HttpsError('unauthenticated', msg('facaLoginSimples', idioma))
     }
     const { tenantUid, memberUid } = (request.data || {}) as {
       tenantUid?: unknown
@@ -447,7 +473,7 @@ export const revogarAcesso = onCall(
     const tenant = String(tenantUid || '').trim()
     const alvo = String(memberUid || '').trim()
     if (!tenant || !alvo) {
-      throw new HttpsError('invalid-argument', 'Ambiente ou pessoa não informados.')
+      throw new HttpsError('invalid-argument', msg('ambienteOuPessoa', idioma))
     }
 
     const db = getFirestore()
@@ -457,14 +483,14 @@ export const revogarAcesso = onCall(
       const vinculo = await db.doc(`users/${tenant}/members/${quem}`).get()
       const ativo = vinculo.exists && vinculo.get('active') !== false
       if (!ativo || vinculo.get('role') !== 'dono') {
-        throw new HttpsError('permission-denied', 'Apenas quem administra o ambiente pode revogar acessos.')
+        throw new HttpsError('permission-denied', msg('soGestorRevoga', idioma))
       }
     }
 
     // O titular do ambiente não se derruba por aqui — seria um jeito silencioso de
     // travar o dono fora da própria conta.
     if (alvo === tenant) {
-      throw new HttpsError('failed-precondition', 'O titular do ambiente não pode ter o acesso revogado.')
+      throw new HttpsError('failed-precondition', msg('titularNaoRevoga', idioma))
     }
 
     try {
@@ -472,7 +498,7 @@ export const revogarAcesso = onCall(
     } catch (err) {
       if ((err as { code?: string }).code === 'auth/user-not-found') return { ok: true }
       console.error('[revogarAcesso] falha ao revogar:', err)
-      throw new HttpsError('internal', 'Não foi possível encerrar as sessões desta pessoa.')
+      throw new HttpsError('internal', msg('naoEncerrouSessoes', idioma))
     }
 
     console.info(`[revogarAcesso] sessões de ${alvo} encerradas em ${tenant} por ${quem}`)

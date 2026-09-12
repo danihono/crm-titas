@@ -2,6 +2,7 @@ import {
   addDoc, updateDoc, deleteDoc, collection, query, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
+import { idiomaAtual, type Idioma } from '../store/localeStore'
 import { db, functions } from '../lib/firebase'
 import { col, ref } from '../lib/paths'
 import { flowFromDoc } from '../lib/converters'
@@ -47,7 +48,7 @@ export async function deleteFlow(flowId: string): Promise<void> {
   await deleteDoc(ref(`flows/${flowId}`))
 }
 
-interface GerarFluxoRequest { descricao: string }
+interface GerarFluxoRequest { descricao: string; idioma: Idioma }
 interface GerarFluxoResponse {
   name: string
   nodes: { id: string; title: string; subtitle: string; kind: FlowNodeKind }[]
@@ -69,7 +70,7 @@ export interface GeneratedFlow {
  */
 export async function callGerarFluxoIA(descricao: string): Promise<GeneratedFlow> {
   const fn = httpsCallable<GerarFluxoRequest, GerarFluxoResponse>(functions, 'gerarFluxoIA')
-  const res = await fn({ descricao })
+  const res = await fn({ descricao, idioma: idiomaAtual() })
   const data = res.data
   const nodes = autoLayout(data?.nodes ?? [], data?.edges ?? [])
   const ids = new Set(nodes.map((n) => n.id))

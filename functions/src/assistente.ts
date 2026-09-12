@@ -1,10 +1,11 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { INSTRUCAO_IDIOMA, normalizarIdioma, type Idioma } from './idioma'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
 import { perguntar } from './ia'
 import {
-  TZ_PADRAO, agoraNoFuso, dentroDaJanela, blocosPermitidos, montarResumo, RODAPE,
+  TZ_PADRAO, agoraNoFuso, dentroDaJanela, blocosPermitidos, montarResumo, rodape,
   type BlocosResumo, type DadosResumo, type ItemAgenda, type ItemConversa,
   type ItemFatura, type ItemTarefa,
 } from './resumo'
@@ -131,12 +132,13 @@ const SAUDACAO_TIMEOUT_MS = 10_000
  * O teto de tempo é obrigatório: `perguntar` não tem timeout próprio, e uma chamada
  * pendurada travaria a rodada inteira, que processa os ambientes em sequência.
  */
-async function saudacao(apiKey: string, nome: string, persona: string): Promise<string> {
+async function saudacao(apiKey: string, nome: string, persona: string, idioma: Idioma): Promise<string> {
   try {
     const texto = await Promise.race([
       perguntar(apiKey, {
-        system: `Você é "${nome}", ${persona}. Escreva APENAS uma saudação matinal curta (máx. 12 palavras), em português do Brasil, calorosa e profissional. Sem emojis no fim, sem listas, sem aspas.`,
+        system: `Você é "${nome}", ${persona}. Escreva APENAS uma saudação matinal curta (máx. 12 palavras), calorosa e profissional. ${INSTRUCAO_IDIOMA[idioma]} Sem emojis no fim, sem listas, sem aspas.`,
         question: 'Escreva a saudação de hoje.',
+        idioma,
       }),
       new Promise<string>((_, rej) => setTimeout(() => rej(new Error('timeout')), SAUDACAO_TIMEOUT_MS)),
     ])
@@ -230,13 +232,18 @@ export const resumoDiario = onSchedule(
           'dono',
         )
 
+        // O resumo sai no idioma de quem RECEBE — a preferência do doc da conta,
+        // a mesma que manda na tela. Sem isto, quem pôs o CRM em inglês recebia
+        // o resumo diário em português no WhatsApp.
+        const idioma = normalizarIdioma((doc.get('prefs') as Record<string, unknown> | undefined)?.idioma)
         const dados = await coletarDados(uid, dateKey, agora)
         const abertura = await saudacao(
           GEMINI_API_KEY.value(),
           String(agent.name ?? 'Assistente'),
           String(agent.persona ?? 'assistente comercial'),
+          idioma,
         )
-        const texto = `${abertura}\n\n${montarResumo(dados, blocks)}\n\n${RODAPE}`
+        const texto = `${abertura}\n\n${montarResumo(dados, blocks, idioma)}\n\n${rodape(idioma)}`
 
         const enfileirou = await enfileirar(`${uid}_${dateKey}`, uid, digits, texto)
         if (!enfileirou) continue
@@ -391,6 +398,7 @@ export const responderPeloWhatsapp = onDocumentCreated(
     const tenant = await db.collection('users').doc(uid).get()
     const agent = (tenant.get('agent') ?? {}) as Record<string, unknown>
     const wa = (agent.whatsapp ?? {}) as Record<string, unknown>
+    const idiomaResposta = normalizarIdioma((tenant.get('prefs') as Record<string, unknown> | undefined)?.idioma)
     const digits = digitosDe(wa.phone) || digitosDe(tenant.get('phone'))
     if (digits.length < 8) return
 
@@ -422,13 +430,14 @@ export const responderPeloWhatsapp = onDocumentCreated(
         `${String(agent.instructions ?? '')}\n` +
         `Você é "${String(agent.name ?? 'Assistente')}", persona: ${String(agent.persona ?? 'assistente comercial')}.\n` +
         'Você está respondendo por WhatsApp: seja MUITO objetivo (máx. ~80 palavras), sem markdown de título e sem listas longas. ' +
-        'Responda em português do Brasil, usando os dados reais abaixo.\n' +
+        `${INSTRUCAO_IDIOMA[idiomaResposta]} Use os dados reais abaixo.\n` +
         `${await conhecimento(uid)}${contextoDoCrm(dados, blocks)}`
 
       const resposta = (await perguntar(GEMINI_API_KEY.value(), {
         system,
         history: await historico(uid),
         question: pergunta,
+        idioma: idiomaResposta,
       })).trim().slice(0, RESPOSTA_MAX_CHARS)
 
       if (!resposta) {

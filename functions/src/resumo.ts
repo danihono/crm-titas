@@ -137,20 +137,71 @@ export function blocosPermitidos(blocks: BlocosResumo, papel: Papel): BlocosResu
 // Montagem do texto (pura — testável sem Firestore e sem Gemini)
 // ---------------------------------------------------------------------------
 
-function moeda(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+/**
+ * Os rótulos do resumo, nos três idiomas.
+ *
+ * Vive aqui, e não no idioma.ts, porque este arquivo é PURO de propósito — ele
+ * é testado sem Firebase e sem Gemini, e é essa pureza que permite ter teste
+ * para uma mensagem que, no WhatsApp, não volta atrás.
+ */
+const R = {
+  pt: {
+    agenda: '📅 *AGENDA DE HOJE*', tarefas: '✅ *TAREFAS*', faturas: '💰 *FATURAS*',
+    conversas: '💬 *CONVERSAS SEM RESPOSTA*',
+    atrasada: ['atrasada', 'atrasadas'], paraHoje: 'para hoje',
+    dia: ['dia', 'dias'], atrasadaHa: 'atrasada há', vencida: ['vencida', 'vencidas'],
+    venceuHa: 'venceu há', venceEm: 'vence em', eMais: '…e mais',
+    vazio: 'Nada pendente para hoje. Bom dia livre! 🙂',
+    rodape: '_Responda aqui para perguntar qualquer coisa sobre esses dados._\n_Responda SAIR para parar de receber._',
+  },
+  es: {
+    agenda: '📅 *AGENDA DE HOY*', tarefas: '✅ *TAREAS*', faturas: '💰 *FACTURAS*',
+    conversas: '💬 *CONVERSACIONES SIN RESPUESTA*',
+    atrasada: ['atrasada', 'atrasadas'], paraHoje: 'para hoy',
+    dia: ['día', 'días'], atrasadaHa: 'atrasada hace', vencida: ['vencida', 'vencidas'],
+    venceuHa: 'venció hace', venceEm: 'vence en', eMais: '…y {n} más',
+    vazio: '¡Nada pendiente para hoy. Buen día libre! 🙂',
+    rodape: '_Responde aquí para preguntar cualquier cosa sobre estos datos._\n_Responde SALIR para dejar de recibirlo._',
+  },
+  en: {
+    agenda: '📅 *TODAY\'S CALENDAR*', tarefas: '✅ *TASKS*', faturas: '💰 *INVOICES*',
+    conversas: '💬 *UNANSWERED CONVERSATIONS*',
+    atrasada: ['overdue', 'overdue'], paraHoje: 'due today',
+    dia: ['day', 'days'], atrasadaHa: 'overdue by', vencida: ['overdue', 'overdue'],
+    venceuHa: 'due', venceEm: 'due in', eMais: '…and {n} more',
+    vazio: 'Nothing pending today. Enjoy the clear day! 🙂',
+    rodape: '_Reply here to ask anything about this data._\n_Reply STOP to stop receiving it._',
+  },
+} as const
+
+export type IdiomaResumo = keyof typeof R
+
+/**
+ * A moeda é REAL em qualquer idioma — o valor é do negócio, não de quem lê. O
+ * que muda é só o separador.
+ *
+ * O "R$" é prefixado à mão, e não por `style: 'currency'`, porque o Intl decide
+ * o SÍMBOLO pelo idioma: em espanhol ele devolvia "4200,00 BRL" e em inglês
+ * poria o símbolo colado à esquerda. Mesma escolha do fmtBRL do cliente.
+ */
+function moeda(v: number, idioma: IdiomaResumo): string {
+  const tag = idioma === 'pt' ? 'pt-BR' : idioma
+  return 'R$ ' + v.toLocaleString(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 /** Corta a lista no teto e devolve o rodapé "e mais N" quando sobra coisa. */
-function comTeto<T>(itens: T[], render: (t: T) => string): string[] {
+function comTeto<T>(itens: T[], render: (t: T) => string, idioma: IdiomaResumo): string[] {
   const linhas = itens.slice(0, MAX_ITENS).map(render)
   const resto = itens.length - MAX_ITENS
-  if (resto > 0) linhas.push(`  …e mais ${resto}`)
+  if (resto > 0) {
+    const molde = R[idioma].eMais
+    linhas.push('  ' + (molde.includes('{n}') ? molde.replace('{n}', String(resto)) : `${molde} ${resto}`))
+  }
   return linhas
 }
 
-function plural(n: number, um: string, muitos: string): string {
-  return `${n} ${n === 1 ? um : muitos}`
+function plural(n: number, formas: readonly [string, string] | readonly string[]): string {
+  return `${n} ${n === 1 ? formas[0] : formas[1]}`
 }
 
 /**
@@ -160,52 +211,66 @@ function plural(n: number, um: string, muitos: string): string {
  * ou um horário invertido chega ao cliente sem ninguém no meio, diferente do chat da tela,
  * onde a pessoa lê e desconta. Ao modelo cabe só a saudação (ver `saudacao`).
  */
-export function montarResumo(dados: DadosResumo, blocks: BlocosResumo): string {
+export function montarResumo(
+  dados: DadosResumo,
+  blocks: BlocosResumo,
+  // Padrão 'pt' para o chamador antigo (e a suíte) não precisar mudar de assinatura.
+  idioma: IdiomaResumo = 'pt',
+): string {
+  const r = R[idioma]
   const partes: string[] = []
 
   if (blocks.agenda && dados.agenda.length) {
     partes.push(
-      `📅 *AGENDA DE HOJE* (${dados.agenda.length})`,
-      ...comTeto(dados.agenda, (e) => `  ${e.time || '--:--'} · ${e.title}`),
+      `${r.agenda} (${dados.agenda.length})`,
+      ...comTeto(dados.agenda, (e) => `  ${e.time || '--:--'} · ${e.title}`, idioma),
     )
   }
 
   if (blocks.tarefas && (dados.tarefasAtrasadas.length || dados.tarefasHoje.length)) {
     const resumo = [
-      dados.tarefasAtrasadas.length ? `${dados.tarefasAtrasadas.length} atrasada${dados.tarefasAtrasadas.length > 1 ? 's' : ''}` : '',
-      dados.tarefasHoje.length ? `${dados.tarefasHoje.length} para hoje` : '',
+      dados.tarefasAtrasadas.length ? plural(dados.tarefasAtrasadas.length, r.atrasada) : '',
+      dados.tarefasHoje.length ? `${dados.tarefasHoje.length} ${r.paraHoje}` : '',
     ].filter(Boolean).join(' · ')
     partes.push(
-      `✅ *TAREFAS* · ${resumo}`,
-      ...comTeto(dados.tarefasAtrasadas, (t) => `  ${t.title} (atrasada há ${plural(t.atrasadaDias, 'dia', 'dias')})`),
-      ...comTeto(dados.tarefasHoje, (t) => `  ${t.title}`),
+      `${r.tarefas} · ${resumo}`,
+      ...comTeto(dados.tarefasAtrasadas, (t) => `  ${t.title} (${r.atrasadaHa} ${plural(t.atrasadaDias, r.dia)})`, idioma),
+      ...comTeto(dados.tarefasHoje, (t) => `  ${t.title}`, idioma),
     )
   }
 
   if (blocks.faturas && (dados.faturasVencidas.length || dados.faturasAVencer.length)) {
     const total = dados.faturasVencidas.reduce((s, f) => s + f.value, 0)
     const cabecalho = dados.faturasVencidas.length
-      ? `💰 *FATURAS* · ${plural(dados.faturasVencidas.length, 'vencida', 'vencidas')} — ${moeda(total)}`
-      : '💰 *FATURAS*'
+      ? `${r.faturas} · ${plural(dados.faturasVencidas.length, r.vencida)} — ${moeda(total, idioma)}`
+      : r.faturas
     partes.push(
       cabecalho,
-      ...comTeto(dados.faturasVencidas, (f) => `  ${f.num} · ${f.client} · ${moeda(f.value)} · venceu há ${plural(f.diasVencida, 'dia', 'dias')}`),
-      ...comTeto(dados.faturasAVencer, (f) => `  ${f.num} · ${f.client} · ${moeda(f.value)} · vence em ${plural(-f.diasVencida, 'dia', 'dias')}`),
+      ...comTeto(dados.faturasVencidas, (f) => `  ${f.num} · ${f.client} · ${moeda(f.value, idioma)} · ${r.venceuHa} ${plural(f.diasVencida, r.dia)}`, idioma),
+      ...comTeto(dados.faturasAVencer, (f) => `  ${f.num} · ${f.client} · ${moeda(f.value, idioma)} · ${r.venceEm} ${plural(-f.diasVencida, r.dia)}`, idioma),
     )
   }
 
   if (blocks.conversas && dados.conversas.length) {
     partes.push(
-      `💬 *CONVERSAS SEM RESPOSTA* (${dados.conversas.length})`,
-      ...comTeto(dados.conversas, (c) => `  ${c.name} — "${c.lastMessage.slice(0, 60)}"`),
+      `${r.conversas} (${dados.conversas.length})`,
+      ...comTeto(dados.conversas, (c) => `  ${c.name} — "${c.lastMessage.slice(0, 60)}"`, idioma),
     )
   }
 
   // Dia vazio também é informação: sem isto, o silêncio pareceria falha do sistema.
-  if (!partes.length) return 'Nada pendente para hoje. Bom dia livre! 🙂'
+  if (!partes.length) return r.vazio
   return partes.join('\n\n')
 }
 
-/** O rodapé. O opt-out sai em TODA mensagem — é o que torna o envio diário legítimo. */
-export const RODAPE =
-  '_Responda aqui para perguntar qualquer coisa sobre esses dados._\n_Responda SAIR para parar de receber._'
+/**
+ * O rodapé. O opt-out sai em TODA mensagem — é o que torna o envio diário legítimo.
+ *
+ * A PALAVRA muda de idioma, a lista de palavras ACEITAS só cresce: o daemon
+ * continua atendendo SAIR e PARE para sempre (whatsapp-daemon/src/optOut.ts).
+ * Quem recebeu "responda SAIR" há um ano não pode descobrir que a palavra
+ * mudou justamente na hora de sair.
+ */
+export function rodape(idioma: IdiomaResumo = 'pt'): string {
+  return R[idioma].rodape
+}

@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
+import { INSTRUCAO_IDIOMA, type Idioma } from './idioma'
 
 /**
  * As chamadas de IA, sem Firebase em volta.
@@ -46,13 +47,21 @@ export class RespostaVazia extends Error {
   }
 }
 
-const SYSTEM_PADRAO = 'Você é um assistente comercial. Responda em português do Brasil, de forma objetiva.'
+/**
+ * O system de reserva, para quando a tela não manda um. A instrução de idioma
+ * entra por fora: antes estava cravada em "português do Brasil" aqui, e a
+ * Assistente respondia em português para quem pôs a tela em inglês.
+ */
+function systemPadrao(idioma: Idioma): string {
+  return `Você é um assistente comercial. ${INSTRUCAO_IDIOMA[idioma]} Seja objetivo.`
+}
 
 /** Uma pergunta ao Titã IA, com o histórico da conversa. Devolve o texto da resposta. */
 export async function perguntar(apiKey: string, entrada: {
   system?: string
   history?: Turno[]
   question: string
+  idioma: Idioma
 }): Promise<string> {
   const ai = new GoogleGenAI({ apiKey })
 
@@ -72,7 +81,7 @@ export async function perguntar(apiKey: string, entrada: {
     model: MODEL,
     contents,
     config: {
-      systemInstruction: (entrada.system || SYSTEM_PADRAO).slice(0, MAX_SYSTEM_CHARS),
+      systemInstruction: (entrada.system || systemPadrao(entrada.idioma)).slice(0, MAX_SYSTEM_CHARS),
       maxOutputTokens: 1024,
       // Pergunta de CRM não precisa de raciocínio longo, e token de thinking é
       // cobrado igual. MINIMAL é o mínimo que dá: no Gemini 3.x thinking não
@@ -113,7 +122,7 @@ export const FLOW_SCHEMA = {
   additionalProperties: false,
   required: ['name', 'nodes', 'edges'],
   properties: {
-    name: { type: 'string', description: 'Nome curto do fluxo, em português do Brasil.' },
+    name: { type: 'string', description: 'Nome curto do fluxo.' },
     nodes: {
       type: 'array',
       description: 'As etapas do processo, em ordem lógica.',
@@ -150,9 +159,10 @@ export const FLOW_SCHEMA = {
   },
 }
 
-export const FLOW_SYSTEM = [
-  'Você desenha fluxogramas de processos comerciais para um CRM brasileiro.',
-  'A partir da descrição do usuário, produza um fluxo claro e executável, em português do Brasil.',
+export const flowSystem = (idioma: Idioma) => [
+  'Você desenha fluxogramas de processos comerciais para um CRM.',
+  'A partir da descrição do usuário, produza um fluxo claro e executável.',
+  INSTRUCAO_IDIOMA[idioma],
   'Regras: comece por uma etapa "start" e termine em pelo menos uma "end";',
   'use "decision" quando o processo se ramifica, e rotule as setas que saem dela;',
   'todas as etapas devem estar conectadas; prefira de 5 a 12 etapas, no máximo ' + MAX_NODES + '.',
@@ -204,14 +214,14 @@ export function sanitizeFlow(raw: unknown): FluxoGerado {
 }
 
 /** Monta o fluxograma a partir da descrição. Já devolve o resultado saneado. */
-export async function montarFluxo(apiKey: string, descricao: string): Promise<FluxoGerado> {
+export async function montarFluxo(apiKey: string, descricao: string, idioma: Idioma): Promise<FluxoGerado> {
   const ai = new GoogleGenAI({ apiKey })
 
   const res = await ai.models.generateContent({
     model: FLOW_MODEL,
     contents: descricao.trim(),
     config: {
-      systemInstruction: FLOW_SYSTEM,
+      systemInstruction: flowSystem(idioma),
       // Folgado de propósito: JSON truncado no meio não dá para consertar, e um
       // fluxo de 12 etapas passa fácil de 2k.
       maxOutputTokens: 8_000,
@@ -262,15 +272,16 @@ export const TAREFA_SCHEMA = {
   required: ['type', 'title', 'date', 'time', 'motivo'],
   properties: {
     type: { type: 'string', description: 'O id do tipo de atividade, copiado exatamente de um dos tipos oferecidos.' },
-    title: { type: 'string', description: 'O que fazer, curto e concreto, em português do Brasil. Ex.: "Enviar proposta revisada".' },
+    title: { type: 'string', description: 'O que fazer, curto e concreto. Ex.: "Enviar proposta revisada".' },
     date: { type: 'string', description: 'Dia no formato YYYY-MM-DD. Se a conversa combinou uma data, use ELA.' },
     time: { type: 'string', description: 'Hora no formato HH:MM, 24h. Horário comercial quando a conversa não disser.' },
     motivo: { type: 'string', description: 'Uma frase curta dizendo em que ponto da conversa a sugestão se apoia.' },
   },
 }
 
-export const TAREFA_SYSTEM = [
-  'Você lê o atendimento de um CRM brasileiro e propõe O PRÓXIMO PASSO do atendente.',
+export const tarefaSystem = (idioma: Idioma) => [
+  'Você lê o atendimento de um CRM e propõe O PRÓXIMO PASSO do atendente.',
+  INSTRUCAO_IDIOMA[idioma],
   'Devolva UMA tarefa só: a mais útil e mais concreta.',
   'O título diz a AÇÃO do atendente ("Ligar para confirmar o endereço"), nunca um resumo da conversa.',
   'Se o cliente combinou dia ou hora, use exatamente o que foi combinado.',
@@ -311,6 +322,7 @@ export interface EntradaSugestao {
   mensagens: { de: 'cliente' | 'atendente'; texto: string }[]
   tipos: { id: string; label: string }[]
   cliente: string
+  idioma: Idioma
   /** 'YYYY-MM-DD' de hoje, no fuso de quem está usando — o servidor não sabe. */
   hoje: string
 }
@@ -338,7 +350,7 @@ export async function sugerirTarefa(apiKey: string, entrada: EntradaSugestao): P
     model: MODEL,
     contents: prompt,
     config: {
-      systemInstruction: TAREFA_SYSTEM,
+      systemInstruction: tarefaSystem(entrada.idioma),
       maxOutputTokens: 1_000,
       responseMimeType: 'application/json',
       responseJsonSchema: TAREFA_SCHEMA,

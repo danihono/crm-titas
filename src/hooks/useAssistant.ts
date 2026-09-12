@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
+import { idiomaAtual, type Idioma } from '../store/localeStore'
 import { doc, onSnapshot, collection, query, orderBy, addDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../lib/firebase'
@@ -94,12 +95,14 @@ export async function pushAgentMessage(role: 'user' | 'agent', text: string) {
 }
 
 interface AskRequest { system: string; history: { role: 'user' | 'assistant'; content: string }[]; question: string }
+/** O que vai no payload: o pedido da tela + o idioma em que a resposta deve sair. */
+type AskPayload = AskRequest & { idioma: Idioma }
 interface AskResponse { reply: string }
 
 /** Chama a Cloud Function askTitaIA (Gemini). Lança em erro de rede/quota. */
 export async function callTitaIA(req: AskRequest): Promise<string> {
-  const fn = httpsCallable<AskRequest, AskResponse>(functions, 'askTitaIA')
-  const res = await fn(req)
+  const fn = httpsCallable<AskPayload, AskResponse>(functions, 'askTitaIA')
+  const res = await fn({ ...req, idioma: idiomaAtual() })
   return (res.data?.reply || '').trim()
 }
 
