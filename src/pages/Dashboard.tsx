@@ -22,6 +22,22 @@ function novoId(type: string, usados: DashboardWidget[]): string {
   return `${type}-${i}`
 }
 
+/**
+ * Relógio do cabeçalho, atualizado de segundo em segundo.
+ *
+ * Um `setInterval` só, no cabeçalho: o resto do painel não re-renderiza por
+ * causa dele porque o estado mora AQUI, e não na tela inteira — trocar o
+ * segundo não pode remontar o mapa de calor.
+ */
+function useRelogio(): string {
+  const [hora, setHora] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setHora(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(hora)
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const profile = useSelfProfile()
@@ -100,6 +116,7 @@ export default function Dashboard() {
   }
 
   const dateLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' }).format(now)
+  const hora = useRelogio()
 
   return (
     // O painel cabe numa tela só: altura fixa, cabeçalho e uma GRADE EXPLÍCITA de
@@ -107,9 +124,17 @@ export default function Dashboard() {
     // implícitas elas passariam a ser dimensionadas pelo conteúdo, os cards
     // perderiam altura definida e o "rola por dentro do card" deixaria de valer
     // em silêncio. `minHeight` é a válvula para janela baixa demais.
-    <div style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
+    <div className="dash" style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
+      <div className="dash-head" style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+            <span className="hud-dot" />
+            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: C.muted }}>
+              Painel · Titãs
+            </span>
+            <span style={{ width: 1, height: 10, background: C.divider }} />
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', color: C.faint, textTransform: 'capitalize' }}>{dateLabel}</span>
+          </div>
           <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.25 }}>
             {greeting(profile.displayName || user?.displayName || user?.email || '').split(' · ')[0]}
           </h1>
@@ -122,16 +147,20 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          {!editando && <span style={{ fontSize: 12, color: C.muted, textTransform: 'capitalize', marginRight: 4 }}>{dateLabel}</span>}
+          {!editando && (
+            <span className="hud-clock" style={{ fontSize: 19, fontWeight: 300, color: C.ink, marginRight: 6 }}>{hora}</span>
+          )}
           {usaPeriodo && [30, 90, 365].map((d) => (
             <button
               key={d}
+              className="hud-btn"
+              data-on={dias === d ? '1' : '0'}
               onClick={() => setDias(d)}
               style={{
                 border: '1px solid ' + (dias === d ? C.selBorder : C.fieldBorder),
                 background: dias === d ? C.sel : C.surface,
                 color: dias === d ? C.purple : C.sub,
-                borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
               }}
             >
               {d === 365 ? '12 meses' : `${d} dias`}
@@ -140,9 +169,10 @@ export default function Dashboard() {
           {!editando && !readOnly && (
             <button
               onClick={abrirEdicao}
+              className="hud-btn"
               title="Montar o painel do meu jeito"
               style={{
-                width: 34, height: 34, borderRadius: 10, background: C.surface,
+                width: 34, height: 34, background: C.surface,
                 border: `1px solid ${C.fieldBorder}`, color: C.sub, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -173,6 +203,7 @@ export default function Dashboard() {
       )}
 
       <div
+        className="dash-grid"
         style={{
           flex: 1, minHeight: 0, display: 'grid',
           gridTemplateColumns: `repeat(${COLUNAS},1fr)`,
