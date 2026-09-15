@@ -46,6 +46,7 @@ export interface DadosPainel {
   serieNovoPipeline: number[]
   serieNegocios: number[]
   serieLeads: number[]
+  serieTarefas: number[]
   // atividades
   typeMap: Record<string, ActType>
   feed: Activity[]
@@ -180,6 +181,13 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
     [leadCards, primeiraEtapa, faixas],
   )
 
+  // Tarefas que VENCERAM em cada semana — a carga de trabalho, não a conclusão.
+  // "Concluídas por semana" não existe no modelo: `toggleActivity` grava só
+  // `done`, e não há `doneAt` em lugar nenhum. A agenda não ganha série pelo
+  // mesmo tipo de motivo: `useEvents` assina UM mês, então dez das doze semanas
+  // sairiam zeradas e a linha leria como queda a zero.
+  const serieTarefas = useMemo(() => porSemana(activities, (a) => a.dueAt, faixas), [activities, faixas])
+
   // ── Atividades e agenda ─────────────────────────────────────────────────
   const typeMap = useMemo(() => Object.fromEntries(types.map((t) => [t.id, t])), [types])
   const pendentes = useMemo(
@@ -231,7 +239,7 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   return {
     deals, pipelineTotal, ticket, leadsNovos, leadsTotal: leadCards.length,
     origens, donutGradient, funil, ganhosMes, leadsMes,
-    serieNovoPipeline, serieNegocios, serieLeads,
+    serieNovoPipeline, serieNegocios, serieLeads, serieTarefas,
     typeMap, feed: activities.slice(0, 8), pendentes, pendingToday, nextPending: pendentes[0],
     todayEvents, proximosEventos,
     heat, relatorio,

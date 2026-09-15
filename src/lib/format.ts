@@ -181,6 +181,35 @@ export function fmtSize(bytes: number): string {
 }
 
 /** Saudação por horário. */
+/** Como a variação deve ser lida: subiu, caiu, ou não mudou. */
+export interface Variacao {
+  /** '▲' · '▼' · '=' */
+  seta: string
+  /** "22,2%" — já em vírgula decimal e sem sinal (a seta carrega o sentido). */
+  texto: string
+  sentido: 'sobe' | 'cai' | 'igual'
+}
+
+/**
+ * Formata uma variação percentual para os chips do painel.
+ *
+ * O caso que motiva a função é o ZERO. Uma variação de 0 (ou de 0,04%, que
+ * arredonda para "0,0%") saía como "▲ 0,0%": seta de subida para coisa que não
+ * subiu. O corte é 0,05 — o mesmo ponto em que o `toFixed(1)` abaixo passa a
+ * exibir "0,1" —, para o desenho nunca discordar do número que está do lado.
+ *
+ * Fica aqui, e não dentro dos cards, porque são DOIS chips com paletas
+ * diferentes (StatCard sobre superfície, HeroCard sobre o roxo) e a regra de
+ * arredondamento tem de ser a mesma nos dois.
+ */
+export function variacao(pct: number): Variacao {
+  const texto = Math.abs(pct).toFixed(1).replace('.', ',') + '%'
+  if (Math.abs(pct) < 0.05) return { seta: '=', texto, sentido: 'igual' }
+  return pct > 0
+    ? { seta: '▲', texto, sentido: 'sobe' }
+    : { seta: '▼', texto, sentido: 'cai' }
+}
+
 export function greeting(name: string, now = new Date()): string {
   const h = now.getHours()
   const part = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'

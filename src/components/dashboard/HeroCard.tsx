@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import MaterialIcon from '../common/MaterialIcon'
+import { variacao } from '../../lib/format'
 
 /**
  * O bloco em destaque do painel: um número grande sobre o roxo da marca.
@@ -116,21 +117,26 @@ export default function HeroCard({
   )
 }
 
-/** ▲/▼ sobre o roxo: o par de cores do StatCard não vale aqui, o fundo é outro. */
+/** ▲/▼/= sobre o roxo: o par de cores do StatCard não vale aqui, o fundo é outro. */
 function Delta({ pct }: { pct: number }) {
-  const sobe = pct >= 0
+  const v = variacao(pct)
+  const cor = v.sentido === 'igual'
+    ? 'rgba(244,238,250,0.82)'
+    : v.sentido === 'sobe' ? '#b6f0d5' : '#ffc4d8'
   return (
     <span
-      title="Mês corrente contra o mês anterior fechado."
+      title={v.sentido === 'igual'
+        ? 'Sem mudança sobre o mês anterior.'
+        : 'Mês corrente contra o mês anterior fechado.'}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3,
         fontSize: 11.5, fontWeight: 700,
-        color: sobe ? '#b6f0d5' : '#ffc4d8',
+        color: cor,
         background: 'rgba(255,255,255,0.15)',
         borderRadius: 20, padding: '3px 9px',
       }}
     >
-      {sobe ? '▲' : '▼'} {Math.abs(pct).toFixed(1).replace('.', ',')}%
+      {v.seta} {v.texto}
     </span>
   )
 }

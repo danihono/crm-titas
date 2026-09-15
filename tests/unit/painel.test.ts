@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ganhosPorMes, leadsDoMes } from '../../src/lib/dashboardData'
+import { variacao } from '../../src/lib/format'
 import { filaDeEspera } from '../../src/lib/reportData'
 import type { Contact, ConvState, Deal } from '../../src/types'
 
@@ -170,5 +171,28 @@ describe('fila de espera', () => {
     }))
     const fila = filaDeEspera(muitos, 3)
     expect(fila.map((l) => l.contactId)).toEqual(['c0', 'c1', 'c2'])
+  })
+})
+
+describe('chip de variação', () => {
+  it('trata zero como neutro, sem seta de subida', () => {
+    // O defeito que motivou a função: "▲ 0,0%" — seta de subida no que não subiu.
+    expect(variacao(0)).toEqual({ seta: '=', texto: '0,0%', sentido: 'igual' })
+  })
+
+  it('é neutro em tudo que ARREDONDA para 0,0%', () => {
+    // O corte tem de ser o mesmo do texto: se sai "0,0%", a seta não pode dizer
+    // outra coisa. 0,04 exibe "0,0"; 0,05 já exibe "0,1".
+    expect(variacao(0.04).sentido).toBe('igual')
+    expect(variacao(-0.04).sentido).toBe('igual')
+    expect(variacao(0.05).sentido).toBe('sobe')
+    expect(variacao(0.05).texto).toBe('0,1%')
+    expect(variacao(-0.05).sentido).toBe('cai')
+  })
+
+  it('mostra sentido e número em vírgula decimal, sem sinal', () => {
+    expect(variacao(22.22)).toEqual({ seta: '▲', texto: '22,2%', sentido: 'sobe' })
+    // A seta carrega o sinal: "▼ -34,5%" leria como dupla negação.
+    expect(variacao(-34.5)).toEqual({ seta: '▼', texto: '34,5%', sentido: 'cai' })
   })
 })

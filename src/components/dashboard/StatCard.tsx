@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { C } from '../../styles/sx'
 import { sparkline } from '../../lib/sparkline'
+import { variacao } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
 
 export type Accent = 'purple' | 'green' | 'amber' | 'rose' | 'blue'
@@ -174,16 +175,28 @@ export default function StatCard({
   )
 }
 
-/** ▲/▼ com o mesmo formato e as mesmas cores da variação do gráfico de receita. */
+/** ▲/▼/= com o mesmo formato e as mesmas cores da variação do gráfico de receita. */
 function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
-  const sobe = pct >= 0
+  const v = variacao(pct)
   // O card em destaque é escuro NOS DOIS temas, então o par de cores dele é
   // fixo e claro: C.green/C.rose são calibrados para superfície clara e ficam
   // apagados ali.
-  const cor = featured ? (sobe ? '#6fd7ae' : '#f0a0bd') : sobe ? C.green : C.rose
+  //
+  // Variação nula é NEUTRA nos dois: pintar de verde um "não mudou" é a mesma
+  // mentira que a seta para cima que este chip tinha antes.
+  const cor = v.sentido === 'igual'
+    ? (featured ? 'rgba(238,228,248,0.72)' : C.muted)
+    : featured
+      ? (v.sentido === 'sobe' ? '#6fd7ae' : '#f0a0bd')
+      : v.sentido === 'sobe' ? C.green : C.rose
+  const fundo = featured
+    ? 'rgba(255,255,255,0.1)'
+    : v.sentido === 'igual' ? C.tintNeutral : v.sentido === 'sobe' ? C.tintGreen : C.tintRose
   return (
     <span
-      title="Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação."
+      title={v.sentido === 'igual'
+        ? 'Sem mudança sobre a semana fechada anterior.'
+        : 'Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação.'}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -191,12 +204,12 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
         fontSize: 11,
         fontWeight: 700,
         color: cor,
-        background: featured ? 'rgba(255,255,255,0.1)' : sobe ? C.tintGreen : C.tintRose,
+        background: fundo,
         borderRadius: 20,
         padding: '2px 8px',
       }}
     >
-      {sobe ? '▲' : '▼'} {Math.abs(pct).toFixed(1).replace('.', ',')}%
+      {v.seta} {v.texto}
     </span>
   )
 }

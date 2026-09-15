@@ -89,7 +89,8 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
         sub: dados.nextPending
           ? `${dados.nextPending.title} · ${dueInfo(dados.nextPending.dueAt, dados.nextPending.done).text}`
           : 'Nada pendente para hoje.',
-        icon: 'task_alt', accent: 'purple',
+        icon: 'task_alt', accent: 'purple', series: dados.serieTarefas,
+        info: 'O número é o que vence hoje; a linha conta as tarefas que venceram em cada uma das últimas 12 semanas — a carga de trabalho, não o que foi concluído (o modelo não guarda quando uma tarefa foi marcada como feita).',
         linkLabel: 'Ver tarefas', onLink: () => navigate('/atividades'),
       })
 
