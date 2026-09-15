@@ -138,12 +138,18 @@ export function nextOrder(deals: Deal[], columnId: string): number {
 /**
  * Cria o quadro já com três etapas — um quadro sem etapa não serve para nada. Todas são
  * renomeáveis, recoloríveis e removíveis depois; o que vem pronto é só o ponto de partida.
+ *
+ * As três nascem NO IDIOMA DE QUEM ESTÁ CRIANDO, e depois nunca mais mudam.
+ * Não dá para traduzir na hora de mostrar, como o quadro Leads faz: este quadro
+ * é da pessoa, e ela pode renomear qualquer etapa no minuto seguinte — traduzir
+ * pelo id apagaria a palavra dela. Semear no idioma ativo é o único momento em
+ * que o sistema sabe, sem adivinhar, em que língua ela está trabalhando.
  */
 export async function addBoard(name: string, icon = 'dashboard', color = '#7a52a0'): Promise<string> {
   const columns = [
-    { id: 'c1', title: 'A fazer', color: '#6f9bcf', order: 0 },
-    { id: 'c2', title: 'Em andamento', color: '#d8a960', order: 1 },
-    { id: 'c3', title: 'Concluído', color: '#5fc9a6', order: 2 },
+    { id: 'c1', title: t('sistema.etapaAFazer'), color: '#6f9bcf', order: 0 },
+    { id: 'c2', title: t('sistema.etapaEmAndamento'), color: '#d8a960', order: 1 },
+    { id: 'c3', title: t('sistema.etapaConcluido'), color: '#5fc9a6', order: 2 },
   ]
   const r = await addDoc(col('boards'), { name, icon, color, columns, createdAt: serverTimestamp() })
   return r.id

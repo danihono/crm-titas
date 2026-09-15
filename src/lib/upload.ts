@@ -69,7 +69,7 @@ export function safeFileName(name: string): string {
  */
 export function validarAnexo(file: File, maxBytes = MAX_UPLOAD_BYTES): string {
   if (file.size >= maxBytes) {
-    throw new Error(`Arquivo grande demais: o limite é ${Math.floor(maxBytes / 1024 / 1024)} MB.`)
+    throw new Error(t('erro.arquivoGrande', { limite: Math.floor(maxBytes / 1024 / 1024) }))
   }
   const mime = (file.type || '').toLowerCase()
   if (!mime) {
@@ -84,7 +84,7 @@ export function validarAnexo(file: File, maxBytes = MAX_UPLOAD_BYTES): string {
 /** Mesma validação, restrita a imagem (foto de perfil, avatar de contato, logo). */
 export function validarImagem(file: File, maxBytes = MAX_IMAGEM_BYTES): string {
   if (file.size >= maxBytes) {
-    throw new Error(`A imagem precisa ter no máximo ${Math.floor(maxBytes / 1024 / 1024)} MB.`)
+    throw new Error(t('erro.imagemGrande', { limite: Math.floor(maxBytes / 1024 / 1024) }))
   }
   const mime = (file.type || '').toLowerCase()
   if (!ehImagem(mime)) {

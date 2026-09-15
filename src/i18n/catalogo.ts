@@ -1408,4 +1408,14 @@ export const CATALOGO = {
   'graf.ganhoMes_1': ['{mes}: {n} ganho', '{mes}: {n} ganado', '{mes}: {n} won'],
   'graf.ganhoMes_n': ['{mes}: {n} ganhos', '{mes}: {n} ganados', '{mes}: {n} won'],
   'painel.semOrigem': ['Sem origem', 'Sin origen', 'No source'],
+  'sistema.etapaAFazer': ['A fazer', 'Por hacer', 'To do'],
+  'sistema.etapaEmAndamento': ['Em andamento', 'En curso', 'In progress'],
+  'sistema.etapaConcluido': ['Conclu\u00eddo', 'Terminado', 'Done'],
+  'ia.baseConhecimento': [
+    'BASE DE CONHECIMENTO (material da empresa \u2014 prefira estas informa\u00e7\u00f5es \u00e0s suas suposi\u00e7\u00f5es):',
+    'BASE DE CONOCIMIENTO (material de la empresa \u2014 prefiere esta informaci\u00f3n a tus suposiciones):',
+    'KNOWLEDGE BASE (company material \u2014 prefer this information over your own assumptions):',
+  ],
+  'erro.arquivoGrande': ['Arquivo grande demais: o limite \u00e9 {limite} MB.', 'Archivo demasiado grande: el l\u00edmite es {limite} MB.', 'File too large: the limit is {limite} MB.'],
+  'erro.imagemGrande': ['A imagem precisa ter no m\u00e1ximo {limite} MB.', 'La imagen puede tener como m\u00e1ximo {limite} MB.', 'The image must be at most {limite} MB.'],
 } satisfies Record<string, Tri>

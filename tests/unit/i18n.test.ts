@@ -155,6 +155,21 @@ describe('a fronteira entre o que o sistema escreveu e o que a pessoa escreveu',
     expect(tituloEtapa('meu-funil', qualificado)).toBe('Qualificado')
   })
 
+  it('quadro criado em inglês nasce com etapas em inglês — e elas ficam', () => {
+    // `addBoard` semeia as três etapas com estas chaves, no idioma ativo na hora
+    // de criar. Esse é o único instante em que o sistema sabe em que língua a
+    // pessoa está trabalhando sem adivinhar.
+    em('en')
+    const semeadas = [t('sistema.etapaAFazer'), t('sistema.etapaEmAndamento'), t('sistema.etapaConcluido')]
+    expect(semeadas).toEqual(['To do', 'In progress', 'Done'])
+
+    // Gravadas, viraram texto DELA. Voltar a tela para português não as traduz
+    // de volta: o quadro não é o Leads, e ela pode ter renomeado qualquer uma.
+    em('pt')
+    const aFazer = { id: 'c1', title: 'To do', color: '#000', order: 0 }
+    expect(tituloEtapa('meu-quadro', aFazer)).toBe('To do')
+  })
+
   it('etapa com id desconhecido no Leads sai como está', () => {
     em('en')
     expect(tituloEtapa('leads', { ...qualificado, id: 'inventado' })).toBe('Qualificado')

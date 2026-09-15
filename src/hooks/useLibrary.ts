@@ -150,5 +150,5 @@ export function knowledgeContext(docs: KnowledgeDoc[]): string {
     parts.push(block)
   }
   if (parts.length === 0) return ''
-  return `\nBASE DE CONHECIMENTO (material da empresa — prefira estas informações às suas suposições):\n${parts.join('')}`
+  return `\n${t('ia.baseConhecimento')}\n${parts.join('')}`
 }
