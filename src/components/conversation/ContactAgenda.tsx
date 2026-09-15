@@ -53,7 +53,7 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
       {canWrite && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <RingButton radius={11} onClick={() => onNova()} style={{ ...sx.btnPrimary, flex: 1, justifyContent: 'center' }}>
-            <MaterialIcon name="add_task" size={17} /> Nova atividade
+            <MaterialIcon name="add_task" size={17} /> {traduz('atividades.nova')}
           </RingButton>
           <RingButton
             radius={11}

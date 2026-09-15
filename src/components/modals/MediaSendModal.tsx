@@ -81,7 +81,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
         {!sending && <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />}
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>
-        Para <b>{contactName}</b>.
+        {t('modal.midiaDestino')} <b>{contactName}</b>.
       </div>
 
       <div style={{ background: C.field, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: 12, marginBottom: 14 }}>
@@ -97,7 +97,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
             <MaterialIcon name="description" size={26} color={C.purple} style={{ background: C.tintPurple, width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-              <div style={{ fontSize: 11.5, color: C.muted }}>{file.type || 'arquivo'}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>{file.type || t('modal.arquivoGenerico')}</div>
             </div>
           </div>
         )}
@@ -113,7 +113,7 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '9px 12px', marginBottom: 14 }}>
           <MaterialIcon name="error_outline" size={17} color={C.rose} />
           <div style={{ fontSize: 12, color: C.roseDeep }}>
-            Este arquivo tem {fmtSize(file.size)} e o limite é 10 MB. Escolha um menor (ou comprima o vídeo) e tente de novo.
+            {t('modal.midiaGrandeDemais', { tamanho: fmtSize(file.size), limite: fmtSize(MAX_UPLOAD_BYTES) })}
           </div>
         </div>
       )}

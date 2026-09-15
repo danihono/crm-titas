@@ -95,7 +95,7 @@ export default function AtendimentoBar({
           onClick={() => run(() => assignConversation(contact, meUid, meName))}
           style={actionStyle('#1f8a4c', 'rgba(52,199,89,0.14)')}
         >
-          <MaterialIcon name="how_to_reg" size={15} /> Assumir
+          <MaterialIcon name="how_to_reg" size={15} /> {t('atend.assumir')}
         </button>
       )}
 
@@ -194,7 +194,7 @@ export default function AtendimentoBar({
               onClick={() => run(() => setConversationStatus(contact, 'esperando'))}
               style={actionStyle('#8a5f12', 'rgba(216,169,96,0.18)')}
             >
-              <MaterialIcon name="hourglass_top" size={15} /> Esperando
+              <MaterialIcon name="hourglass_top" size={15} /> {t('atend.esperando')}
             </button>
           )}
           {conv.status === 'esperando' && (
@@ -202,7 +202,7 @@ export default function AtendimentoBar({
               onClick={() => run(() => setConversationStatus(contact, 'entrada'))}
               style={actionStyle(C.purple, 'rgba(150,110,200,0.12)')}
             >
-              <MaterialIcon name="undo" size={15} /> Voltar à entrada
+              <MaterialIcon name="undo" size={15} /> {t('atend.voltarEntrada')}
             </button>
           )}
           <button
@@ -219,7 +219,7 @@ export default function AtendimentoBar({
           onClick={() => run(() => reopenConversation(contact))}
           style={actionStyle(C.purple, 'rgba(150,110,200,0.12)')}
         >
-          <MaterialIcon name="refresh" size={15} /> Reabrir atendimento
+          <MaterialIcon name="refresh" size={15} /> {t('atend.reabrir')}
         </button>
       )}
     </div>

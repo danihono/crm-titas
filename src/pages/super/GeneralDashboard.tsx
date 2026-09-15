@@ -56,7 +56,7 @@ export default function GeneralDashboard() {
 
       <div className="rounded-2xl p-6 border border-[rgba(176,148,210,0.12)] bg-[rgba(255,255,255,0.03)]">
         <div className="flex items-center justify-between mb-4">
-          <div className="text-[15px] font-bold text-[#f1ecf5]">Ranking de clientes por pipeline</div>
+          <div className="text-[15px] font-bold text-[#f1ecf5]">{t('super.rankingClientes')}</div>
           <button onClick={() => navigate('/super/clientes')} className="text-[12px] text-[#c9a6e0] font-semibold">{t('super.verTodos')}</button>
         </div>
         {ranking.length === 0 && <div className="text-sm text-[#8a7d97] py-6 text-center">{t('super.semClientes')}</div>}

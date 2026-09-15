@@ -232,7 +232,7 @@ export default function KanbanBoard() {
         {!readOnly && <>
           <div style={{ width: 1, height: 24, background: C.divider, margin: '0 4px' }} />
           <RingButton radius={11} onClick={() => setBoardModal('novo')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.inverse, border: `1px solid ${C.inverse}`, padding: '9px 14px', color: C.onInverse, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            <MaterialIcon name="dashboard_customize" size={18} /> Novo quadro
+            <MaterialIcon name="dashboard_customize" size={18} /> {t('quadro.novo')}
           </RingButton>
         </>}
       </div>

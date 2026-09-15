@@ -1365,4 +1365,17 @@ export const CATALOGO = {
 
   // ── SUPER TITAN · rótulos do cartão ───────────────────────────────────
   'super.pipelineMin': ['pipeline', 'pipeline', 'pipeline'],
+
+  // ── Últimos botões ────────────────────────────────────────────────────
+  'atend.voltarEntrada': ['Voltar à entrada', 'Volver a la entrada', 'Back to inbox'],
+  'contatos.novo': ['Novo', 'Nuevo', 'New'],
+  'atend.assumir': ['Assumir', 'Asumir', 'Take over'],
+  'atend.esperando': ['Esperando', 'Esperando', 'Waiting'],
+  'atend.reabrir': ['Reabrir atendimento', 'Reabrir la atenci\u00f3n', 'Reopen conversation'],
+  'modal.midiaDestino': ['Para', 'Para', 'To'],
+  'modal.midiaGrandeDemais': ['Este arquivo tem {tamanho} e o limite \u00e9 {limite}. Escolha um menor (ou comprima o v\u00eddeo) e tente de novo.', 'Este archivo tiene {tamanho} y el l\u00edmite es {limite}. Elige uno m\u00e1s peque\u00f1o (o comprime el v\u00eddeo) e int\u00e9ntalo de nuevo.', 'This file is {tamanho} and the limit is {limite}. Pick a smaller one (or compress the video) and try again.'],
+  'modal.arquivoGenerico': ['arquivo', 'archivo', 'file'],
+  'contatos.semArquivoSalvo': ['sem arquivo salvo', 'sin archivo guardado', 'no file saved'],
+  'super.rankingClientes': ['Ranking de clientes por pipeline', 'Ranking de clientes por pipeline', 'Clients ranked by pipeline'],
+  'respostas.atalhoExemplo': ['ola', 'hola', 'hello'],
 } satisfies Record<string, Tri>

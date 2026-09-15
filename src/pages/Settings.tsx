@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { canEditSettings, canSeeSettings, useTenantStore } from '../store/tenantStore'
+import { useUIStore } from '../store/uiStore'
+import type { SettingsSection } from '../types'
 import { sx, C } from '../styles/sx'
 import { t, type Chave } from '../i18n'
 import MaterialIcon from '../components/common/MaterialIcon'
@@ -18,12 +20,8 @@ import LibrarySection from '../components/settings/LibrarySection'
 import KnowledgeSection from '../components/settings/KnowledgeSection'
 import SchedulesSection from '../components/settings/SchedulesSection'
 
-type SectionId =
-  | 'perfil' | 'preferencias'
-  | 'equipe' | 'setores' | 'horarios'
-  | 'etiquetas' | 'campos' | 'biblioteca'
-  | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos'
-  | 'org'
+// O tipo mora em types.ts porque a seção aberta vive no uiStore — ver a nota lá.
+type SectionId = SettingsSection
 
 /**
  * O grupo é um ID, e não o texto do cabeçalho, porque ele decide PERMISSÃO:
@@ -64,7 +62,8 @@ const SECTIONS: SectionDef[] = [
 ]
 
 export default function Settings() {
-  const [active, setActive] = useState<SectionId>('perfil')
+  const active = useUIStore((s) => s.settingsSection)
+  const setActive = useUIStore((s) => s.setSettingsSection)
   const readOnly = useTenantStore((s) => s.readOnly)
   const role = useTenantStore((s) => s.role)
   const canEdit = canEditSettings(role, readOnly)

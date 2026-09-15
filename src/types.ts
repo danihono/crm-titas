@@ -3,6 +3,13 @@
 
 export type FileType = 'pdf' | 'doc' | 'img' | 'xls'
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** Seção aberta em Configurações. Mora no uiStore — ver a nota lá. */
+export type SettingsSection =
+  | 'perfil' | 'preferencias'
+  | 'equipe' | 'setores' | 'horarios'
+  | 'etiquetas' | 'campos' | 'biblioteca'
+  | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos'
+  | 'org'
 /** Idioma da interface. O padrão de quem nunca escolheu vem do navegador. */
 export type Idioma = 'pt' | 'es' | 'en'
 /** Cor de acento de um card do painel. */

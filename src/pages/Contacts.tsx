@@ -590,7 +590,7 @@ function Atendimento() {
               )}
               {!readOnly && (
                 <button onClick={ui.openContactModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.purple, background: C.tintPurple, border: 'none', borderRadius: 9, padding: '6px 10px', fontWeight: 700, cursor: 'pointer' }}>
-                  <MaterialIcon name="person_add" size={16} /> Novo
+                  <MaterialIcon name="person_add" size={16} /> {t('contatos.novo')}
                 </button>
               )}
             </div>
@@ -1207,7 +1207,7 @@ function MediaBar({ broken, recovery, busy, onRetry }: { broken: number; recover
       </div>
       {!loading && (
         <button onClick={onRetry} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: C.tintPurple, border: '1px solid rgba(150,110,200,0.24)', borderRadius: 10, padding: '8px 13px', color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          <MaterialIcon name="download" size={16} /> Recuperar mídias
+          <MaterialIcon name="download" size={16} /> {t('wa.recuperarMidias')}
         </button>
       )}
     </div>
@@ -1282,7 +1282,7 @@ function MessageBody({ message: m }: { message: Message }) {
       {legacyMediaPlaceholder && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: muted, fontStyle: 'italic' }}>
           <MaterialIcon name="hide_image" size={15} color={muted} />
-          <span>{m.text} sem arquivo salvo</span>
+          <span>{m.text} {t('contatos.semArquivoSalvo')}</span>
         </div>
       )}
       {/* Compara com o marcador CANÔNICO, não com o traduzido: o `text` gravado

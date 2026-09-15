@@ -47,7 +47,7 @@ export default function QuickRepliesSection({ canEdit }: { canEdit: boolean }) {
         <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12 }}>
             <Field label={t('respostas.atalho')}>
-              <input value={shortcut} placeholder="ola" onChange={(e) => setShortcut(e.target.value)} style={sx.input} />
+              <input value={shortcut} placeholder={t('respostas.atalhoExemplo')} onChange={(e) => setShortcut(e.target.value)} style={sx.input} />
             </Field>
             <Field label={t('respostas.titulo1')}>
               <input value={title} placeholder={t('respostas.tituloExemplo')} onChange={(e) => setTitle(e.target.value)} style={sx.input} />
