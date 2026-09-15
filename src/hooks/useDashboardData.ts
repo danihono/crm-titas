@@ -10,9 +10,10 @@ import { useSectors, useTags } from './useSettings'
 import { revenueChart, type RevChart } from './useRevenueChart'
 import {
   buildLeadFunnel, buildHeatmap, aReceberPorSemana, vencidasPorSemana,
-  type LeadFunnel as Funil, type Heatmap,
+  ganhosPorMes, leadsDoMes,
+  type LeadFunnel as Funil, type Heatmap, type MesGanho, type LeadsDoMes,
 } from '../lib/dashboardData'
-import { buildReport, filaAgora, type ReportModel } from '../lib/reportData'
+import { buildReport, filaAgora, filaDeEspera, type ReportModel, type EmEspera } from '../lib/reportData'
 import { semanas, porSemana } from '../lib/sparkline'
 import { dateKeyOf } from '../lib/format'
 import { srcMap } from '../lib/theme'
@@ -40,6 +41,8 @@ export interface DadosPainel {
   origens: Origem[]
   donutGradient: string
   funil: Funil
+  ganhosMes: MesGanho[]
+  leadsMes: LeadsDoMes
   serieNovoPipeline: number[]
   serieNegocios: number[]
   serieLeads: number[]
@@ -64,6 +67,7 @@ export interface DadosPainel {
   receita: RevChart
   // agora
   fila: { fila: number; atendimento: number; esperando: number }
+  espera: EmEspera[]
   pendencias: number
 }
 
@@ -156,6 +160,16 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   // ── Séries semanais ─────────────────────────────────────────────────────
   const todayKey = dateKeyOf(agora)
   const faixas = useMemo(() => semanas(12, agora), [todayKey])
+
+  // ── Mês a mês ───────────────────────────────────────────────────────────
+  // Sobre TODOS os negócios, e não só os do quadro LEADS: quem trabalha em quadro
+  // próprio também fecha venda, e um gráfico de ganhos que ignora esse quadro
+  // mostraria um mês vazio sem nada avisando. A etapa `ganho` é a do quadro fixo
+  // (useDeals.LEADS_COLUMNS), e quadro próprio que use o mesmo id entra junto.
+  const ganhosMes = useMemo(() => ganhosPorMes(deals, agora), [deals, todayKey])
+  // Os leads, esses sim, são os do quadro LEADS — é a mesma coorte do funil.
+  const leadsMes = useMemo(() => leadsDoMes(leadCards, agora), [leadCards, todayKey])
+
   const serieNovoPipeline = useMemo(
     () => porSemana(deals, (d) => d.createdAt, faixas, (d) => d.value || 0),
     [deals, faixas],
@@ -212,16 +226,18 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   // A conta é a MESMA dos Relatórios (lib/reportData.ts) — dois números iguais
   // na tela têm de vir da mesma função, senão divergem no primeiro ajuste.
   const fila = useMemo(() => filaAgora(contacts), [contacts])
+  const espera = useMemo(() => filaDeEspera(contacts), [contacts])
 
   return {
     deals, pipelineTotal, ticket, leadsNovos, leadsTotal: leadCards.length,
-    origens, donutGradient, funil, serieNovoPipeline, serieNegocios, serieLeads,
+    origens, donutGradient, funil, ganhosMes, leadsMes,
+    serieNovoPipeline, serieNegocios, serieLeads,
     typeMap, feed: activities.slice(0, 8), pendentes, pendingToday, nextPending: pendentes[0],
     todayEvents, proximosEventos,
     heat, relatorio,
     aReceber, serieAReceber, vencidas: vencidasList.length,
     vencidoSum: vencidasList.reduce((s, iv) => s + iv.value, 0), serieVencidas, receita,
-    fila,
+    fila, espera,
     pendencias: todayEvents.length + pendingToday.length,
   }
 }

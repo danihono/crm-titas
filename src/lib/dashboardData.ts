@@ -1,5 +1,6 @@
 import type { Column, ConversationRecord, Deal, Invoice } from '../types'
 import type { Semana } from './sparkline'
+import { MESES_CURTO } from './format'
 
 /**
  * Cálculo dos gráficos do painel — funções PURAS, sem React.
@@ -213,4 +214,114 @@ export function vencidasPorSemana(invoices: Invoice[], faixas: Semana[]): number
       return iv.dueAt.getTime() < t ? n + 1 : n
     }, 0)
   })
+}
+
+/* ── Negócios ganhos, mês a mês ─────────────────────────────────────────── */
+
+/** Um mês da série de ganhos. `valor` é a soma do que foi ganho no mês. */
+export interface MesGanho {
+  /** "Set" — rótulo curto do eixo. */
+  label: string
+  /** "Setembro de 2025" — o mês por extenso, para o balão do hover. */
+  titulo: string
+  count: number
+  valor: number
+}
+
+/** Índice de mês contínuo: ano × 12 + mês. Compara meses sem cair na virada do ano. */
+function chaveMes(d: Date): number {
+  return d.getFullYear() * 12 + d.getMonth()
+}
+
+const MESES_LONGO = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+/**
+ * Quantos negócios chegaram à etapa GANHO em cada um dos últimos meses.
+ *
+ * A data é `reachedAt[etapa]`, que o Kanban grava na PRIMEIRA vez que o card
+ * alcança a etapa e nunca reescreve — por isso "ganho em março" continua sendo
+ * março mesmo que o card ande depois. Negócio sem essa data simplesmente não
+ * entra: o modelo não guarda quando ele foi ganho, e chutar `createdAt` aqui
+ * encheria o gráfico de vitória que ninguém teve.
+ *
+ * Mês sem nada vira zero explícito, e não um buraco: a série precisa ter uma
+ * barra por mês para o eixo fazer sentido.
+ */
+export function ganhosPorMes(
+  deals: Deal[],
+  now = new Date(),
+  meses = 12,
+  etapa = 'ganho',
+): MesGanho[] {
+  const primeira = chaveMes(now) - (meses - 1)
+
+  const out: MesGanho[] = []
+  for (let i = 0; i < meses; i++) {
+    const k = primeira + i
+    const m = ((k % 12) + 12) % 12
+    out.push({ label: MESES_CURTO[m], titulo: `${MESES_LONGO[m]} de ${Math.floor(k / 12)}`, count: 0, valor: 0 })
+  }
+
+  for (const d of deals) {
+    const quando = d.reachedAt?.[etapa]
+    if (!quando) continue
+    const i = chaveMes(quando) - primeira
+    if (i < 0 || i >= meses) continue
+    out[i].count++
+    out[i].valor += d.value || 0
+  }
+
+  return out
+}
+
+/* ── Leads do mês ───────────────────────────────────────────────────────── */
+
+export interface LeadsDoMes {
+  /** Leads criados no mês corrente. */
+  count: number
+  /** Quantos desses já chegaram à etapa Ganho. */
+  ganhos: number
+  /** Variação sobre o mês anterior, em %. Null quando o mês anterior foi zero. */
+  changePct: number | null
+  /** "Setembro" — o mês corrente por extenso. */
+  mes: string
+}
+
+/**
+ * Os leads que nasceram neste mês, com o mês anterior como base de comparação.
+ *
+ * A coorte é por `createdAt`, exatamente como em `buildLeadFunnel` — os dois
+ * blocos convivem na mesma tela, e duas definições de "lead do mês" divergindo
+ * à vista de quem olha é pior que não ter o número.
+ *
+ * Lead sem `createdAt` (o campo é opcional) não entra em mês nenhum: sem data
+ * não há como dizer se é deste mês, e jogá-lo no atual inflaria o número de hoje
+ * com cadastro antigo.
+ */
+export function leadsDoMes(leads: Deal[], now = new Date(), etapa = 'ganho'): LeadsDoMes {
+  const atual = chaveMes(now)
+  let count = 0
+  let ganhos = 0
+  let anterior = 0
+
+  for (const l of leads) {
+    if (!l.createdAt) continue
+    const k = chaveMes(l.createdAt)
+    if (k === atual) {
+      count++
+      if (l.reachedAt?.[etapa]) ganhos++
+    } else if (k === atual - 1) {
+      anterior++
+    }
+  }
+
+  return {
+    count,
+    ganhos,
+    changePct: anterior > 0 ? ((count - anterior) / anterior) * 100 : null,
+    mes: MESES_LONGO[now.getMonth()],
+  }
 }

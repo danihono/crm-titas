@@ -1,4 +1,5 @@
 import type { DayPoint, ReportRow } from '../../lib/reportData'
+import type { MesGanho } from '../../lib/dashboardData'
 
 /**
  * Paleta dos gráficos.
@@ -56,6 +57,102 @@ function barPath(x0: number, y: number, x1: number, h: number, r = 4): string {
     `H${x0}`,
     'Z',
   ].join(' ')
+}
+
+/** Retângulo com o TOPO arredondado e a base quadrada (barra vertical). */
+function barraVertical(x: number, y: number, w: number, base: number, r = 4): string {
+  const h = base - y
+  if (h <= r) return `M${x},${base} V${y} H${x + w} V${base} Z`
+  return [
+    `M${x},${base}`,
+    `V${y + r}`,
+    `A${r},${r} 0 0 1 ${x + r},${y}`,
+    `H${x + w - r}`,
+    `A${r},${r} 0 0 1 ${x + w},${y + r}`,
+    `V${base}`,
+    'Z',
+  ].join(' ')
+}
+
+/**
+ * Negócios ganhos mês a mês, em barras verticais.
+ *
+ * Hue único, como as barras do ranking, e pelo mesmo motivo declarado em
+ * CHART_COLORS: comparar tamanho é trabalho da escala, não da cor. O mês CORRENTE
+ * é o único destacado — ele ainda está em curso e não é comparável com os fechados,
+ * então ganha um tratamento mais claro em vez de disputar altura de igual para igual.
+ *
+ * Rótulo só no pico e no último mês: número em cima de toda barra vira ruído (é a
+ * mesma regra do TrendArea, logo abaixo).
+ *
+ * Mês zerado não ganha trilho de fundo. A versão com trilho foi desenhada e
+ * descartada: no tema escuro o cinza atrás da barra lê como SEGMENTO EMPILHADO —
+ * tinta que não é dado, o mesmo que o StatusStack evita ao separar os segmentos
+ * com vão em vez de contorno. A linha da base e o rótulo do eixo já guardam o
+ * lugar do mês vazio.
+ */
+export function MonthBars({ meses, width = 720, height = 170, palette = CHART_LIGHT }: {
+  meses: MesGanho[]
+  width?: number
+  height?: number
+  palette?: ChartPalette
+}) {
+  // Série vazia é caso de quem chama (a mensagem de vazio do painel fala de
+  // negócio, e a do EmptyPlot aqui embaixo fala de conversa).
+  if (meses.length === 0) return null
+
+  const padT = 20
+  const padB = 20
+  const plotH = height - padT - padB
+  const base = padT + plotH
+
+  const max = Math.max(1, ...meses.map((m) => m.count))
+  const passo = width / meses.length
+  // A folga entre barras é proporcional, e não fixa: com 12 meses num card de 3
+  // colunas, um gap de 10px comeria metade da barra.
+  const larg = Math.max(3, Math.min(34, passo * 0.62))
+
+  const picoIdx = meses.reduce((best, m, i) => (m.count > meses[best].count ? i : best), 0)
+  const ultimo = meses.length - 1
+  const rotulados = new Set(meses[picoIdx].count > 0 ? [picoIdx, ultimo] : [ultimo])
+
+  // Um rótulo por mês só cabe quando há espaço; senão marca o primeiro, o meio e o fim.
+  const eixo = passo >= 26
+    ? meses.map((_, i) => i)
+    : [0, Math.floor(ultimo / 2), ultimo]
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
+      aria-label={`Negócios ganhos por mês, máximo de ${max} em ${meses[picoIdx].titulo}`}>
+      <line x1={0} x2={width} y1={base} y2={base} stroke={palette.grid} strokeWidth={1} />
+
+      {meses.map((m, i) => {
+        const x = i * passo + (passo - larg) / 2
+        const h = (m.count / max) * plotH
+        const atual = i === ultimo
+        return (
+          <g key={`${m.titulo}-${i}`}>
+            <title>{`${m.titulo}: ${m.count} ganho(s)${m.valor ? ` · R$ ${Math.round(m.valor).toLocaleString('pt-BR')}` : ''}`}</title>
+            {m.count > 0 && (
+              <path d={barraVertical(x, base - Math.max(h, 3), larg, base)} fill={palette.magnitude} opacity={atual ? 0.55 : 1} />
+            )}
+            {rotulados.has(i) && m.count > 0 && (
+              <text x={x + larg / 2} y={base - Math.max(h, 3) - 6} textAnchor="middle" fontSize={11} fill={palette.ink} style={LABEL}>
+                {m.count}
+              </text>
+            )}
+          </g>
+        )
+      })}
+
+      {eixo.map((i) => (
+        <text key={i} x={i * passo + passo / 2} y={height - 5} textAnchor="middle"
+          fontSize={10} fill={palette.muted} style={LABEL}>
+          {meses[i].label}
+        </text>
+      ))}
+    </svg>
+  )
 }
 
 /**

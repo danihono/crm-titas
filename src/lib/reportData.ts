@@ -148,6 +148,58 @@ export function filaAgora(contacts: Contact[]): { fila: number; atendimento: num
   }
 }
 
+/** Uma linha da fila de atendimento — quem está esperando, e há quanto tempo. */
+export interface EmEspera {
+  contactId: string
+  nome: string
+  initials: string
+  photoUrl?: string
+  /** As MESMAS três categorias de `filaAgora` — os dois blocos não podem discordar. */
+  estado: 'fila' | 'atendimento' | 'esperando'
+  /** Desde quando espera. */
+  desde: Date
+  /** Ninguém respondeu ainda NESTE ciclo de atendimento. */
+  semResposta: boolean
+  naoLidas: number
+}
+
+/**
+ * Quem está esperando agora, do que espera há mais tempo para o que espera há menos.
+ *
+ * O relógio é `conv.openedAt` — quando o atendimento abriu — com `lastMessageAt` de
+ * reserva para o contato antigo, de antes de `openedAt` existir. Sem nenhuma das duas
+ * datas a linha fica FORA: uma espera sem começo não tem tamanho, e mostrá-la no topo
+ * (que é onde o "mais antigo" cai) colocaria justamente o caso sem informação no lugar
+ * mais alarmante da lista.
+ *
+ * `semResposta` sai de `firstResponseAt`, que o atendimento grava na primeira resposta
+ * nossa depois que o cliente escreveu. É o sinal mais afiado que o modelo guarda: não é
+ * "está na fila", é "ninguém falou com essa pessoa ainda".
+ */
+export function filaDeEspera(contacts: Contact[], limite = 8): EmEspera[] {
+  const linhas: EmEspera[] = []
+
+  for (const c of contacts) {
+    if (!c.conv || c.conv.status === 'finalizado') continue
+    const conv = convOf(c)
+    const desde = conv.openedAt ?? c.lastMessageAt
+    if (!desde) continue
+
+    linhas.push({
+      contactId: c.id,
+      nome: c.name,
+      initials: c.initials,
+      photoUrl: c.photoUrl,
+      estado: !conv.assignedTo ? 'fila' : conv.status === 'esperando' ? 'esperando' : 'atendimento',
+      desde,
+      semResposta: !conv.firstResponseAt,
+      naoLidas: c.unreadCount ?? 0,
+    })
+  }
+
+  return linhas.sort((a, b) => a.desde.getTime() - b.desde.getTime()).slice(0, limite)
+}
+
 export function buildReport(args: {
   conversations: ConversationRecord[]
   contacts: Contact[]
