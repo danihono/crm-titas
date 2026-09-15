@@ -59,7 +59,7 @@ export const askTitaIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
-    await consomeCota(request.auth.uid)
+    await consomeCota(request.auth.uid, idioma)
     const { system, history, question } = (request.data || {}) as AskData
     // O corte de verdade acontece em ./ia; aqui é só para um array absurdo não chegar a
     // ser percorrido — recusar é mais barato do que cortar.
@@ -121,7 +121,7 @@ export const sugerirTarefaIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
-    await consomeCota(request.auth.uid)
+    await consomeCota(request.auth.uid, idioma)
     const { mensagens, tipos, cliente, hoje } = (request.data || {}) as SugerirData
 
     if (!Array.isArray(mensagens) || mensagens.length === 0) {
@@ -200,7 +200,7 @@ export const gerarFluxoIA = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', msg('facaLogin', idioma))
     }
-    await consomeCota(request.auth.uid)
+    await consomeCota(request.auth.uid, idioma)
     const { descricao } = (request.data || {}) as { descricao?: string }
     if (!descricao || !descricao.trim()) {
       throw new HttpsError('invalid-argument', msg('descrevaFluxo', idioma))

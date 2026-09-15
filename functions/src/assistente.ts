@@ -1,5 +1,5 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { INSTRUCAO_IDIOMA, normalizarIdioma, type Idioma } from './idioma'
+import { INSTRUCAO_IDIOMA, msg, normalizarIdioma, type Idioma } from './idioma'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
@@ -121,7 +121,9 @@ export async function coletarDados(uid: string, hojeKey: string, agora: Date): P
 // A saudação — a ÚNICA parte escrita pelo modelo
 // ---------------------------------------------------------------------------
 
-const SAUDACAO_PADRAO = 'Bom dia! Aqui está o seu resumo de hoje.'
+// A saudação de reserva, para quando o modelo falha ou demora. Segue o idioma
+// de quem recebe, como o resto do resumo.
+const saudacaoPadrao = (idioma: Idioma) => msg('saudacaoPadrao', idioma)
 const SAUDACAO_TIMEOUT_MS = 10_000
 
 /**
@@ -143,10 +145,10 @@ async function saudacao(apiKey: string, nome: string, persona: string, idioma: I
       new Promise<string>((_, rej) => setTimeout(() => rej(new Error('timeout')), SAUDACAO_TIMEOUT_MS)),
     ])
     const limpa = texto.trim().split('\n')[0].slice(0, 120)
-    return limpa || SAUDACAO_PADRAO
+    return limpa || saudacaoPadrao(idioma)
   } catch (err) {
     console.warn('[assistente] saudação caiu para o texto fixo:', err)
-    return SAUDACAO_PADRAO
+    return saudacaoPadrao(idioma)
   }
 }
 
@@ -407,9 +409,9 @@ export const responderPeloWhatsapp = onDocumentCreated(
     // Mesma cota do Titã IA na tela (aiUsage/{uid}, 40/hora). Sem ela, quem tem o número
     // da Assistente tem um proxy do Gemini pago pela casa, uma chamada por mensagem.
     try {
-      await consomeCota(uid)
+      await consomeCota(uid, idiomaResposta)
     } catch {
-      await responder('Você me fez muitas perguntas nesta hora. Tenta de novo mais tarde? 🙂')
+      await responder(msg('cotaNoWhatsapp', idiomaResposta))
       return
     }
 
@@ -441,7 +443,7 @@ export const responderPeloWhatsapp = onDocumentCreated(
       })).trim().slice(0, RESPOSTA_MAX_CHARS)
 
       if (!resposta) {
-        await responder('Não consegui responder isso agora. Pode reformular?')
+        await responder(msg('reformular', idiomaResposta))
         return
       }
 
@@ -457,7 +459,7 @@ export const responderPeloWhatsapp = onDocumentCreated(
       console.error(`[assistente] falha ao responder ${uid}:`, err)
       // Silêncio depois de uma pergunta parece sistema quebrado. Uma linha honesta custa
       // um envio e evita o usuário ficar repetindo a pergunta.
-      await responder('Tive um problema para consultar seus dados agora. Tenta de novo em alguns minutos?')
+      await responder(msg('problemaNosDados', idiomaResposta))
     }
   },
 )

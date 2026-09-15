@@ -141,10 +141,6 @@ export const CATALOGO = {
   'sistema.atividadeAtrasada': ['Atrasada', 'Atrasada', 'Overdue'],
   'sistema.atividadeConcluida': ['Concluída', 'Completada', 'Done'],
 
-  // ── Só para a suíte de testes (tests/unit/i18n.test.ts) ───────────────
-  'teste.umContato': ['1 contato', '1 contacto', '1 contact'],
-  'teste.nContatos': ['{n} contatos', '{n} contactos', '{n} contacts'],
-  'teste.ola': ['Olá, {nome}!', '¡Hola, {nome}!', 'Hi, {nome}!'],
 
   // ── Moldura: menu lateral, barra do topo e cabeçalhos ─────────────────
   'sidebar.recolher': ['Recolher menu', 'Contraer menú', 'Collapse menu'],

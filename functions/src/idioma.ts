@@ -167,6 +167,31 @@ const MENSAGENS = {
     es: "Al titular del entorno no se le puede revocar el acceso.",
     en: "The workspace holder's access can't be revoked.",
   },
+  cotaEstourada: {
+    pt: 'Você já usou o Titã IA muitas vezes nesta hora. Tente de novo mais tarde.',
+    es: 'Ya usaste Titã IA muchas veces en esta hora. Inténtalo más tarde.',
+    en: "You've used Titã AI a lot in the past hour. Try again later.",
+  },
+  saudacaoPadrao: {
+    pt: 'Bom dia! Aqui está o seu resumo de hoje.',
+    es: '¡Buenos días! Aquí está tu resumen de hoy.',
+    en: "Good morning! Here's your digest for today.",
+  },
+  cotaNoWhatsapp: {
+    pt: 'Você me fez muitas perguntas nesta hora. Tenta de novo mais tarde? 🙂',
+    es: 'Me hiciste muchas preguntas en esta hora. ¿Lo intentamos más tarde? 🙂',
+    en: "You've asked me a lot in the past hour. Shall we try again later? 🙂",
+  },
+  reformular: {
+    pt: 'Não consegui responder isso agora. Pode reformular?',
+    es: 'No pude responder eso ahora. ¿Puedes reformularlo?',
+    en: "I couldn't answer that just now. Could you rephrase it?",
+  },
+  problemaNosDados: {
+    pt: 'Tive um problema para consultar seus dados agora. Tenta de novo em alguns minutos?',
+    es: 'Tuve un problema para consultar tus datos ahora. ¿Lo intentas en unos minutos?',
+    en: 'I had trouble reading your data just now. Try again in a few minutes?',
+  },
   naoEncerrouSessoes: {
     pt: 'Não foi possível encerrar as sessões desta pessoa.',
     es: 'No se pudieron cerrar las sesiones de esta persona.',

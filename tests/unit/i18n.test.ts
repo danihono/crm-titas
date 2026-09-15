@@ -123,17 +123,18 @@ describe('idioma gravado no perfil', () => {
 describe('plural', () => {
   it('zero e dois usam a forma plural; um usa a singular', () => {
     em('pt')
-    expect(plural(1, 'teste.umContato', 'teste.nContatos')).toBe('1 contato')
-    expect(plural(2, 'teste.umContato', 'teste.nContatos')).toBe('2 contatos')
-    expect(plural(0, 'teste.umContato', 'teste.nContatos')).toBe('0 contatos')
+    expect(plural(1, 'diretorio.contato_1', 'diretorio.contato_n')).toBe(' contato')
+    expect(plural(2, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('2 mensagens não lidas')
+    expect(plural(0, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('0 mensagens não lidas')
+    expect(plural(1, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('1 mensagem não lida')
   })
 
   it('vale nos três idiomas', () => {
     em('es')
-    expect(plural(2, 'teste.umContato', 'teste.nContatos')).toBe('2 contactos')
+    expect(plural(2, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('2 mensajes sin leer')
     em('en')
-    expect(plural(1, 'teste.umContato', 'teste.nContatos')).toBe('1 contact')
-    expect(plural(3, 'teste.umContato', 'teste.nContatos')).toBe('3 contacts')
+    expect(plural(1, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('1 unread message')
+    expect(plural(3, 'contatos.naoLida_1', 'contatos.naoLida_n')).toBe('3 unread messages')
   })
 })
 
@@ -185,12 +186,12 @@ describe('a fronteira entre o que o sistema escreveu e o que a pessoa escreveu',
 describe('interpolação', () => {
   it('troca {nome} pelo valor', () => {
     em('pt')
-    expect(t('teste.ola', { nome: 'Ana' })).toBe('Olá, Ana!')
+    expect(t('combo.usar', { nome: 'Ana' })).toBe('Usar “Ana”')
   })
 
   it('token sem valor volta como veio, em vez de virar "undefined"', () => {
     em('pt')
-    expect(t('teste.ola')).toBe('Olá, {nome}!')
+    expect(t('combo.usar')).toBe('Usar “{nome}”')
   })
 })
 
