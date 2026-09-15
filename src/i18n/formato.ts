@@ -19,6 +19,7 @@ function cache<T>(fabrica: (i: Idioma) => T): (i?: Idioma) => T {
 
 const numero = cache((i) => new Intl.NumberFormat(tagIntl(i), { maximumFractionDigits: 0 }))
 const numero1 = cache((i) => new Intl.NumberFormat(tagIntl(i), { maximumFractionDigits: 1 }))
+const numero1Fixo = cache((i) => new Intl.NumberFormat(tagIntl(i), { minimumFractionDigits: 1, maximumFractionDigits: 1 }))
 const mesCurto = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { month: 'short' }))
 const mesLongo = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { month: 'long' }))
 const diaMes = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { day: 'numeric', month: 'short' }))
@@ -34,6 +35,17 @@ export function num(v: number): string {
 /** Uma casa decimal, para '2,4 MB' e '284,5k'. */
 export function num1(v: number): string {
   return numero1().format(v)
+}
+
+/**
+ * Uma casa decimal SEMPRE, inclusive a zero: '0,0' e não '0'.
+ *
+ * O chip de variação do painel depende disso. O corte entre "subiu" e "não
+ * mudou" é 0,05 justamente porque é o que arredonda para '0,0': se o número
+ * perdesse a casa decimal, a seta e o texto passariam a discordar na fronteira.
+ */
+export function num1Fixo(v: number): string {
+  return numero1Fixo().format(v)
 }
 
 /**
@@ -99,6 +111,18 @@ export function diasCurtosCalendario(): string[] {
 /** Data curta numérica (10/06/2026 | 6/10/2026). */
 export function dataCurta(d: Date): string {
   return d.toLocaleDateString(tagIntl())
+}
+
+/**
+ * Relógio do cabeçalho do painel: hora, minuto e segundo.
+ *
+ * Segue o idioma inclusive no formato de 12 ou 24 horas — quem pôs a tela em
+ * inglês espera "02:41:09 PM", não "14:41:09".
+ */
+const relogio = cache((i) => new Intl.DateTimeFormat(tagIntl(i), { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+export function horaCompleta(d: Date): string {
+  return relogio().format(d)
 }
 
 /** Data e hora, para o carimbo "emitido em" dos relatórios. */

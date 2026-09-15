@@ -1,20 +1,23 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useElementWidth } from '../../hooks/useElementWidth'
-import { C } from '../../styles/sx'
-import { t } from '../../i18n'
+import { C, purpleAvatar } from '../../styles/sx'
+import { plural, t, type Chave } from '../../i18n'
 import { fmtK, fmtMoney, dueInfo, relativeLabel, chatTimeLabel, dateKeyOf } from '../../lib/format'
 import { useUIStore } from '../../store/uiStore'
 import { useIsDark } from '../../store/themeStore'
 import { LEADS_BOARD_ID } from '../../hooks/useDeals'
 import MaterialIcon from '../common/MaterialIcon'
+import Avatar from '../common/Avatar'
 import StatCard from './StatCard'
+import HeroCard from './HeroCard'
 import LeadFunnel from './LeadFunnel'
 import ConversationHeatmap from './ConversationHeatmap'
 import { ChartCard } from './WidgetShell'
-import { TrendArea, RankedBars, StatusStack, CHART_DARK } from '../reports/Charts'
+import { TrendArea, RankedBars, StatusStack, MonthBars, CHART_DARK } from '../reports/Charts'
 import type { DadosPainel } from '../../hooks/useDashboardData'
 import type { DashboardWidget, Activity, EventDoc, ActType } from '../../types'
-import type { ReportRow } from '../../lib/reportData'
+import type { EmEspera, ReportRow } from '../../lib/reportData'
 
 /**
  * Desenha um widget do painel.
@@ -26,6 +29,8 @@ import type { ReportRow } from '../../lib/reportData'
 export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados: DadosPainel }) {
   const navigate = useNavigate()
   const setActiveBoard = useUIStore((s) => s.setActiveBoard)
+  const selectContact = useUIStore((s) => s.selectContact)
+  const setContactsView = useUIStore((s) => s.setContactsView)
   const dark = useIsDark()
   const paleta = dark ? CHART_DARK : undefined
 
@@ -85,7 +90,8 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
         sub: dados.nextPending
           ? `${dados.nextPending.title} · ${dueInfo(dados.nextPending.dueAt, dados.nextPending.done).text}`
           : t('painel.nadaPendenteHoje'),
-        icon: 'task_alt', accent: 'purple',
+        icon: 'task_alt', accent: 'purple', series: dados.serieTarefas,
+        info: t('painel.tarefasInfo'),
         linkLabel: t('painel.verTarefas'), onLink: () => navigate('/atividades'),
       })
 
@@ -136,7 +142,41 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
       )
     }
 
+    case 'leadsMes': {
+      const l = dados.leadsMes
+      return (
+        <HeroCard
+          label={t('painel.leadsDoMes', { mes: l.mes })}
+          value={String(l.count)}
+          changePct={l.changePct}
+          icon="rocket_launch"
+          sub={l.count === 0
+            ? t('painel.semLeadsMes')
+            : t('painel.criadosNesteMes', {
+                parte: l.ganhos ? t('painel.jaEmGanho', { n: l.ganhos }) : t('painel.nenhumEmGanho'),
+              })}
+          linkLabel={t('painel.verFunil')}
+          onLink={() => { setActiveBoard(LEADS_BOARD_ID); navigate('/pipeline') }}
+        />
+      )
+    }
+
     // ── Gráficos ────────────────────────────────────────────────────────
+    case 'ganhosMes': {
+      const temGanho = dados.ganhosMes.some((m) => m.count > 0)
+      // Altura 132, e não 150: numa faixa da grade o corpo do card tem ~125px
+      // depois do título, e o gráfico mais alto empurrava o eixo dos meses para
+      // dentro da rolagem interna — sumia justamente o que diz QUAL mês é cada
+      // barra.
+      return (
+        <ChartCard title={t('widget.ganhosMes')} sub={t('painel.ganhosMesSub')}>
+          {temGanho
+            ? <Fluido>{(w) => <MonthBars meses={dados.ganhosMes} width={w} height={132} palette={paleta} />}</Fluido>
+            : <Vazio>{t('painel.semGanhos12Meses')}</Vazio>}
+        </ChartCard>
+      )
+    }
+
     case 'funil':
       return (
         <ChartCard title={t('widget.funil')} sub={t('painel.funilSub')} style={{ }}>
@@ -188,6 +228,20 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
       return (
         <ChartCard title={t('widget.filaAgora')} sub={t('painel.filaAgoraSub')}>
           <Fluido>{(w) => <StatusStack {...dados.fila} width={w} palette={paleta} />}</Fluido>
+        </ChartCard>
+      )
+
+    case 'filaEspera':
+      return (
+        <ChartCard title={t('widget.filaEspera')} sub={t('painel.filaEsperaSub')}>
+          {dados.espera.map((e) => (
+            <LinhaEspera
+              key={e.contactId}
+              e={e}
+              onAbrir={() => { selectContact(e.contactId); setContactsView('atendimento'); navigate('/contatos') }}
+            />
+          ))}
+          {dados.espera.length === 0 && <Vazio>{t('painel.filaLimpa')}</Vazio>}
         </ChartCard>
       )
 
@@ -299,6 +353,80 @@ function LinhaAtividade({ a, t, quando, atrasada }: {
         <div style={{ fontSize: 11, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.contact}</div>
       </div>
       <div style={{ fontSize: 10.5, color: atrasada ? C.roseDeep : C.faint, flexShrink: 0, fontWeight: atrasada ? 700 : 400 }}>{quando}</div>
+    </div>
+  )
+}
+
+// Chave do catálogo, e não o texto: uma constante de módulo é avaliada uma vez,
+// no import, e congelaria o rótulo no idioma em que a aba abriu.
+const ESTADO: Record<EmEspera['estado'], { rotulo: Chave; cor: string; tinta: string }> = {
+  fila: { rotulo: 'painel.estadoNaFila', cor: C.blue, tinta: C.tintBlue },
+  atendimento: { rotulo: 'atend.emAtendimento', cor: C.green, tinta: C.tintGreen },
+  esperando: { rotulo: 'atend.esperandoCliente', cor: C.amber, tinta: C.tintAmber },
+}
+
+/**
+ * Faz a tela reavaliar de minuto em minuto.
+ *
+ * A espera é calculada contra o relógio, não contra o dado: sem este tique
+ * "há 2min" ficaria congelado até o próximo snapshot do Firestore — e numa fila
+ * parada (que é justamente quando o bloco importa) snapshot não chega.
+ */
+function useMinuto(): number {
+  const [t, setT] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setT(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  return t
+}
+
+function LinhaEspera({ e, onAbrir }: { e: EmEspera; onAbrir: () => void }) {
+  const agora = useMinuto()
+  const st = ESTADO[e.estado]
+  // Quem ainda não recebeu nenhuma resposta é o caso grave da lista, e é a espera
+  // que fica em rosa — não o nome da pessoa.
+  const corEspera = e.semResposta ? C.roseDeep : C.faint
+
+  return (
+    <div
+      onClick={onAbrir}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onAbrir() } }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0',
+        borderBottom: `1px solid ${C.lineHair}`, cursor: 'pointer',
+      }}
+    >
+      <Avatar photoUrl={e.photoUrl} initials={e.initials} size={30} bg={purpleAvatar} fontSize={11.5} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, color: C.ink, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {e.nome}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: st.cor, background: st.tinta, borderRadius: 6, padding: '1px 6px' }}>
+            {t(st.rotulo)}
+          </span>
+          {e.semResposta && (
+            <span className="widget-sub" style={{ fontSize: 10.5, color: C.roseDeep, fontWeight: 600 }}>{t('painel.semResposta')}</span>
+          )}
+        </div>
+      </div>
+      {e.naoLidas > 0 && (
+        <span
+          title={plural(e.naoLidas, 'painel.naoLida_1', 'painel.naoLida_n')}
+          style={{
+            fontSize: 10, fontWeight: 700, color: C.onAccent, background: C.purple,
+            borderRadius: 20, padding: '1px 7px', flexShrink: 0,
+          }}
+        >
+          {e.naoLidas}
+        </span>
+      )}
+      <div style={{ fontSize: 10.5, color: corEspera, flexShrink: 0, fontWeight: e.semResposta ? 700 : 400 }}>
+        {relativeLabel(e.desde, new Date(agora))}
+      </div>
     </div>
   )
 }

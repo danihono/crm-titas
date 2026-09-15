@@ -51,6 +51,8 @@ export const CATALOGO: WidgetDef[] = [
   { type: 'negocios', nome: 'widget.negocios', descricao: 'widget.negociosDesc', icone: 'handshake', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
   { type: 'ticket', nome: 'widget.ticket', descricao: 'widget.ticketDesc', icone: 'request_quote', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios'], unico: true },
   { type: 'novosLeads', nome: 'widget.novosLeads', descricao: 'widget.novosLeadsDesc', icone: 'person_add', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios', 'quadros'], unico: true },
+  { type: 'leadsMes', nome: 'widget.leadsMes', descricao: 'widget.leadsMesDesc', icone: 'rocket_launch', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
+  { type: 'ganhosMes', nome: 'widget.ganhosMes', descricao: 'widget.ganhosMesDesc', icone: 'bar_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
   { type: 'funil', nome: 'widget.funil', descricao: 'widget.funilDesc', icone: 'filter_alt', minCols: 2, minRows: 2, cols: 2, rows: 2, colorivel: false, fontes: ['negocios', 'quadros'], unico: true },
   { type: 'origem', nome: 'widget.origem', descricao: 'widget.origemDesc', icone: 'donut_small', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
 
@@ -64,6 +66,7 @@ export const CATALOGO: WidgetDef[] = [
   // ── Conversas ───────────────────────────────────────────────────────────
   { type: 'calor', nome: 'widget.calor', descricao: 'widget.calorDesc', icone: 'grid_on', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['conversas'], unico: true },
   { type: 'conversasDia', nome: 'widget.conversasDia', descricao: 'widget.conversasDiaDesc', icone: 'show_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['conversas'], unico: true },
+  { type: 'filaEspera', nome: 'widget.filaEspera', descricao: 'widget.filaEsperaDesc', icone: 'hourglass_bottom', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['contatos'], unico: true },
   { type: 'filaAgora', nome: 'widget.filaAgora', descricao: 'widget.filaAgoraDesc', icone: 'inbox', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['contatos'], unico: true },
   { type: 'rankAtendentes', nome: 'widget.rankAtendentes', descricao: 'widget.rankAtendentesDesc', icone: 'groups', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
   { type: 'rankSetores', nome: 'widget.rankSetores', descricao: 'widget.rankSetoresDesc', icone: 'account_tree', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['conversas', 'equipe'], unico: true },
@@ -81,7 +84,23 @@ export function widgetDef(type: string): WidgetDef | undefined {
   return PORTIPO.get(type)
 }
 
-/** O painel de fábrica — é a tela que existia antes de tudo virar configurável. */
+/**
+ * O painel de fábrica.
+ *
+ * As 18 células estão TODAS ocupadas, e é de propósito: a grade é o teto, e um
+ * padrão que deixa buraco entrega uma tela que parece inacabada. Por isso mexer
+ * aqui é sempre uma troca — entrou um bloco, saiu outro do mesmo tamanho.
+ *
+ * A ordem não é estética, é o que o `grid-auto-flow: dense` empacota:
+ *   faixa 1 · herói 2 + quatro KPIs de 1
+ *   faixa 2 · funil (2×2, desce para a faixa 3) + ganhos por mês 3 + leads 1
+ *   faixa 3 · o resto do funil + fila 2 + atividade 2
+ *
+ * O mapa de calor, a origem dos leads e o ticket médio saíram do padrão quando o
+ * herói, as barras e a fila entraram — os três continuam no catálogo, a um clique
+ * em "Adicionar bloco". Quem já tinha personalizado o painel não é afetado: este
+ * layout só vale para quem nunca salvou o seu.
+ */
 export function layoutPadrao(): DashboardLayout {
   const w = (type: string, extra?: Partial<DashboardWidget>): DashboardWidget => {
     const d = PORTIPO.get(type)!
@@ -89,15 +108,15 @@ export function layoutPadrao(): DashboardLayout {
   }
   return {
     widgets: [
+      w('leadsMes'),
       w('pipeline', { variant: 'featured', accent: 'green' }),
       w('negocios', { accent: 'purple' }),
-      w('ticket', { accent: 'amber' }),
-      w('novosLeads', { accent: 'green' }),
-      w('agendaHoje', { accent: 'blue' }),
       w('tarefasHoje', { accent: 'purple' }),
+      w('agendaHoje', { accent: 'blue' }),
       w('funil'),
-      w('calor'),
-      w('origem'),
+      w('ganhosMes'),
+      w('novosLeads', { accent: 'green' }),
+      w('filaEspera'),
       w('atividade'),
     ],
   }

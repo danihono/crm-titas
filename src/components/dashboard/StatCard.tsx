@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { C } from '../../styles/sx'
 import { t } from '../../i18n'
 import { sparkline } from '../../lib/sparkline'
+import { variacao } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
 
 export type Accent = 'purple' | 'green' | 'amber' | 'rose' | 'blue'
@@ -60,6 +61,9 @@ export default function StatCard({
 
   const shell: CSSProperties = {
     position: 'relative',
+    // Prende o brilho do acento (z-index -1, abaixo) DENTRO do card: sem o
+    // contexto de empilhamento próprio ele afundaria atrás do fundo do card.
+    isolation: 'isolate',
     display: 'flex',
     flexDirection: 'column',
     // Preenche a célula da grade: sem isto o card para na altura do conteúdo e a
@@ -70,11 +74,26 @@ export default function StatCard({
     overflow: 'hidden',
     background: featured ? C.featured : C.surface,
     border: `1px solid ${featured ? C.featuredBorder : C.line}`,
+    // O hover do card (.stat-card em src/index.css) acende um halo na cor do
+    // acento; sem esta variável todos acenderiam roxo.
+    ['--beam-glow' as string]: featured ? 'rgba(150,110,200,0.35)' : tint,
   }
 
   return (
     <div className="stat-card widget" style={shell}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      {/* Brilho do acento no canto do ícone: camada em z-index -1, presa pelo
+          `isolation:isolate` do card. Fica ACIMA do fundo e ABAIXO de todo o
+          conteúdo — inclusive do que não é posicionado, como o texto de apoio e
+          o mini gráfico — e não recebe clique. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute', top: -46, right: -34, width: 150, height: 150,
+          borderRadius: '50%', pointerEvents: 'none', zIndex: -1,
+          background: `radial-gradient(circle, ${featured ? 'rgba(200,160,240,0.22)' : tint}, transparent 68%)`,
+        }}
+      />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span
           title={label}
           style={{
@@ -94,12 +113,17 @@ export default function StatCard({
           name={icon}
           size={16}
           color={fg}
-          style={{ background: tint, width: 28, height: 28, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={{
+            background: tint, width: 28, height: 28, borderRadius: 9,
+            border: `1px solid ${featured ? 'rgba(255,255,255,0.14)' : a.tint}`,
+            boxShadow: `0 0 0 3px ${featured ? 'rgba(255,255,255,0.05)' : 'var(--c-tint-purple-weak)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.03em', color: ink, lineHeight: 1.05 }}>{value}</span>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: featured ? 25 : 22, fontWeight: 700, letterSpacing: '-.03em', color: ink, lineHeight: 1.05 }}>{value}</span>
         {spark?.changePct !== null && spark?.changePct !== undefined && (
           <DeltaChip pct={spark.changePct} featured={featured} />
         )}
@@ -152,16 +176,26 @@ export default function StatCard({
   )
 }
 
-/** ▲/▼ com o mesmo formato e as mesmas cores da variação do gráfico de receita. */
+/** ▲/▼/= com o mesmo formato e as mesmas cores da variação do gráfico de receita. */
 function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
-  const sobe = pct >= 0
+  const v = variacao(pct)
   // O card em destaque é escuro NOS DOIS temas, então o par de cores dele é
   // fixo e claro: C.green/C.rose são calibrados para superfície clara e ficam
   // apagados ali.
-  const cor = featured ? (sobe ? '#6fd7ae' : '#f0a0bd') : sobe ? C.green : C.rose
+  //
+  // Variação nula é NEUTRA nos dois: pintar de verde um "não mudou" é a mesma
+  // mentira que a seta para cima que este chip tinha antes.
+  const cor = v.sentido === 'igual'
+    ? (featured ? 'rgba(238,228,248,0.72)' : C.muted)
+    : featured
+      ? (v.sentido === 'sobe' ? '#6fd7ae' : '#f0a0bd')
+      : v.sentido === 'sobe' ? C.green : C.rose
+  const fundo = featured
+    ? 'rgba(255,255,255,0.1)'
+    : v.sentido === 'igual' ? C.tintNeutral : v.sentido === 'sobe' ? C.tintGreen : C.tintRose
   return (
     <span
-      title={t('painel.semanaFechada')}
+      title={v.sentido === 'igual' ? t('painel.semMudanca') : t('painel.semanaFechada')}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -169,12 +203,12 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
         fontSize: 11,
         fontWeight: 700,
         color: cor,
-        background: featured ? 'rgba(255,255,255,0.1)' : sobe ? C.tintGreen : C.tintRose,
+        background: fundo,
         borderRadius: 20,
         padding: '2px 8px',
       }}
     >
-      {sobe ? '▲' : '▼'} {Math.abs(pct).toFixed(1).replace('.', ',')}%
+      {v.seta} {v.texto}
     </span>
   )
 }
