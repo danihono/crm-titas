@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useLocaleStore, type Idioma } from '../store/localeStore'
+import { idiomaAtual, useLocaleStore, type Idioma } from '../store/localeStore'
 import { CATALOGO } from './catalogo'
 
 /**
@@ -26,6 +26,21 @@ import { CATALOGO } from './catalogo'
 export type Chave = keyof typeof CATALOGO
 
 const COLUNA: Record<Idioma, 0 | 1 | 2> = { pt: 0, es: 1, en: 2 }
+
+/**
+ * As três traduções de uma chave, sem escolher nenhuma.
+ *
+ * Existe para a busca de emoji, que casa o que a pessoa digitou contra os três
+ * idiomas ao mesmo tempo — procurar é tentar lembrar, e lembrar não respeita a
+ * língua em que a tela está. Para MOSTRAR texto, use `t()`: mostrar os três de
+ * uma vez não é tradução, é confusão.
+ */
+export const TRADUCOES: Record<Chave, Tri> = CATALOGO
+
+/** A coluna do idioma ativo dentro de uma tupla [pt, es, en]. */
+export function indiceIdioma(): 0 | 1 | 2 {
+  return COLUNA[idiomaAtual()]
+}
 
 export type Vars = Record<string, string | number>
 

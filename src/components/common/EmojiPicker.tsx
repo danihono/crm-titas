@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EMOJI_CATEGORIES, emojiByChar, searchEmojis, type EmojiEntry } from '../../lib/emojis'
+import { EMOJI_CATEGORIES, emojiByChar, rotuloEmoji, searchEmojis, type EmojiEntry } from '../../lib/emojis'
 import MaterialIcon from './MaterialIcon'
 import { C } from '../../styles/sx'
 import { t } from '../../i18n'
@@ -95,7 +95,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
   const items: EmojiEntry[] = searching
     ? results
     : tab === 'recentes'
-      ? recents.map((c) => emojiByChar(c) ?? { e: c, k: '' })
+      ? recents.map((c) => emojiByChar(c) ?? { e: c, k: ['', '', ''] as [string, string, string] })
       : (category?.items ?? [])
   const title = searching
     ? t('emoji.resultados', { termo: query.trim() })
@@ -157,7 +157,7 @@ export default function EmojiPicker({ onPick, onClose, anchorRef, width = 336, h
               <button
                 key={`${it.e}-${i}`}
                 type="button"
-                title={it.k.split(' ')[0]}
+                title={rotuloEmoji(it)}
                 onClick={() => choose(it.e)}
                 style={{ border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', fontFamily: EMOJI_FONT, fontSize: 23, lineHeight: '34px', height: 34, padding: 0 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = C.raised)}

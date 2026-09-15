@@ -19,6 +19,7 @@ import { plural, t } from '../../src/i18n'
 import { lerNumero, separadorDecimal } from '../../src/i18n/formato'
 import { ehPlaceholderMidia, fmtBRL, fmtMoney, mediaLabel, parseValueBR, placeholderMidia } from '../../src/lib/format'
 import { rotuloStatusNota, rotuloTipoAtividade, tituloEtapa } from '../../src/i18n/sistema'
+import { emojiByChar, rotuloEmoji, searchEmojis } from '../../src/lib/emojis'
 import { prefsFromDoc } from '../../src/lib/converters'
 import type { Idioma } from '../../src/types'
 
@@ -236,5 +237,39 @@ describe('o marcador de mídia gravado no histórico', () => {
     em('en')
     expect(ehPlaceholderMidia('[imagem]')).toBe(true)
     expect(ehPlaceholderMidia('Olha essa foto')).toBe(false)
+  })
+})
+
+describe('a busca de emoji', () => {
+  it('acha a mesma coisa nas três línguas, seja qual for a tela', () => {
+    // De propósito: a busca une os três idiomas num índice só. Procurar é
+    // tentar lembrar, e lembrar não respeita a língua em que a tela está —
+    // quem trabalha em inglês e pensa "coração" tem de achar o coração.
+    for (const i of IDIOMAS) {
+      em(i)
+      for (const termo of ['coracao', 'corazon', 'heart']) {
+        expect(searchEmojis(termo).map((e) => e.e)).toContain('❤️')
+      }
+    }
+  })
+
+  it('acha pelo nome da categoria traduzido, e não pela chave do catálogo', () => {
+    // Antes o índice guardava 'emoji.catComida', o nome INTERNO. "comida"
+    // funcionava por acidente (é pedaço da chave); "food" não achava nada.
+    for (const termo of ['comida', 'food', 'pizza']) {
+      expect(searchEmojis(termo).map((e) => e.e)).toContain('🍕')
+    }
+  })
+
+  it('o balãozinho do botão mostra UMA língua — a da tela', () => {
+    const coracao = emojiByChar('❤️')!
+    em('pt')
+    expect(rotuloEmoji(coracao)).toBe('coracao')
+    em('en')
+    expect(rotuloEmoji(coracao)).toBe('heart')
+  })
+
+  it('busca vazia não devolve o catálogo inteiro', () => {
+    expect(searchEmojis('   ')).toEqual([])
   })
 })
