@@ -33,6 +33,42 @@ etiquetas e as transições de estado. Cada ciclo vira um registro em
 `users/{uid}/conversations`, que é o que alimenta os Relatórios.
 Ver `docs/modulos-atendimento.md` para o modelo de dados e o que ainda não foi feito.
 
+**Três idiomas.** A interface fala português, espanhol e inglês, e quem escolhe é a
+pessoa, em **Configurações → Preferências pessoais**, ao lado do tema. A escolha vale na
+hora e na árvore inteira: `App.tsx` passa o idioma como `key` do `RouterProvider`, então
+trocar de idioma remonta as telas em vez de deixar metade delas no idioma anterior.
+
+A tradução é de casa, sem biblioteca. `src/i18n/catalogo.ts` guarda os três idiomas na
+MESMA linha (`'chave': [pt, es, en]`) e o tipo recusa tupla incompleta — **tradução
+esquecida quebra o build**, não vira um texto em português aparecendo numa tela em
+inglês. `src/i18n/formato.ts` concentra o `Intl` (meses, dias, ordem dia/mês, separadores,
+`localeCompare`), e `src/lib/format.ts` manteve a API pública em cima dele, para que os
+~40 arquivos que o importam não precisassem mudar.
+
+**O que uma pessoa escreve não é traduzido. Só o sistema.** É a fronteira que
+`src/i18n/sistema.ts` desenha: as etapas do quadro **Leads** e os tipos de atividade
+semeados na criação da conta são do sistema e seguem o idioma; um quadro, uma etiqueta, um
+setor ou uma atividade que você criou aparece exatamente como você digitou, em qualquer
+idioma — renomear a tela não é renomear o trabalho de ninguém. Os tipos semeados só são
+traduzidos enquanto o rótulo gravado ainda for o do seed: editou, virou seu, e o texto
+para de mudar.
+
+**A moeda não segue o idioma.** O valor é do negócio, não de quem lê: o CRM fatura em
+reais mesmo com a tela em inglês. O que muda é só o separador — `R$ 12.000` em pt/es,
+`R$ 12,000` em inglês. Isso vale também na leitura: o campo de valor interpreta o que foi
+digitado pelo separador do idioma ativo (antes, `12,000.00` com a tela em inglês virava
+**12**, calado).
+
+Relatórios e planilhas exportadas saem no idioma escolhido, e a **Assistente responde
+nele** — as callables recebem `idioma` no payload e `functions/src/idioma.ts` carrega as
+mensagens de erro e a instrução de idioma, escrita no próprio idioma de destino. Já a
+lista de palavras de descadastro (`whatsapp-daemon/src/optOut.ts`) **só cresce**: `salir`,
+`baja` e `unsubscribe` entraram, `sair` e `pare` ficam para sempre. Descadastro é promessa
+feita ao cliente, e promessa não se versiona por idioma.
+
+Fora de escopo por decisão: as rotas seguem em português (são URLs — traduzi-las quebraria
+favoritos), o nome do produto não se traduz, e **nada gravado no Firestore é reescrito**.
+
 > **Segurança:** `docs/auditoria-seguranca.md` traz a auditoria completa — o que foi
 > confirmado por teste, o que foi corrigido, o que depende de uma ação sua no Console e o
 > que ficou em aberto por decisão. Leia a seção "Ordem do deploy" antes de publicar: a fila
@@ -100,7 +136,9 @@ Abra http://localhost:5173 e entre com a conta demo criada pelo seed:
 ```
 src/
   lib/        firebase.ts, paths.ts, converters.ts, format.ts, theme.ts
-  store/      uiStore.ts (Zustand)
+  i18n/       catalogo.ts (pt/es/en na mesma linha), index.ts (t/plural), formato.ts (Intl),
+              sistema.ts (a fronteira sistema × pessoa)
+  store/      uiStore.ts, themeStore.ts, localeStore.ts (Zustand)
   contexts/   AuthContext.tsx
   hooks/      useCollection + useDeals/useContacts/useMessages/useFiles/
               useActivities/useInvoices/useEvents/useLeads/useAgent/useCalendar/useRevenueChart
@@ -207,6 +245,13 @@ firebase deploy --only functions:excluirCliente
 > não em `users/{uid}/waCommands`. Ela saiu de dentro do ambiente porque as regras do
 > Firestore são união permissiva: lá dentro, a regra ampla de escrita a alcançava e nenhuma
 > condição aninhada impedia um atendente de enfileirar um expurgo. Ver `firestore.rules`.
+
+O perfil guarda as preferências pessoais em `prefs`: `theme` (`light` | `dark` | `system`),
+`idioma` (`pt` | `es` | `en`), `notifyDesktop`, `notifySound` e o layout do `dashboard`.
+Tema e idioma seguem a mesma assimetria: o **localStorage do aparelho manda**, o Firestore é
+espelho — um aparelho que já escolheu não é sobrescrito pela conta, e um aparelho novo herda
+dela (`adotarDoPerfil`, em `src/store/localeStore.ts`). A gravação sai por `saveSelfPrefs`,
+sempre no próprio doc.
 
 `users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`, `contactId` e `reachedAt`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
 
