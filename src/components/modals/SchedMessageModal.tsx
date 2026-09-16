@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import { C, sx } from '../../styles/sx'
+import { t } from '../../i18n'
 import { saveScheduledMessage, updateScheduledMessage } from '../../hooks/useEvents'
 import { dateKeyOf } from '../../lib/format'
 import type { ScheduledMessage } from '../../types'
@@ -19,7 +20,7 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
     if (!text.trim() || busy) return
     const dueAt = new Date(`${date}T${(time || '09:00')}:00`)
     if (dueAt.getTime() <= Date.now()) {
-      alert('Escolha um horario futuro.')
+      alert(t('modal.horarioFuturo'))
       return
     }
     setBusy(true)
@@ -40,41 +41,41 @@ export default function SchedMessageModal({ contactId, contactName, schedule, on
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
         <MaterialIcon name="schedule_send" size={24} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>{isEdit ? 'Editar agendamento' : 'Agendar mensagem'}</div>
-          <div style={{ fontSize: 12, color: C.sub }}>Para {contactName} - WhatsApp</div>
+          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>{t(isEdit ? 'modal.editarAgendamento' : 'modal.agendarMensagem')}</div>
+          <div style={{ fontSize: 12, color: C.sub }}>{t('modal.paraContato', { nome: contactName })}</div>
         </div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 
-      <label style={{ ...sx.label, display: 'block', marginTop: 16 }}>Mensagem</label>
+      <label style={{ ...sx.label, display: 'block', marginTop: 16 }}>{t('campanhas.mensagem')}</label>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
-        placeholder="Ex: Oi! Passando para saber se voce teve tempo de ver a proposta."
+        placeholder={t('modal.mensagemExemplo')}
         style={{ ...sx.input, margin: '6px 0 14px', resize: 'vertical', lineHeight: 1.5 }}
       />
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Dia do envio</label>
+          <label style={sx.label}>{t('modal.diaEnvio')}</label>
           <input type="date" value={date} min={dateKeyOf(new Date())} onChange={(e) => setDate(e.target.value)} style={{ ...sx.input, margin: '6px 0 18px' }} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Hora</label>
+          <label style={sx.label}>{t('modal.hora')}</label>
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...sx.input, margin: '6px 0 18px' }} />
         </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(52,199,89,0.1)', border: '1px solid rgba(52,199,89,0.2)', borderRadius: 11, padding: '10px 13px', marginBottom: 18 }}>
         <MaterialIcon name="event_available" size={18} color={C.greenDeep} />
-        <span style={{ fontSize: 12, color: C.greenDeep }}>Sera enviada automaticamente pelo WhatsApp no horario escolhido e tambem aparecera na sua <b>Agenda</b>.</span>
+        <span style={{ fontSize: 12, color: C.greenDeep }}>{t('modal.seraEnviada')} <b>{t('nav.agenda')}</b>.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('comum.cancelar')}</button>
         <button onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: '1px solid rgba(52,199,89,0.4)', borderRadius: 11, padding: '10px 20px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
-          <MaterialIcon name={isEdit ? 'save' : 'send'} size={17} /> {isEdit ? 'Salvar alteracoes' : 'Agendar envio'}
+          <MaterialIcon name={isEdit ? 'save' : 'send'} size={17} /> {t(isEdit ? 'modal.salvarAlteracoes' : 'modal.agendarEnvio')}
         </button>
       </div>
     </Modal>

@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { addCustomField, deleteCustomField, useCustomFields } from '../../hooks/useSettings'
 import { sx, C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 import { EmptyLine, Field, IconAction, PrimaryButton, Row, SettingsCard } from './primitives'
 import type { CustomFieldType } from '../../types'
 
-const TYPE_LABEL: Record<CustomFieldType, string> = {
-  texto: 'Texto',
-  numero: 'Número',
-  data: 'Data',
-  lista: 'Lista de opções',
-  booleano: 'Sim / Não',
+// A chave do Record é o valor gravado no Firestore; aqui só se decide como ele
+// aparece na tela.
+const TYPE_LABEL: Record<CustomFieldType, Chave> = {
+  texto: 'campos.tipoTexto',
+  numero: 'campos.tipoNumero',
+  data: 'campos.tipoData',
+  lista: 'campos.tipoLista',
+  booleano: 'campos.tipoBool',
 }
 
 export default function CustomFieldsSection({ canEdit }: { canEdit: boolean }) {
@@ -31,18 +34,18 @@ export default function CustomFieldsSection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <SettingsCard
-      title="Campos personalizados"
-      subtitle="Informações extras no cadastro do contato — CNPJ, plano contratado, origem."
+      title={t('campos.titulo')}
+      subtitle={t('campos.subtitulo')}
     >
-      {fields.length === 0 && <EmptyLine>Nenhum campo personalizado criado.</EmptyLine>}
+      {fields.length === 0 && <EmptyLine>{t('campos.vazio')}</EmptyLine>}
       {fields.map((f) => (
         <Row
           key={f.id}
-          actions={canEdit ? <IconAction icon="delete" title="Excluir campo" color={C.rose} onClick={() => deleteCustomField(f.id)} /> : undefined}
+          actions={canEdit ? <IconAction icon="delete" title={t('campos.excluir')} color={C.rose} onClick={() => deleteCustomField(f.id)} /> : undefined}
         >
           <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{f.label}</div>
           <div style={{ fontSize: 12, color: C.sub }}>
-            {TYPE_LABEL[f.type]}
+            {t(TYPE_LABEL[f.type])}
             {f.type === 'lista' && f.options.length > 0 && ` · ${f.options.join(', ')}`}
           </div>
         </Row>
@@ -50,21 +53,21 @@ export default function CustomFieldsSection({ canEdit }: { canEdit: boolean }) {
 
       {canEdit && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr auto', gap: 12, alignItems: 'end', marginTop: 18 }}>
-          <Field label="Nome do campo">
-            <input value={label} placeholder="CNPJ" onChange={(e) => setLabel(e.target.value)} style={sx.input} />
+          <Field label={t('campos.nome')}>
+            <input value={label} placeholder={t('campos.nomeExemplo')} onChange={(e) => setLabel(e.target.value)} style={sx.input} />
           </Field>
-          <Field label="Tipo">
+          <Field label={t('campos.tipo')}>
             <select value={type} onChange={(e) => setType(e.target.value as CustomFieldType)} style={sx.input}>
-              {(Object.keys(TYPE_LABEL) as CustomFieldType[]).map((t) => (
-                <option key={t} value={t}>{TYPE_LABEL[t]}</option>
+              {(Object.keys(TYPE_LABEL) as CustomFieldType[]).map((tipo) => (
+                <option key={tipo} value={tipo}>{t(TYPE_LABEL[tipo])}</option>
               ))}
             </select>
           </Field>
-          <PrimaryButton icon="add" onClick={add} disabled={!label.trim()}>Adicionar</PrimaryButton>
+          <PrimaryButton icon="add" onClick={add} disabled={!label.trim()}>{t('comum.adicionar')}</PrimaryButton>
           {type === 'lista' && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Opções (separadas por vírgula)">
-                <input value={options} placeholder="Bronze, Prata, Ouro" onChange={(e) => setOptions(e.target.value)} style={sx.input} />
+              <Field label={t('campos.opcoes')}>
+                <input value={options} placeholder={t('campos.opcoesExemplo')} onChange={(e) => setOptions(e.target.value)} style={sx.input} />
               </Field>
             </div>
           )}

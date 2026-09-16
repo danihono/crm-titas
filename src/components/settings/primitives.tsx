@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
+import { t } from '../../i18n'
 
 /** Paleta oferecida para setores e etiquetas — a mesma família roxa/quente do CRM. */
 export const SETTING_COLORS = [
@@ -78,12 +79,12 @@ export function Field({ label, children, style }: { label: string; children: Rea
 export function ColorDots({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-      {SETTING_COLORS.map((c) => (
+      {SETTING_COLORS.map((c, i) => (
         <button
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          aria-label={`Cor ${c}`}
+          aria-label={t('config.corN', { n: i + 1 })}
           style={{
             width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer',
             border: c === value ? '2px solid ' + C.ink : '2px solid transparent',

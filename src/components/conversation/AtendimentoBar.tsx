@@ -6,6 +6,7 @@ import {
 import { setContactOptOut } from '../../hooks/useCampaigns'
 import MaterialIcon from '../common/MaterialIcon'
 import { C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 import type { Contact, ConvStatus, Member, Sector, Tag } from '../../types'
 import { chipColors } from '../../lib/color'
 import { useIsDark } from '../../store/themeStore'
@@ -94,7 +95,7 @@ export default function AtendimentoBar({
           onClick={() => run(() => assignConversation(contact, meUid, meName))}
           style={actionStyle('#1f8a4c', 'rgba(52,199,89,0.14)')}
         >
-          <MaterialIcon name="how_to_reg" size={15} /> Assumir
+          <MaterialIcon name="how_to_reg" size={15} /> {t('atend.assumir')}
         </button>
       )}
 
@@ -109,7 +110,7 @@ export default function AtendimentoBar({
           }}
           style={selectStyle}
         >
-          <option value="">Sem responsável</option>
+          <option value="">{t('atend.semResponsavel')}</option>
           {activeMembers.map((m) => (
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
@@ -124,7 +125,7 @@ export default function AtendimentoBar({
           onChange={(e) => run(() => setConversationSector(contact, e.target.value))}
           style={selectStyle}
         >
-          <option value="">Sem setor</option>
+          <option value="">{t('atend.semSetor')}</option>
           {sectors.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
@@ -140,10 +141,10 @@ export default function AtendimentoBar({
         {canWrite && tags.length > 0 && (
           <button
             onClick={() => setTagsOpen((v) => !v)}
-            title="Etiquetar conversa"
+            title={t('atend.etiquetarConversa')}
             style={actionStyle(C.purple, 'rgba(150,110,200,0.12)')}
           >
-            <MaterialIcon name="label" size={15} /> {applied.length ? '' : 'Etiquetar'}
+            <MaterialIcon name="label" size={15} /> {applied.length ? '' : t('atend.etiquetar')}
           </button>
         )}
         {tagsOpen && (
@@ -168,14 +169,14 @@ export default function AtendimentoBar({
 
       {contact.optOut && (
         <span
-          title="Pediu para não receber campanhas (respondeu SAIR/PARE)"
+          title={t('atend.optOut')}
           style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: C.roseDeep, background: C.tintRose, borderRadius: 999, padding: '4px 10px' }}
         >
-          <MaterialIcon name="do_not_disturb_on" size={14} /> Sem campanhas
+          <MaterialIcon name="do_not_disturb_on" size={14} /> {t('atend.semCampanhas')}
           {canWrite && (
             <button
               onClick={() => run(() => setContactOptOut(contact.id, false))}
-              title="Voltar a incluir em campanhas"
+              title={t('atend.voltarCampanhas')}
               style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', color: C.roseDeep, padding: 0, marginLeft: 2 }}
             >
               <MaterialIcon name="undo" size={14} />
@@ -193,7 +194,7 @@ export default function AtendimentoBar({
               onClick={() => run(() => setConversationStatus(contact, 'esperando'))}
               style={actionStyle('#8a5f12', 'rgba(216,169,96,0.18)')}
             >
-              <MaterialIcon name="hourglass_top" size={15} /> Esperando
+              <MaterialIcon name="hourglass_top" size={15} /> {t('atend.esperando')}
             </button>
           )}
           {conv.status === 'esperando' && (
@@ -201,14 +202,14 @@ export default function AtendimentoBar({
               onClick={() => run(() => setConversationStatus(contact, 'entrada'))}
               style={actionStyle(C.purple, 'rgba(150,110,200,0.12)')}
             >
-              <MaterialIcon name="undo" size={15} /> Voltar à entrada
+              <MaterialIcon name="undo" size={15} /> {t('atend.voltarEntrada')}
             </button>
           )}
           <button
             onClick={() => run(() => finish())}
             style={actionStyle('#1f8a4c', 'rgba(52,199,89,0.14)')}
           >
-            <MaterialIcon name="task_alt" size={15} /> Finalizar
+            <MaterialIcon name="task_alt" size={15} /> {t('atend.finalizar')}
           </button>
         </>
       )}
@@ -218,7 +219,7 @@ export default function AtendimentoBar({
           onClick={() => run(() => reopenConversation(contact))}
           style={actionStyle(C.purple, 'rgba(150,110,200,0.12)')}
         >
-          <MaterialIcon name="refresh" size={15} /> Reabrir atendimento
+          <MaterialIcon name="refresh" size={15} /> {t('atend.reabrir')}
         </button>
       )}
     </div>
@@ -226,12 +227,13 @@ export default function AtendimentoBar({
 }
 
 function StatusChip({ status }: { status: ConvStatus }) {
-  const map: Record<ConvStatus, [string, string, string]> = {
-    entrada: ['Em atendimento', '#1f8a4c', 'rgba(52,199,89,0.14)'],
-    esperando: ['Esperando cliente', '#8a5f12', 'rgba(216,169,96,0.18)'],
-    finalizado: ['Finalizado', '#6e6780', '#eeebf3'],
+  const map: Record<ConvStatus, [Chave, string, string]> = {
+    entrada: ['atend.emAtendimento', '#1f8a4c', 'rgba(52,199,89,0.14)'],
+    esperando: ['atend.esperandoCliente', '#8a5f12', 'rgba(216,169,96,0.18)'],
+    finalizado: ['atend.finalizado', '#6e6780', '#eeebf3'],
   }
-  const [label, color, bg] = map[status] ?? map.entrada
+  const [chave, color, bg] = map[status] ?? map.entrada
+  const label = t(chave)
   return (
     <span style={{ fontSize: 11.5, fontWeight: 800, color, background: bg, borderRadius: 999, padding: '4px 11px' }}>
       {label}

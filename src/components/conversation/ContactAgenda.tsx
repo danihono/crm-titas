@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { C, sx } from '../../styles/sx'
+import { plural, t as traduz } from '../../i18n'
 import { agendaDoContato } from '../../lib/contactAgenda'
 import { toggleActivity } from '../../hooks/useActivities'
 import { sugerirTarefa, daParaSugerir, type TarefaSugerida } from '../../hooks/useTaskSuggestion'
@@ -39,8 +40,8 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
       const code = (e as { code?: string })?.code ?? ''
       setErro(
         code === 'functions/not-found'
-          ? 'A função sugerirTarefaIA ainda não foi publicada neste projeto.'
-          : 'Não deu para falar com o Titã IA agora. Crie a tarefa à mão.',
+          ? traduz('agendaContato.semFuncao')
+          : traduz('agendaContato.semIA'),
       )
     } finally {
       setPensando(false)
@@ -52,13 +53,13 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
       {canWrite && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <RingButton radius={11} onClick={() => onNova()} style={{ ...sx.btnPrimary, flex: 1, justifyContent: 'center' }}>
-            <MaterialIcon name="add_task" size={17} /> Nova atividade
+            <MaterialIcon name="add_task" size={17} /> {traduz('atividades.nova')}
           </RingButton>
           <RingButton
             radius={11}
             onClick={pedirSugestao}
             disabled={pensando || !daParaSugerir(messages) || types.length === 0}
-            title={daParaSugerir(messages) ? 'O Titã IA lê a conversa e propõe o próximo passo' : 'Sem mensagens para a IA ler'}
+            title={traduz(daParaSugerir(messages) ? 'agendaContato.dicaIA' : 'agendaContato.semMensagens')}
             style={{
               ...sx.btnGhost,
               justifyContent: 'center',
@@ -69,7 +70,7 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
             }}
           >
             <MaterialIcon name="auto_awesome" size={17} className={pensando ? 'icon-spin' : undefined} />
-            {pensando ? 'Lendo...' : 'Sugerir'}
+            {traduz(pensando ? 'agendaContato.lendo' : 'agendaContato.sugerir')}
           </RingButton>
         </div>
       )}
@@ -77,8 +78,8 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
         <div style={{ fontSize: 12, color: C.roseDeep, background: C.tintRose, borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>{erro}</div>
       )}
 
-      <Secao titulo="Em aberto" contagem={abertas.length} alerta={atrasadas} />
-      {abertas.length === 0 && <Vazio>Nenhuma tarefa marcada para este cliente.</Vazio>}
+      <Secao titulo={traduz('agendaContato.emAberto')} contagem={abertas.length} alerta={atrasadas} />
+      {abertas.length === 0 && <Vazio>{traduz('agendaContato.vazio')}</Vazio>}
       {abertas.map((a) => (
         <Linha key={a.id} a={a} t={typeMap[a.type]} canWrite={canWrite} />
       ))}
@@ -86,7 +87,7 @@ export default function ContactAgenda({ contact, activities, types, messages, ca
       {concluidas.length > 0 && (
         <>
           <div style={{ height: 18 }} />
-          <Secao titulo="Concluídas" contagem={concluidas.length} alerta={0} />
+          <Secao titulo={traduz('agendaContato.concluidas')} contagem={concluidas.length} alerta={0} />
           {concluidas.slice(0, 8).map((a) => (
             <Linha key={a.id} a={a} t={typeMap[a.type]} canWrite={canWrite} />
           ))}
@@ -103,7 +104,7 @@ function Secao({ titulo, contagem, alerta }: { titulo: string; contagem: number;
       <span style={{ fontSize: 11, fontWeight: 700, color: C.sub }}>{contagem}</span>
       {alerta > 0 && (
         <span style={{ fontSize: 10.5, fontWeight: 800, color: C.roseDeep, background: C.tintRose, borderRadius: 20, padding: '2px 8px' }}>
-          {alerta} atrasada{alerta > 1 ? 's' : ''}
+          {plural(alerta, 'agendaContato.atrasada_1', 'agendaContato.atrasada_n')}
         </span>
       )}
     </div>
@@ -127,7 +128,7 @@ function Linha({ a, t, canWrite }: { a: Activity; t?: ActType; canWrite: boolean
         size={17}
         color={a.done ? C.green : (t?.color ?? C.purple)}
         onClick={canWrite ? () => void toggleActivity(a) : undefined}
-        title={canWrite ? (a.done ? 'Reabrir' : 'Marcar como concluída') : undefined}
+        title={canWrite ? traduz(a.done ? 'agendaContato.reabrir' : 'agendaContato.marcarConcluida') : undefined}
         style={{
           background: a.done ? C.tintGreen : (t?.bg ?? C.tintPurpleStrong),
           width: 32, height: 32, borderRadius: 10, flexShrink: 0,

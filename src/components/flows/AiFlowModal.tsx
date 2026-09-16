@@ -5,12 +5,9 @@ import RingButton from '../common/RingButton'
 import { callGerarFluxoIA, type GeneratedFlow } from '../../hooks/useFlows'
 import { kindMeta } from '../../lib/flow'
 import { C, sx } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 
-const EXEMPLOS = [
-  'Captação de lead por indicação até o fechamento',
-  'Onboarding de cliente novo depois da assinatura',
-  'Cobrança de nota vencida, com régua de contato',
-]
+const EXEMPLOS: Chave[] = ['fluxos.iaExemplo1', 'fluxos.iaExemplo2', 'fluxos.iaExemplo3']
 
 export default function AiFlowModal({ onClose, onConfirm }: {
   onClose: () => void
@@ -30,12 +27,12 @@ export default function AiFlowModal({ onClose, onConfirm }: {
     try {
       const flow = await callGerarFluxoIA(d)
       if (!flow.nodes.length) {
-        setError('A IA não conseguiu montar um fluxo com essa descrição. Tente detalhar mais.')
+        setError(t('fluxos.iaSemFluxo'))
         return
       }
       setPreview(flow)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível gerar o fluxo agora.')
+      setError(e instanceof Error ? e.message : t('fluxos.iaFalha'))
     } finally {
       setLoading(false)
     }
@@ -58,8 +55,8 @@ export default function AiFlowModal({ onClose, onConfirm }: {
           <MaterialIcon name="auto_awesome" size={21} color="#fff" />
         </div>
         <div>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: C.ink }}>Criar fluxo com IA</div>
-          <div style={{ fontSize: 12, color: C.sub }}>Descreva o processo e o Titã IA desenha</div>
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: C.ink }}>{t('fluxos.iaTitulo')}</div>
+          <div style={{ fontSize: 12, color: C.sub }}>{t('fluxos.iaSub')}</div>
         </div>
       </div>
 
@@ -67,7 +64,7 @@ export default function AiFlowModal({ onClose, onConfirm }: {
         <>
           <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700, marginBottom: 4 }}>{preview.name}</div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
-            {preview.nodes.length} etapas · {preview.edges.length} ligações
+            {t('fluxos.previa', { etapas: preview.nodes.length, ligacoes: preview.edges.length })}
           </div>
           <div style={{ maxHeight: 280, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 12, padding: 12, background: C.surfaceAlt }}>
             {preview.nodes.map((n) => {
@@ -85,24 +82,24 @@ export default function AiFlowModal({ onClose, onConfirm }: {
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
             <button onClick={() => setPreview(null)} style={{ ...sx.btnGhost }}>
-              <MaterialIcon name="refresh" size={17} /> Refazer
+              <MaterialIcon name="refresh" size={17} /> {t('fluxos.refazer')}
             </button>
             <div style={{ flex: 1 }} />
-            <button onClick={onClose} style={{ ...sx.btnGhost }}>Cancelar</button>
+            <button onClick={onClose} style={{ ...sx.btnGhost }}>{t('comum.cancelar')}</button>
             <RingButton radius={11} onClick={confirm} disabled={saving} style={{ ...sx.btnPrimary, opacity: saving ? 0.6 : 1 }}>
-              <MaterialIcon name="check" size={18} /> {saving ? 'Criando...' : 'Criar fluxo'}
+              <MaterialIcon name="check" size={18} /> {t(saving ? 'fluxos.criando' : 'fluxos.criarFluxo')}
             </RingButton>
           </div>
         </>
       ) : (
         <>
-          <label style={sx.label}>O que este fluxo precisa cobrir?</label>
+          <label style={sx.label}>{t('fluxos.iaPergunta')}</label>
           <textarea
             value={descricao}
             autoFocus
             rows={4}
             onChange={(e) => setDescricao(e.target.value)}
-            placeholder="Ex.: da chegada do lead pelo WhatsApp até o fechamento, com qualificação, proposta e uma decisão de aprovação de crédito."
+            placeholder={t('fluxos.iaPlaceholder')}
             style={{ ...sx.input, margin: '6px 0 12px', resize: 'vertical', lineHeight: 1.5 }}
           />
 
@@ -110,10 +107,10 @@ export default function AiFlowModal({ onClose, onConfirm }: {
             {EXEMPLOS.map((ex) => (
               <button
                 key={ex}
-                onClick={() => setDescricao(ex)}
+                onClick={() => setDescricao(t(ex))}
                 style={{ background: C.surface, border: '1px solid #e2dcee', borderRadius: 20, padding: '6px 12px', color: C.purple, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
               >
-                {ex}
+                {t(ex)}
               </button>
             ))}
           </div>
@@ -125,14 +122,14 @@ export default function AiFlowModal({ onClose, onConfirm }: {
           )}
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ ...sx.btnGhost }}>Cancelar</button>
+            <button onClick={onClose} style={{ ...sx.btnGhost }}>{t('comum.cancelar')}</button>
             <RingButton
               radius={11}
               onClick={generate}
               disabled={loading || !descricao.trim()}
               style={{ ...sx.btnPrimary, opacity: loading || !descricao.trim() ? 0.6 : 1 }}
             >
-              <MaterialIcon name="auto_awesome" size={18} /> {loading ? 'Desenhando...' : 'Gerar fluxo'}
+              <MaterialIcon name="auto_awesome" size={18} /> {t(loading ? 'fluxos.desenhando' : 'fluxos.gerarFluxo')}
             </RingButton>
           </div>
         </>

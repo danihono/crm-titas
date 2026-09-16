@@ -3,6 +3,7 @@ import { fmtBRL } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
 import type { Deal } from '../../types'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 
 interface Props {
   deal: Deal
@@ -22,7 +23,7 @@ export default function Card({ deal, avBg, valColor, readOnly, onDragStart, onOp
       // O clique abre a edição. Arrastar não dispara click no HTML5 drag&drop,
       // então conviver com o arraste não exige nenhum controle extra.
       onClick={() => { if (!readOnly) onOpen(deal) }}
-      title={readOnly ? undefined : 'Clique para editar'}
+      title={readOnly ? undefined : t('kanban.clicarEditar')}
       onDragStart={(e) => {
         if (readOnly) return
         onDragStart(deal.id)

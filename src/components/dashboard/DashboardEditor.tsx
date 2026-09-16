@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import {
@@ -65,9 +66,9 @@ export default function DashboardEditor({
         }}
       >
         <MaterialIcon name="dashboard_customize" size={18} color={C.purple} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.purple }}>Montando o painel</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.purple }}>{t('editor.titulo')}</span>
         <span style={{ fontSize: 11.5, color: C.sub }}>
-          {livres > 0 ? `${livres} de ${CELULAS} espaços livres` : 'grade cheia'}
+          {livres > 0 ? t('editor.espacosLivres', { n: livres, total: CELULAS }) : t('editor.gradeCheia')}
         </span>
 
         <div style={{ flex: 1 }} />
@@ -75,25 +76,25 @@ export default function DashboardEditor({
         {w && def ? (
           <>
             <span style={{ fontSize: 12, fontWeight: 700, color: C.ink, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {def.nome}
+              {t(def.nome)}
             </span>
-            <Passo rotulo="larg." valor={w.cols} onMenos={() => redimensionar('cols', -1)} onMais={() => redimensionar('cols', 1)} />
-            <Passo rotulo="alt." valor={w.rows} onMenos={() => redimensionar('rows', -1)} onMais={() => redimensionar('rows', 1)} />
+            <Passo rotulo={t('editor.largura')} valor={w.cols} onMenos={() => redimensionar('cols', -1)} onMais={() => redimensionar('cols', 1)} />
+            <Passo rotulo={t('editor.altura')} valor={w.rows} onMenos={() => redimensionar('rows', -1)} onMais={() => redimensionar('rows', 1)} />
 
             {def.colorivel && (
               <>
                 <Alternar
                   ativo={w.variant === 'featured'}
                   onClick={() => onAlterar(w.id, { variant: (w.variant === 'featured' ? 'surface' : 'featured') as WidgetVariant })}
-                  titulo={w.variant === 'featured' ? 'Voltar ao card branco' : 'Deixar em destaque escuro'}
+                  titulo={t(w.variant === 'featured' ? 'editor.voltarBranco' : 'editor.destaqueEscuro')}
                 >
                   <span style={{ width: 13, height: 13, borderRadius: 4, background: w.variant === 'featured' ? 'var(--c-featured)' : C.surface, border: `1px solid ${C.fieldBorder}` }} />
-                  destaque
+                  {t('editor.destaque')}
                 </Alternar>
                 {ACENTOS.map((a) => (
                   <button
                     key={a.id}
-                    title={`Acento ${a.id}`}
+                    title={t('editor.acento', { cor: a.id })}
                     onClick={() => onAlterar(w.id, { accent: a.id })}
                     style={{
                       width: 20, height: 20, borderRadius: '50%', background: a.cor, cursor: 'pointer',
@@ -104,24 +105,24 @@ export default function DashboardEditor({
               </>
             )}
 
-            <button onClick={() => onRemover(w.id)} title="Tirar do painel" style={botaoIcone}>
+            <button onClick={() => onRemover(w.id)} title={t('editor.tirar')} style={botaoIcone}>
               <MaterialIcon name="delete" size={17} color={C.rose} />
             </button>
           </>
         ) : (
-          <span style={{ fontSize: 12, color: C.sub }}>Clique num bloco para mudar tamanho e cor · arraste para trocar de lugar</span>
+          <span style={{ fontSize: 12, color: C.sub }}>{t('editor.dica')}</span>
         )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button onClick={() => setCatalogoAberto((v) => !v)} style={{ ...botaoTexto, color: C.purple, borderColor: C.selBorder, background: catalogoAberto ? C.sel : C.surface }}>
-          <MaterialIcon name={catalogoAberto ? 'expand_less' : 'add'} size={17} /> Adicionar bloco
+          <MaterialIcon name={catalogoAberto ? 'expand_less' : 'add'} size={17} /> {t('editor.adicionarBloco')}
         </button>
         <button onClick={onPadrao} style={botaoTexto}>
-          <MaterialIcon name="restart_alt" size={17} /> Voltar ao padrão
+          <MaterialIcon name="restart_alt" size={17} /> {t('editor.voltarPadrao')}
         </button>
         <div style={{ flex: 1 }} />
-        <button onClick={onCancelar} style={botaoTexto}>Cancelar</button>
+        <button onClick={onCancelar} style={botaoTexto}>{t('comum.cancelar')}</button>
         <RingButton
           radius={11}
           onClick={onSalvar}
@@ -132,7 +133,7 @@ export default function DashboardEditor({
             color: C.onAccent, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: salvando ? 0.6 : 1,
           }}
         >
-          <MaterialIcon name="check" size={17} /> {salvando ? 'Salvando...' : 'Salvar painel'}
+          <MaterialIcon name="check" size={17} /> {t(salvando ? 'comum.salvando' : 'editor.salvar')}
         </RingButton>
       </div>
 
@@ -150,9 +151,9 @@ export default function DashboardEditor({
             const semEspaco = !cabe(widgets, d)
             const bloqueado = jaTem || semEspaco
             const motivo = jaTem
-              ? 'Já está no painel'
+              ? t('editor.jaEsta')
               : semEspaco
-                ? `Não cabe: precisa de ${d.cols * d.rows} espaços e só há ${livres}`
+                ? t('editor.naoCabe', { precisa: d.cols * d.rows, livres })
                 : `${d.cols}×${d.rows}`
             return (
               <button
@@ -169,11 +170,11 @@ export default function DashboardEditor({
                 <MaterialIcon name={d.icone} size={18} color={C.purple} style={{ background: C.tintPurple, width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{d.nome}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{t(d.nome)}</span>
                     <span style={{ fontSize: 10, color: C.faint }}>{d.cols}×{d.rows}</span>
                   </span>
                   <span style={{ display: 'block', fontSize: 11, color: C.sub, lineHeight: 1.4, marginTop: 2 }}>
-                    {bloqueado ? motivo : d.descricao}
+                    {bloqueado ? motivo : t(d.descricao)}
                   </span>
                 </span>
               </button>

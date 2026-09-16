@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
-  DAY_LABELS, isWithinBusinessHours, saveBusinessHours, useBusinessHours,
+  diasDaSemana, isWithinBusinessHours, saveBusinessHours, useBusinessHours,
 } from '../../hooks/useSettings'
+import { t } from '../../i18n'
 import { sx, C } from '../../styles/sx'
 import MaterialIcon from '../common/MaterialIcon'
 import { Field, PrimaryButton, SettingsCard } from './primitives'
 import type { BusinessHours } from '../../types'
 
 export default function HoursSection({ canEdit }: { canEdit: boolean }) {
+  const dias = diasDaSemana()
   const saved = useBusinessHours()
   const [draft, setDraft] = useState<BusinessHours>(saved)
   const [savedAt, setSavedAt] = useState(0)
@@ -35,12 +37,12 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <SettingsCard
-      title="Horários de atendimento"
-      subtitle="Fora da janela, o CRM sinaliza a conversa e pode responder a mensagem de ausência."
+      title={t('horarios.titulo')}
+      subtitle={t('horarios.subtitulo')}
       action={
         <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700, color: open ? C.green : C.faint }}>
           <MaterialIcon name={open ? 'schedule' : 'bedtime'} size={17} />
-          {open ? 'Atendendo agora' : 'Fora do horário'}
+          {t(open ? 'horarios.atendendoAgora' : 'horarios.foraDoHorario')}
         </span>
       }
     >
@@ -54,7 +56,7 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
               onChange={(e) => patchDay(i, { enabled: e.target.checked })}
               style={{ accentColor: C.purple, width: 16, height: 16 }}
             />
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: day.enabled ? C.ink : C.faint }}>{DAY_LABELS[i]}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: day.enabled ? C.ink : C.faint }}>{dias[i]}</span>
           </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: day.enabled ? 1 : 0.45 }}>
             <input
@@ -64,7 +66,7 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
               onChange={(e) => patchDay(i, { open: e.target.value })}
               style={{ ...sx.input, width: 128, padding: '8px 11px' }}
             />
-            <span style={{ color: C.faint, fontSize: 13 }}>às</span>
+            <span style={{ color: C.faint, fontSize: 13 }}>{t('horarios.as')}</span>
             <input
               type="time"
               value={day.close}
@@ -77,12 +79,12 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
       ))}
 
       <div style={{ marginTop: 18 }}>
-        <Field label="Mensagem automática fora do horário (vazio = não responde)">
+        <Field label={t('horarios.ausencia')}>
           <textarea
             value={draft.awayMessage}
             rows={2}
             disabled={!canEdit}
-            placeholder="Recebemos sua mensagem! Nosso atendimento é de segunda a sexta, das 9h às 18h."
+            placeholder={t('horarios.ausenciaExemplo')}
             onChange={(e) => setDraft((d) => ({ ...d, awayMessage: e.target.value }))}
             style={{ ...sx.input, resize: 'vertical', fontFamily: 'inherit' }}
           />
@@ -91,9 +93,9 @@ export default function HoursSection({ canEdit }: { canEdit: boolean }) {
 
       {canEdit && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
-          <PrimaryButton icon="save" onClick={save} disabled={!dirty}>Salvar horários</PrimaryButton>
+          <PrimaryButton icon="save" onClick={save} disabled={!dirty}>{t('horarios.salvar')}</PrimaryButton>
           {!dirty && savedAt > 0 && (
-            <span style={{ fontSize: 12.5, color: C.green, fontWeight: 600 }}>Salvo.</span>
+            <span style={{ fontSize: 12.5, color: C.green, fontWeight: 600 }}>{t('horarios.salvo')}</span>
           )}
         </div>
       )}

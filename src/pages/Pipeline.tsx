@@ -9,8 +9,8 @@ import { C } from '../styles/sx'
 const FlowsView = lazy(() => import('../components/flows/FlowsView'))
 
 const TABS: TabDef<PipelineView>[] = [
-  { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
-  { id: 'fluxos', label: 'Fluxos', icon: 'account_tree' },
+  { id: 'kanban', label: 'pipeline.abaKanban', icon: 'view_kanban' },
+  { id: 'fluxos', label: 'pipeline.abaFluxos', icon: 'account_tree' },
 ]
 
 /**

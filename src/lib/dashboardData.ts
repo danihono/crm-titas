@@ -1,6 +1,7 @@
 import type { Column, ConversationRecord, Deal, Invoice } from '../types'
+import { diaAbrev, mesAbrev, mesPorExtenso } from '../i18n/formato'
 import type { Semana } from './sparkline'
-import { MESES_CURTO } from './format'
+import { t } from '../i18n'
 
 /**
  * Cálculo dos gráficos do painel — funções PURAS, sem React.
@@ -140,7 +141,10 @@ export interface Heatmap {
   pico: { dia: number; hora: number; n: number } | null
 }
 
-export const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+/** Dias curtos do idioma ativo, domingo primeiro — como `Date.getDay()`. */
+export function diasCurtos(): string[] {
+  return Array.from({ length: 7 }, (_, i) => diaAbrev(i))
+}
 
 /**
  * Quando as conversas chegam, em grade 7 dias × 24 horas.
@@ -233,11 +237,6 @@ function chaveMes(d: Date): number {
   return d.getFullYear() * 12 + d.getMonth()
 }
 
-const MESES_LONGO = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-]
-
 /**
  * Quantos negócios chegaram à etapa GANHO em cada um dos últimos meses.
  *
@@ -262,7 +261,7 @@ export function ganhosPorMes(
   for (let i = 0; i < meses; i++) {
     const k = primeira + i
     const m = ((k % 12) + 12) % 12
-    out.push({ label: MESES_CURTO[m], titulo: `${MESES_LONGO[m]} de ${Math.floor(k / 12)}`, count: 0, valor: 0 })
+    out.push({ label: mesAbrev(m), titulo: t('painel.mesDeAno', { mes: mesPorExtenso(m), ano: Math.floor(k / 12) }), count: 0, valor: 0 })
   }
 
   for (const d of deals) {
@@ -322,6 +321,6 @@ export function leadsDoMes(leads: Deal[], now = new Date(), etapa = 'ganho'): Le
     count,
     ganhos,
     changePct: anterior > 0 ? ((count - anterior) / anterior) * 100 : null,
-    mes: MESES_LONGO[now.getMonth()],
+    mes: mesPorExtenso(now.getMonth()),
   }
 }

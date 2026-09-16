@@ -6,8 +6,10 @@ import { monthName, longDayLabel } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import type { EventDoc } from '../types'
 import { C, FONT_DISPLAY } from '../styles/sx'
+import { t } from '../i18n'
+import { diasCurtosCalendario } from '../i18n/formato'
 
-const WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
+
 
 export default function Agenda() {
   const navigate = useNavigate()
@@ -35,8 +37,8 @@ export default function Agenda() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 8, marginBottom: 8 }}>
-          {WEEKDAYS.map((d) => (
-            <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: C.muted, padding: '4px 0' }}>{d}</div>
+          {diasCurtosCalendario().map((d) => (
+            <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: C.muted, padding: '4px 0' }}>{d.toUpperCase()}</div>
           ))}
         </div>
 
@@ -73,7 +75,7 @@ export default function Agenda() {
       {/* Painel do dia */}
       <div style={{ width: 300, flexShrink: 0, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 20, padding: 22, boxShadow: '0 1px 2px rgba(28,20,50,0.04),0 8px 22px rgba(28,20,50,0.05)' }}>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{longDayLabel(selectedDate)}</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 23, fontWeight: 400, color: C.ink, marginBottom: 18 }}>Compromissos</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 23, fontWeight: 400, color: C.ink, marginBottom: 18 }}>{t('agenda.compromissos')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {dayEvents.map((e) => (
             <div key={e.id} style={{ display: 'flex', gap: 12 }}>
@@ -88,14 +90,14 @@ export default function Agenda() {
                     onClick={() => { selectContact(e.contactId!); setContactView('chat'); navigate('/contatos') }}
                     style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, background: 'transparent', border: 'none', padding: 0, color: C.purple, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                   >
-                    <MaterialIcon name="forum" size={15} /> Abrir conversa
+                    <MaterialIcon name="forum" size={15} /> {t('diretorio.abrirConversa')}
                   </button>
                 )}
               </div>
             </div>
           ))}
           {dayEvents.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: C.faint, fontSize: 13 }}>Nenhum compromisso neste dia</div>
+            <div style={{ textAlign: 'center', padding: '30px 0', color: C.faint, fontSize: 13 }}>{t('agenda.semCompromissos')}</div>
           )}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import { sparkline } from '../../lib/sparkline'
 import { variacao } from '../../lib/format'
 import MaterialIcon from '../common/MaterialIcon'
@@ -194,9 +195,7 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
     : v.sentido === 'igual' ? C.tintNeutral : v.sentido === 'sobe' ? C.tintGreen : C.tintRose
   return (
     <span
-      title={v.sentido === 'igual'
-        ? 'Sem mudança sobre a semana fechada anterior.'
-        : 'Semana fechada contra a anterior — a semana em curso ainda está pela metade e distorceria a comparação.'}
+      title={v.sentido === 'igual' ? t('painel.semMudanca') : t('painel.semanaFechada')}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

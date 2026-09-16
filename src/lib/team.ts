@@ -1,6 +1,7 @@
 import { deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from './firebase'
+import { t } from '../i18n'
 import { col, ref, uid } from './paths'
 import { inviteFromDoc, memberFromDoc } from './converters'
 import type { MemberRole } from '../types'
@@ -35,7 +36,7 @@ export async function inviteMember(
   sectorIds: string[] = [],
 ): Promise<void> {
   const key = emailKey(email)
-  if (!key) throw new Error('Informe um e-mail.')
+  if (!key) throw new Error(t('equipe.informeEmail'))
   await setDoc(doc(db, 'invites', key), {
     email: key,
     tenantUid,
@@ -143,7 +144,7 @@ export async function acceptPendingInvite(
   // Best-effort: o vínculo já existe, e um convite órfão só polui a lista de pendentes.
   await deleteDoc(inviteRef).catch(() => {})
 
-  return { tenantUid: invite.tenantUid, tenantName: invite.tenantName || 'Equipe', role: invite.role }
+  return { tenantUid: invite.tenantUid, tenantName: invite.tenantName || t('equipe.equipePadrao'), role: invite.role }
 }
 
 /** Nomes dos atendentes por uid — para rotular conversas e relatórios sem N leituras. */

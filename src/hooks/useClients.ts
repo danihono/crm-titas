@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
+import { compararTexto } from '../i18n/formato'
 import { collection, deleteField, doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { httpsCallable } from 'firebase/functions'
@@ -45,7 +47,7 @@ export function useClients() {
             } as Client
           })
           .filter((c) => !isOwnerEmail(c.email))
-          .sort((a, b) => a.displayName.localeCompare(b.displayName))
+          .sort((a, b) => compararTexto(a.displayName, b.displayName))
         setClients(list)
         setLoading(false)
       },
@@ -132,15 +134,15 @@ export async function deleteClientAccount(uid: string): Promise<void> {
 export function clientDeleteErrorHint(code: string, fallback: string): string {
   switch (code) {
     case 'functions/not-found':
-      return 'A Cloud Function excluirCliente não está publicada neste projeto — falta `firebase deploy --only functions`.'
+      return t('clientes.semFuncaoExcluir')
     case 'functions/unauthenticated':
     case 'functions/permission-denied':
-      return 'A chamada foi barrada (App Check ou conta sem permissão de dono do sistema).'
+      return t('clientes.barrada')
     case 'functions/failed-precondition':
-      return fallback || 'Esta conta não pode ser excluída.'
+      return fallback || t('clientes.naoPodeExcluir')
     case 'functions/internal':
-      return 'A exclusão falhou no servidor. Confira os logs da função excluirCliente.'
+      return t('clientes.falhouNoServidor')
     default:
-      return fallback || 'Não foi possível excluir o cliente agora.'
+      return fallback || t('clientes.falhaExcluir')
   }
 }

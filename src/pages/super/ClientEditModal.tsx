@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import SuperModal, { SuperField, superInputClass } from './SuperModal'
 import MaterialIcon from '../../components/common/MaterialIcon'
+import { t } from '../../i18n'
 import RingButton from '../../components/common/RingButton'
 import { CLIENT_COLORS, brandGradient, brandShadow, clientColor, isHexColor } from '../../lib/clientBrand'
 import { deleteClientLogoFile, saveClientBranding, uploadClientLogo, type Client } from '../../hooks/useClients'
@@ -47,7 +48,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
       uploaded.current.push(up.path)
       setLogo(up)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar a imagem.')
+      setError(err instanceof Error ? err.message : t('super.falhaImagem'))
     } finally {
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''
@@ -56,7 +57,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
 
   async function save() {
     if (!trimmed) {
-      setError('O nome do cliente não pode ficar vazio.')
+      setError(t('super.nomeVazio'))
       return
     }
     setSaving(true)
@@ -72,7 +73,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
       onClose()
     } catch (err) {
       console.error('[ClientEditModal]', err)
-      setError('Não foi possível salvar. Confira as regras do Firestore (o dono do sistema só pode alterar nome, cor e logo).')
+      setError(t('super.falhaSalvarCliente'))
       setSaving(false)
     }
   }
@@ -85,8 +86,8 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
 
   return (
     <SuperModal
-      title="Editar cliente"
-      subtitle="Nome, cor e logo para identificar este cliente no painel. Não altera nada dentro do CRM dele."
+      title={t('super.editarCliente')}
+      subtitle={t('super.editarClienteSub')}
       icon="badge"
       onClose={cancel}
     >
@@ -108,7 +109,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
                 className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12.5px] font-bold text-[#e8e2ee] bg-[rgba(255,255,255,0.05)] border border-[rgba(176,148,210,0.16)] hover:bg-[rgba(255,255,255,0.09)] disabled:opacity-50"
               >
                 <MaterialIcon name="image" size={17} />
-                {uploading ? 'Enviando…' : logo ? 'Trocar logo' : 'Enviar logo'}
+                {uploading ? t('comum.enviando') : t(logo ? 'super.trocarLogo' : 'super.enviarLogo')}
               </button>
               {logo && (
                 <button
@@ -117,11 +118,11 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
                   onClick={() => setLogo(null)}
                   className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12.5px] font-bold text-[#d98aa8] bg-[rgba(193,77,119,0.12)] border border-[rgba(193,77,119,0.28)] hover:bg-[rgba(193,77,119,0.2)] disabled:opacity-50"
                 >
-                  <MaterialIcon name="delete" size={17} /> Remover
+                  <MaterialIcon name="delete" size={17} /> {t('comum.remover')}
                 </button>
               )}
             </div>
-            <div className="text-[11.5px] text-[#7d7388]">PNG, JPG ou SVG · até 2 MB</div>
+            <div className="text-[11.5px] text-[#7d7388]">{t('super.limiteLogo')}</div>
           </div>
           <input
             ref={fileInput}
@@ -132,24 +133,24 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
           />
         </div>
 
-        <SuperField label="Nome do cliente" hint={client.email ? `Conta: ${client.email}` : undefined}>
+        <SuperField label={t('super.nomeCliente')} hint={client.email ? t('super.contaEmail', { email: client.email }) : undefined}>
           <input
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nome que aparece no painel"
+            placeholder={t('super.nomeNoPainel')}
             className={superInputClass}
           />
         </SuperField>
 
-        <SuperField label="Cor">
+        <SuperField label={t('config.cor')}>
           <div className="flex items-center gap-2 flex-wrap pt-0.5">
-            {CLIENT_COLORS.map((c) => (
+            {CLIENT_COLORS.map((c, i) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                aria-label={`Cor ${c}`}
+                aria-label={t('config.corN', { n: i + 1 })}
                 className="w-7 h-7 rounded-full"
                 style={{
                   background: c,
@@ -160,7 +161,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
             ))}
             <label
               className="w-7 h-7 rounded-full grid place-items-center cursor-pointer border border-[rgba(176,148,210,0.3)]"
-              title="Cor personalizada"
+              title={t('super.corPersonalizada')}
               style={{ background: CLIENT_COLORS.includes(color) ? 'transparent' : color }}
             >
               <MaterialIcon name="colorize" size={15} color="#c9a6e0" />
@@ -200,7 +201,7 @@ export default function ClientEditModal({ client, onClose }: { client: Client; o
               cursor: busy || !dirty ? 'not-allowed' : 'pointer',
             }}
           >
-            <MaterialIcon name="save" size={18} /> {saving ? 'Salvando…' : 'Salvar'}
+            <MaterialIcon name="save" size={18} /> {t(saving ? 'comum.salvando' : 'comum.salvar')}
           </RingButton>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { HttpsError } from 'firebase-functions/v2/https'
+import { msg, type Idioma } from './idioma'
 import { getFirestore } from 'firebase-admin/firestore'
 
 /**
@@ -60,7 +61,7 @@ export const APP_CHECK_EXIGIDO =
  * `aiUsage` não tem regra em firestore.rules — cai no default-deny, então só o Admin SDK
  * escreve e ninguém zera a própria cota pelo navegador.
  */
-export async function consomeCota(uid: string): Promise<void> {
+export async function consomeCota(uid: string, idioma: Idioma = 'pt'): Promise<void> {
   const ref = getFirestore().doc(`aiUsage/${uid}`)
   const agora = Date.now()
   try {
@@ -70,10 +71,7 @@ export async function consomeCota(uid: string): Promise<void> {
       const usados = Number(snap.get('count') ?? 0)
       const janelaViva = agora - inicio < JANELA_COTA_MS
       if (janelaViva && usados >= MAX_IA_POR_HORA) {
-        throw new HttpsError(
-          'resource-exhausted',
-          'Você já usou o Titã IA muitas vezes nesta hora. Tente de novo mais tarde.',
-        )
+        throw new HttpsError('resource-exhausted', msg('cotaEstourada', idioma))
       }
       tx.set(ref, {
         windowStart: janelaViva ? inicio : agora,

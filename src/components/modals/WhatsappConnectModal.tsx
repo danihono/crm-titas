@@ -3,16 +3,17 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 import { useTenantStore, canManage } from '../../store/tenantStore'
 import { useWhatsappStatus } from '../../hooks/useWhatsappStatus'
 import { useDaemonOnline, useDaemonStorageOk } from '../../hooks/useDaemonOnline'
 import { giveConsent, connectWhatsapp, disconnectWhatsapp, heartbeatKnown } from '../../lib/whatsapp'
 
-const RETENTION_OPTIONS = [
-  { v: 0, label: 'Guardar para sempre' },
-  { v: 30, label: 'Apagar após 30 dias' },
-  { v: 90, label: 'Apagar após 90 dias' },
-  { v: 180, label: 'Apagar após 180 dias' },
+const RETENTION_OPTIONS: { v: number; label: Chave }[] = [
+  { v: 0, label: 'wa.reterSempre' },
+  { v: 30, label: 'wa.reter30' },
+  { v: 90, label: 'wa.reter90' },
+  { v: 180, label: 'wa.reter180' },
 ]
 
 /**
@@ -20,10 +21,10 @@ const RETENTION_OPTIONS = [
  * usuário: o campo também recebe códigos de desconexão do WhatsApp (ex.: "515"), que são
  * ruído — os não mapeados ficam de fora de propósito.
  */
-const LAST_ERROR_LABEL: Record<string, string> = {
-  lease_taken: 'Outra cópia do serviço de WhatsApp já está usando esta conexão. Encerre-a e tente de novo.',
-  lease_lost: 'Outra cópia do serviço assumiu esta conexão.',
-  'connect failed': 'Não foi possível conectar ao WhatsApp. Tente novamente.',
+const LAST_ERROR_LABEL: Record<string, Chave> = {
+  lease_taken: 'wa.outraCopia',
+  lease_lost: 'wa.outraAssumiu',
+  'connect failed': 'wa.naoConectou',
 }
 
 export default function WhatsappConnectModal({ onClose }: { onClose: () => void }) {
@@ -49,7 +50,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       await giveConsent(retention)
       await connectWhatsapp()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Falha ao conectar.')
+      setErr(e instanceof Error ? e.message : t('wa.falhaConectar'))
     } finally {
       setBusy(false)
     }
@@ -57,13 +58,13 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
 
   async function handleDisconnect(purge: boolean) {
     if (busy || !podeAdministrar) return
-    if (purge && !confirm('Isso vai DESCONECTAR e APAGAR todas as mensagens espelhadas do WhatsApp. Continuar?')) return
+    if (purge && !confirm(t('wa.confirmarDesconectar'))) return
     setBusy(true)
     setErr(null)
     try {
       await disconnectWhatsapp(purge)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Falha ao desconectar.')
+      setErr(e instanceof Error ? e.message : t('wa.falhaDesconectar'))
     } finally {
       setBusy(false)
     }
@@ -73,14 +74,15 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
   const showConsent = !connected && st.status !== 'qr' && st.status !== 'connecting'
   // Só avisa depois de ter lido o heartbeat ao menos uma vez — senão o aviso pisca ao abrir.
   const showOffline = heartbeatKnown() && !daemonUp
-  const lastErrorLabel = st.lastError ? LAST_ERROR_LABEL[st.lastError] : undefined
+  const chaveUltimoErro = st.lastError ? LAST_ERROR_LABEL[st.lastError] : undefined
+  const lastErrorLabel = chaveUltimoErro ? t(chaveUltimoErro) : undefined
 
   return (
     <Modal width={460} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <MaterialIcon name="chat" size={22} color={C.greenDeep} style={{ background: 'rgba(52,199,89,0.14)', width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>Conectar WhatsApp</div>
+          <div style={{ ...sx.serif, fontSize: 22, color: C.ink }}>{t('wa.conectarTitulo')}</div>
         </div>
         <MaterialIcon name="close" size={22} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
@@ -89,16 +91,13 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
 
       {!podeAdministrar && (
         <div style={{ marginTop: 10, background: 'rgba(154,111,184,0.10)', border: '1px solid rgba(154,111,184,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
-          <b style={{ color: C.ink }}>Somente leitura.</b> Conectar ou desconectar o WhatsApp vale
-          para toda a operação — quem administra o ambiente faz isso. Você continua atendendo
-          normalmente pelas conversas.
+          <b style={{ color: C.ink }}>{t('wa.somenteLeitura')}</b> {t('wa.somenteLeituraTexto')}
         </div>
       )}
 
       {showOffline && (
         <div style={{ marginTop: 10, background: 'rgba(193,77,119,0.09)', border: '1px solid rgba(193,77,119,0.28)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
-          <b style={{ color: C.rose }}>Serviço de WhatsApp offline.</b> Ele roda na máquina que hospeda
-          o espelho — ligue-a para conectar ou trocar mensagens.
+          <b style={{ color: C.rose }}>{t('wa.servicoOffline')}</b> {t('wa.offlineTexto')}
         </div>
       )}
 
@@ -106,13 +105,9 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
           some. Sem esta tarja, o sintoma leva dias para ser notado — e já levou. */}
       {storage.ok === false && (
         <div style={{ marginTop: 10, background: 'rgba(216,169,96,0.12)', border: '1px solid rgba(216,169,96,0.36)', borderRadius: 11, padding: '10px 13px', fontSize: 12.3, color: C.sub, lineHeight: 1.45 }}>
-          <b style={{ color: C.amberDeep }}>O serviço não consegue salvar arquivos.</b>{' '}
-          {storage.code === 'not_found'
-            ? 'O armazenamento configurado não foi encontrado.'
-            : 'Falta permissão de armazenamento para a conta de serviço.'}{' '}
-          As mensagens de texto continuam chegando, mas fotos, áudios e vídeos novos não serão
-          guardados. Depois de corrigir, use <b>Recuperar mídias</b> na conversa para trazer o
-          que ficou para trás.
+          <b style={{ color: C.amberDeep }}>{t('wa.semSalvarArquivos')}</b>{' '}
+          {t(storage.code === 'not_found' ? 'wa.bucketNaoEncontrado' : 'wa.faltaPermissao')}{' '}
+          {t('wa.storageTexto')}
         </div>
       )}
 
@@ -121,16 +116,16 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       {/* QR */}
       {st.status === 'qr' && st.qr && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, margin: '14px 0 4px' }}>
-          <img src={st.qr} alt="QR do WhatsApp" width={240} height={240} style={{ borderRadius: 14, border: '1px solid ' + C.line }} />
+          <img src={st.qr} alt={t('wa.qrAlt')} width={240} height={240} style={{ borderRadius: 14, border: '1px solid ' + C.line }} />
           <div style={{ fontSize: 12.5, color: C.sub, textAlign: 'center', maxWidth: 320 }}>
-            No celular: WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e aponte para o QR.
+            {t('wa.noCelular')} <b>{t('wa.aparelhosConectados')}</b> → <b>{t('wa.conectarAparelho')}</b> {t('wa.aponteQr')}
           </div>
         </div>
       )}
 
       {st.status === 'connecting' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'center', padding: '22px 0', color: C.sub, fontSize: 13 }}>
-          <MaterialIcon name="sync" size={20} color={C.purple} /> Conectando…
+          <MaterialIcon name="sync" size={20} color={C.purple} /> {t('wa.conectandoReticencias')}
         </div>
       )}
 
@@ -138,25 +133,24 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
       {showConsent && (
         <>
           <div style={{ background: C.panel, border: '1px solid ' + C.lineSoft, borderRadius: 13, padding: '13px 15px', margin: '14px 0', fontSize: 12.5, color: C.sub, lineHeight: 1.5 }}>
-            <b style={{ color: C.ink }}>Aviso de privacidade (LGPD).</b> Ao conectar, as mensagens que você
-            <b> enviar e receber</b> — inclusive de terceiros — passam a ser espelhadas neste CRM. Você é
-            responsável por informar seus contatos. É possível desconectar e <b>apagar tudo</b> a qualquer momento.
+            <b style={{ color: C.ink }}>{t('wa.avisoPrivacidade')}</b> {t('wa.avisoTexto1')}
+            <b> {t('wa.enviarReceber')}</b> {t('wa.avisoTexto2')} <b>{t('wa.apagarTudo')}</b> {t('wa.avisoTexto3')}
           </div>
 
-          <label style={{ ...sx.label, display: 'block', marginBottom: 6 }}>Retenção das mensagens</label>
+          <label style={{ ...sx.label, display: 'block', marginBottom: 6 }}>{t('wa.retencao')}</label>
           <select
             value={retention}
             onChange={(e) => setRetention(Number(e.target.value))}
             style={{ ...sx.input, margin: '0 0 14px', cursor: 'pointer' }}
           >
             {RETENTION_OPTIONS.map((o) => (
-              <option key={o.v} value={o.v}>{o.label}</option>
+              <option key={o.v} value={o.v}>{t(o.label)}</option>
             ))}
           </select>
 
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer', marginBottom: 16, fontSize: 12.5, color: C.sub }}>
             <input type="checkbox" checked={consented} onChange={(e) => setConsented(e.target.checked)} style={{ marginTop: 2 }} />
-            <span>Li e concordo com o aviso acima e confirmo ter base legal para espelhar estas conversas.</span>
+            <span>{t('wa.concordo')}</span>
           </label>
 
           <RingButton
@@ -166,7 +160,7 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
             disabled={!consented || busy || !podeAdministrar}
             style={{ ...sx.btnPrimary, justifyContent: 'center', opacity: !consented || busy || !podeAdministrar ? 0.55 : 1, cursor: !consented || busy || !podeAdministrar ? 'not-allowed' : 'pointer' }}
           >
-            <MaterialIcon name="qr_code_2" size={18} /> {busy ? 'Gerando QR…' : 'Gerar QR e conectar'}
+            <MaterialIcon name="qr_code_2" size={18} /> {t(busy ? 'wa.gerandoQr' : 'wa.gerarQr')}
           </RingButton>
         </>
       )}
@@ -176,10 +170,10 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
         <div style={{ margin: '14px 0 2px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ background: C.panel, border: '1px solid ' + C.lineSoft, borderRadius: 13, padding: '12px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.ink, fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
-              <MaterialIcon name="history" size={17} color={C.purple} /> Histórico antigo
+              <MaterialIcon name="history" size={17} color={C.purple} /> {t('wa.historicoAntigo')}
             </div>
             <div style={{ color: C.sub, fontSize: 12.3, lineHeight: 1.45 }}>
-              A recuperação é <b>por conversa</b>: abra um contato e toque em <b>“Recuperar histórico”</b> no topo do chat para trazer as mensagens antigas dele. É best-effort — o WhatsApp devolve só o que o aparelho ainda guarda daquela conversa (pode não trazer tudo).
+              {t('wa.historicoTexto1')} <b>{t('wa.porConversa')}</b>{t('wa.abraContato')} <b>{t('wa.recuperarHistoricoAspas')}</b> {t('wa.historicoTexto2')}
             </div>
           </div>
           {podeAdministrar && (
@@ -189,14 +183,14 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
                 disabled={busy}
                 style={{ ...sx.btnGhost, width: '100%', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}
               >
-                <MaterialIcon name="link_off" size={18} /> Desconectar
+                <MaterialIcon name="link_off" size={18} /> {t('wa.desconectar')}
               </button>
               <button
                 onClick={() => handleDisconnect(true)}
                 disabled={busy}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.3)', borderRadius: 11, padding: '9px 14px', color: C.rose, fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}
               >
-                <MaterialIcon name="delete_forever" size={18} /> Desconectar e apagar tudo
+                <MaterialIcon name="delete_forever" size={18} /> {t('wa.desconectarApagar')}
               </button>
             </>
           )}
@@ -210,11 +204,11 @@ export default function WhatsappConnectModal({ onClose }: { onClose: () => void 
 
 function StatusLine({ st, phone }: { st: string; phone: string | null }) {
   const map: Record<string, { label: string; color: string; icon: string }> = {
-    disconnected: { label: 'Desconectado', color: C.muted, icon: 'radio_button_unchecked' },
-    qr: { label: 'Aguardando leitura do QR', color: C.amber, icon: 'qr_code_2' },
-    connecting: { label: 'Conectando', color: C.purple, icon: 'sync' },
-    connected: { label: phone ? `Conectado · +${phone}` : 'Conectado', color: C.green, icon: 'check_circle' },
-    loggedOut: { label: 'Aparelho desvinculado — conecte de novo', color: C.rose, icon: 'error' },
+    disconnected: { label: t('wa.desconectado'), color: C.muted, icon: 'radio_button_unchecked' },
+    qr: { label: t('wa.aguardandoQr'), color: C.amber, icon: 'qr_code_2' },
+    connecting: { label: t('wa.conectando'), color: C.purple, icon: 'sync' },
+    connected: { label: phone ? t('wa.conectadoCom', { numero: phone }) : t('wa.conectado'), color: C.green, icon: 'check_circle' },
+    loggedOut: { label: t('wa.desvinculado'), color: C.rose, icon: 'error' },
   }
   const s = map[st] ?? map.disconnected
   return (

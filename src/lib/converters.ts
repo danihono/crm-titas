@@ -8,7 +8,7 @@ import type {
   Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
   BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
   Campaign, CampaignStatus, CampaignTarget, CampaignTargetStatus,
-  Variable, MediaAsset, KnowledgeDoc, UserPrefs, ThemeMode,
+  Variable, MediaAsset, KnowledgeDoc, UserPrefs, ThemeMode, Idioma,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -343,6 +343,10 @@ export function prefsFromDoc(v: unknown): UserPrefs {
   // operacional, que é o comportamento que a pessoa já espera de um app.
   const t = d.theme
   const theme: ThemeMode = t === 'light' || t === 'dark' || t === 'system' ? t : 'system'
+  // Idioma inválido (build antiga, dado torto, edição na mão) cai no pt-BR em
+  // vez de deixar a tela sem texto.
+  const i = d.idioma
+  const idioma: Idioma = i === 'pt' || i === 'es' || i === 'en' ? i : 'pt'
   // `dashboard` é obrigatório em UserPrefs (e não opcional) DE PROPÓSITO: esta
   // função reconstrói o objeto do zero e descarta todo campo que não está aqui.
   // Um campo novo esquecido chegaria pelo snapshot e sumiria em silêncio —
@@ -351,6 +355,7 @@ export function prefsFromDoc(v: unknown): UserPrefs {
     notifyDesktop: d.notifyDesktop !== false,
     notifySound: d.notifySound !== false,
     theme,
+    idioma,
     dashboard: layoutFromDoc(d.dashboard),
   }
 }

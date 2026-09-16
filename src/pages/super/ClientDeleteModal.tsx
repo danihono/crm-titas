@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { FirebaseError } from 'firebase/app'
 import SuperModal, { SuperField, superInputClass } from './SuperModal'
 import MaterialIcon from '../../components/common/MaterialIcon'
+import { t, type Chave } from '../../i18n'
 import { clientDeleteErrorHint, deleteClientAccount, type Client } from '../../hooks/useClients'
 
-const APAGA = ['Contatos, conversas e mensagens', 'Negócios, atividades e faturas', 'Arquivos e mídias no Storage', 'A conta de acesso e os convites da equipe']
+const APAGA: Chave[] = ['super.apagaContatos', 'super.apagaNegocios', 'super.apagaArquivos', 'super.apagaConta']
 
 /**
  * Exclusão definitiva. A confirmação por digitação do nome é de propósito: um clique
@@ -39,21 +40,21 @@ export default function ClientDeleteModal({ client, onClose, onDeleted }: {
 
   return (
     <SuperModal
-      title={`Excluir ${client.displayName}?`}
-      subtitle="Esta ação é irreversível e apaga tudo o que pertence a este cliente."
+      title={t('super.confirmarExcluir', { nome: client.displayName })}
+      subtitle={t('super.irreversivel')}
       icon="warning"
       onClose={() => !busy && onClose()}
     >
       <div className="flex flex-col gap-5">
         <ul className="flex flex-col gap-2 rounded-xl px-4 py-3.5 bg-[rgba(193,77,119,0.10)] border border-[rgba(193,77,119,0.25)]">
-          {APAGA.map((t) => (
-            <li key={t} className="flex items-center gap-2 text-[12.5px] text-[#e8bccb]">
-              <MaterialIcon name="delete_forever" size={16} color="#d98aa8" /> {t}
+          {APAGA.map((chave) => (
+            <li key={chave} className="flex items-center gap-2 text-[12.5px] text-[#e8bccb]">
+              <MaterialIcon name="delete_forever" size={16} color="#d98aa8" /> {t(chave)}
             </li>
           ))}
         </ul>
 
-        <SuperField label="Digite o nome do cliente para confirmar" hint={client.email || undefined}>
+        <SuperField label={t('super.digiteNome')} hint={client.email || undefined}>
           <input
             value={typed}
             autoFocus
@@ -76,7 +77,7 @@ export default function ClientDeleteModal({ client, onClose, onDeleted }: {
             disabled={busy}
             className="h-10 px-4 rounded-xl text-[13px] font-bold text-[#b9aec6] bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-50"
           >
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button
             onClick={() => void run()}
@@ -84,7 +85,7 @@ export default function ClientDeleteModal({ client, onClose, onDeleted }: {
             className="h-10 px-5 rounded-xl text-[13px] font-bold text-[#fff] flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'linear-gradient(140deg,#c14d77,#8d2f52)', boxShadow: '0 8px 20px rgba(150,45,85,0.35)' }}
           >
-            <MaterialIcon name="delete_forever" size={18} /> {busy ? 'Excluindo…' : 'Excluir definitivamente'}
+            <MaterialIcon name="delete_forever" size={18} /> {t(busy ? 'nota.excluindo' : 'super.excluirDefinitivamente')}
           </button>
         </div>
       </div>

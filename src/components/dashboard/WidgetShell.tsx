@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import MaterialIcon from '../common/MaterialIcon'
 import type { DashboardWidget } from '../../types'
 import type { WidgetDef } from '../../lib/dashboardWidgets'
@@ -103,7 +104,7 @@ export default function WidgetShell({
         }}
       >
         <MaterialIcon name="drag_indicator" size={14} />
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{def.nome}</span>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t(def.nome)}</span>
         <span style={{ opacity: 0.6 }}>{w.cols}×{w.rows}</span>
       </div>
     </div>

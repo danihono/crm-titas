@@ -1,5 +1,7 @@
 import { createPortal } from 'react-dom'
 import { fmtDate, fmtDuration, type ReportModel, type ReportRow } from '../../lib/reportData'
+import { t } from '../../i18n'
+import { dataHoraCurta } from '../../i18n/formato'
 import { RankedBars, StatusStack, TrendArea } from './Charts'
 import BrandMark from '../common/BrandMark'
 import type { ReportSections } from '../../lib/xlsx'
@@ -47,8 +49,8 @@ function BreakdownTable({ rows, entity }: { rows: ReportRow[]; entity: string })
     <div style={{ marginTop: 14 }}>
       <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 10, padding: '0 0 6px',
         fontSize: 9.5, color: MUTED, fontWeight: 700, letterSpacing: '.05em', borderBottom: `1px solid ${LINE}` }}>
-        <span>{entity.toUpperCase()}</span><span>CONVERSAS</span><span>FINALIZADAS</span>
-        <span>1ª RESPOSTA</span><span>ATÉ FINALIZAR</span>
+        <span>{entity.toUpperCase()}</span><span>{t('relatorios.colConversas')}</span><span>{t('relatorios.colFinalizadas')}</span>
+        <span>{t('relatorios.colPrimeiraResposta')}</span><span>{t('relatorios.colAteFinalizar')}</span>
       </div>
       {rows.map((r) => (
         <div key={r.key} style={{ display: 'grid', gridTemplateColumns: cols, gap: 10,
@@ -72,7 +74,7 @@ function Breakdown({ title, entity, rows }: { title: string; entity: string; row
   if (rows.length === 0) {
     return (
       <Section title={title}>
-        <div style={{ fontSize: 11.5, color: MUTED }}>Nada registrado neste período.</div>
+        <div style={{ fontSize: 11.5, color: MUTED }}>{t('comum.semRegistros')}</div>
       </Section>
     )
   }
@@ -113,9 +115,9 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
           <div style={{ fontSize: 9, letterSpacing: '.36em', color: MUTED, fontWeight: 700, marginTop: 2 }}>C R M</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 13, fontWeight: 800 }}>Relatório de atendimento</div>
+          <div style={{ fontSize: 13, fontWeight: 800 }}>{t('doc.relatorioAtendimento')}</div>
           <div style={{ fontSize: 11, color: SUB, marginTop: 2 }}>
-            {fmtDate(model.from)} a {fmtDate(model.to)} · {model.days} dias
+            {t('doc.periodo', { de: fmtDate(model.from), ate: fmtDate(model.to), dias: model.days })}
           </div>
           {orgName && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 2 }}>{orgName}</div>}
         </div>
@@ -124,13 +126,13 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
       {sections.resumo && (
         <>
           <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-            <Kpi label="Conversas" value={String(k.total)} hint="Iniciadas no período" />
-            <Kpi label="Em aberto" value={String(k.open)} hint="Sem finalização" />
-            <Kpi label="Finalizadas" value={String(k.closed)} hint="Encerradas pela equipe" />
+            <Kpi label={t('doc.conversas')} value={String(k.total)} hint={t('relatorios.iniciadasNoPeriodo')} />
+            <Kpi label={t('relatorios.emAberto')} value={String(k.open)} hint={t('doc.semFinalizacao')} />
+            <Kpi label={t('relatorios.finalizadas')} value={String(k.closed)} hint={t('relatorios.encerradasEquipe')} />
           </div>
           <div className="print-section" style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-            <Kpi label="1ª resposta" value={fmtDuration(k.firstResponseMs)} hint="Média entre abrir e responder" />
-            <Kpi label="Até finalizar" value={fmtDuration(k.resolutionMs)} hint="Média entre abrir e encerrar" />
+            <Kpi label={t('exp.colPrimeiraResposta')} value={fmtDuration(k.firstResponseMs)} hint={t('doc.mediaAbrirResponder')} />
+            <Kpi label={t('doc.ateFinalizar')} value={fmtDuration(k.resolutionMs)} hint={t('doc.mediaAbrirEncerrar')} />
           </div>
         </>
       )}
@@ -139,26 +141,26 @@ export default function ReportDocument({ model, orgName, sections, trendRef }: {
           planilha tira a imagem, e desmontá-lo deixaria a aba Resumo sem gráfico.
           Quando a seção sai do relatório, some só da vista impressa. */}
       <div style={sections.porDia ? undefined : { display: 'none' }}>
-        <Section title="Conversas por dia" subtitle="Volume diário de atendimentos iniciados.">
+        <Section title={t('exp.secPorDia')} subtitle={t('doc.volumeDiario')}>
           <TrendArea points={model.byDay} width={DOC_W} svgRef={trendRef} />
         </Section>
       </div>
 
       {sections.agora && (
-        <Section title="Fila agora" subtitle="Estado das conversas abertas no momento da emissão.">
+        <Section title={t('exp.secAgora')} subtitle={t('doc.filaAgoraSub')}>
           <StatusStack fila={model.live.fila} atendimento={model.live.atendimento}
             esperando={model.live.esperando} width={DOC_W} />
         </Section>
       )}
 
-      {sections.atendentes && <Breakdown title="Por atendente" entity="Atendente" rows={model.byAgent} />}
-      {sections.setores && <Breakdown title="Por setor" entity="Setor" rows={model.bySector} />}
-      {sections.etiquetas && <Breakdown title="Por etiqueta" entity="Etiqueta" rows={model.byTag} />}
+      {sections.atendentes && <Breakdown title={t('exp.secAtendentes')} entity={t('doc.atendente')} rows={model.byAgent} />}
+      {sections.setores && <Breakdown title={t('exp.secSetores')} entity={t('doc.setor')} rows={model.bySector} />}
+      {sections.etiquetas && <Breakdown title={t('exp.secEtiquetas')} entity={t('doc.etiqueta')} rows={model.byTag} />}
 
       <footer style={{ marginTop: 30, paddingTop: 12, borderTop: `1px solid ${LINE}`,
         display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: MUTED }}>
-        <span>Titãs CRM · Relatório de atendimento</span>
-        <span>Emitido em {new Date().toLocaleString('pt-BR')}</span>
+        <span>{t('doc.rodape')}</span>
+        <span>{t('doc.emitidoEm', { data: dataHoraCurta(new Date()) })}</span>
       </footer>
     </div>
   )

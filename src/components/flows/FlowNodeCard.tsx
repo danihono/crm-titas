@@ -4,6 +4,7 @@ import MaterialIcon from '../common/MaterialIcon'
 import { useTenantStore } from '../../store/tenantStore'
 import { kindMeta, NODE_W, type TitasNode } from '../../lib/flow'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 
 const handleStyle = {
   width: 10,
@@ -57,7 +58,7 @@ export default function FlowNodeCard({ id, data, selected }: NodeProps<TitasNode
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
         <MaterialIcon name={meta.icon} size={13} color={meta.color} />
         <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.1em', color: meta.color, textTransform: 'uppercase' }}>
-          {meta.label}
+          {t(meta.label)}
         </span>
       </div>
 
@@ -80,7 +81,7 @@ export default function FlowNodeCard({ id, data, selected }: NodeProps<TitasNode
         />
       ) : (
         <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.3, wordBreak: 'break-word' }}>
-          {data.title || 'Sem título'}
+          {data.title || t('fluxos.semTitulo')}
         </div>
       )}
 

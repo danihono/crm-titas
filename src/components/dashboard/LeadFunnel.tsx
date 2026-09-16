@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { C } from '../../styles/sx'
+import { plural, t } from '../../i18n'
+import { tituloEtapaLeads } from '../../i18n/sistema'
 import { useIsDark } from '../../store/themeStore'
 import type { LeadFunnel as Dados } from '../../lib/dashboardData'
 
@@ -38,9 +40,9 @@ function corDaEtapa(i: number, n: number, dark: boolean): string {
 
 /** "2 h", "3 d" ou "18 min" — a unidade que cabe, sem casa decimal sobrando. */
 function tempo(horas: number): string {
-  if (horas < 1) return `${Math.max(1, Math.round(horas * 60))} min`
-  if (horas < 48) return `${horas < 10 ? horas.toFixed(1) : Math.round(horas)} h`
-  return `${Math.round(horas / 24)} d`
+  if (horas < 1) return t('funil.min', { n: Math.max(1, Math.round(horas * 60)) })
+  if (horas < 48) return t('funil.horas', { n: horas < 10 ? horas.toFixed(1) : Math.round(horas) })
+  return t('funil.diasCurto', { n: Math.round(horas / 24) })
 }
 
 /**
@@ -68,8 +70,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
   if (!stages.length) {
     return (
       <div style={{ padding: '30px 4px', color: C.faint, fontSize: 13, lineHeight: 1.6 }}>
-        O quadro <b>Leads</b> ainda não foi criado. Abra o Pipeline uma vez e ele nasce com as
-        etapas prontas.
+        {t('funil.semQuadro')}
       </div>
     )
   }
@@ -104,7 +105,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                 >
                   <div className="funil-etapa" style={{ width: 132, flexShrink: 0, paddingRight: 10, textAlign: 'right' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: on ? C.ink : C.sub, lineHeight: 1.25 }}>
-                      {s.label}
+                      {tituloEtapaLeads(s.id, s.label)}
                     </div>
                   </div>
 
@@ -143,11 +144,11 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
                         boxShadow: '0 10px 24px rgba(20,14,40,0.28)',
                       }}
                     >
-                      <b>{s.count}</b> de {total} leads chegaram a {s.label.toLowerCase()}
+                      {t('funil.chegaramA', { n: s.count, total, etapa: tituloEtapaLeads(s.id, s.label).toLowerCase() })}
                       {/* "% do topo" na primeira etapa seria sempre 100% — tautologia. */}
-                      {i > 0 && total > 0 && <> · {((s.count / total) * 100).toFixed(0)}% do topo</>}
-                      {s.parou !== null && s.parou > 0 && <> · {s.parou} pararam aqui</>}
-                      {s.horas !== null && <> · {tempo(s.horas)} para avançar</>}
+                      {i > 0 && total > 0 && <> · {t('funil.doTopo', { p: ((s.count / total) * 100).toFixed(0) })}</>}
+                      {s.parou !== null && s.parou > 0 && <> · {t('funil.pararamAqui', { n: s.parou })}</>}
+                      {s.horas !== null && <> · {t('funil.paraAvancar', { tempo: tempo(s.horas) })}</>}
                     </div>
                   )}
                 </div>
@@ -210,12 +211,12 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
         display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
       }}>
         {fimAFim === null ? (
-          <span style={{ fontSize: 12, color: C.faint }}>Sem lead novo no período para medir conversão.</span>
+          <span style={{ fontSize: 12, color: C.faint }}>{t('funil.semLeadNovo')}</span>
         ) : (
           <span style={{ fontSize: 12.5, color: C.sub }}>
-            De cada 100 leads novos,{' '}
+            {t('funil.deCada100')}{' '}
             <b style={{ fontSize: 15, color: C.purple }}>{Math.round(fimAFim)}</b>{' '}
-            chegaram a <b style={{ color: C.ink }}>{stages[stages.length - 1].label.toLowerCase()}</b>.
+            {t('funil.chegaramAFinal')} <b style={{ color: C.ink }}>{tituloEtapaLeads(stages[stages.length - 1].id, stages[stages.length - 1].label).toLowerCase()}</b>.
           </span>
         )}
         <div style={{ flex: 1 }} />
@@ -224,7 +225,7 @@ export default function LeadFunnel({ dados }: { dados: Dados }) {
             {/* Bolinha, não ícone: sem depender da fonte de símbolos, que quando não carrega
                 imprime o nome da ligadura por extenso e estoura a linha. */}
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.rose, flexShrink: 0 }} />
-            {perdidos} {perdidos === 1 ? 'marcado como perdido' : 'marcados como perdidos'}
+            {plural(perdidos, 'funil.perdido_1', 'funil.perdido_n')}
           </span>
         )}
       </div>

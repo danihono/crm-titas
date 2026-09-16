@@ -4,6 +4,18 @@
 
 import type { ActType, AgentConfig, AssistantWhatsapp } from '../types'
 
+/**
+ * Id fixo do quadro do sistema. É fixo de propósito: o painel aponta para ele
+ * pelo nome.
+ *
+ * Mora aqui, e não em useDeals.ts, porque a tradução precisa dele
+ * (src/i18n/sistema.ts) e este é o módulo de constantes puras — importar um
+ * hook que abre o Firebase só para comparar uma string arrastaria o SDK inteiro
+ * para dentro de quem só quer escrever um rótulo. `useDeals` reexporta, então
+ * quem já importava de lá continua igual.
+ */
+export const LEADS_BOARD_ID = 'leads'
+
 export const avPalette = [
   '#9a6fb8', '#7a52a0', '#b47cc4', '#6f9bcf', '#c98aab', '#5fa9c9', '#cf9b6f',
 ]
@@ -65,14 +77,29 @@ export const invoiceStatusMap: Record<string, [string, string]> = {
   Vencida: ['#c14d77', 'rgba(217,138,171,0.16)'],
 }
 
-/** status da atividade -> [cor, fundo, label] (renderActivities). */
-export const activityBadgeMap: Record<string, [string, string, string]> = {
-  pendente: ['#7a52a0', 'rgba(150,110,200,0.12)', 'Pendente'],
-  atrasada: ['#c14d77', 'rgba(217,138,171,0.16)', 'Atrasada'],
-  concluida: ['#2f9e6f', 'rgba(95,201,166,0.16)', 'Concluída'],
+/**
+ * status da atividade -> [cor, fundo] (renderActivities).
+ *
+ * O rótulo saiu da tupla: ele agora vem de `rotuloStatusAtividade`
+ * (src/i18n/sistema.ts), junto dos outros rótulos que o sistema escreve. Cor é
+ * constante, texto é idioma — misturar os dois num lugar só fazia o arquivo de
+ * paletas virar catálogo de tradução.
+ */
+export const activityBadgeMap: Record<string, [string, string]> = {
+  pendente: ['#7a52a0', 'rgba(150,110,200,0.12)'],
+  atrasada: ['#c14d77', 'rgba(217,138,171,0.16)'],
+  concluida: ['#2f9e6f', 'rgba(95,201,166,0.16)'],
 }
 
-/** Tipos de atividade padrão (semeados em users/{uid}/actTypes). */
+/**
+ * Tipos de atividade padrão (semeados em users/{uid}/actTypes).
+ *
+ * Ficam em português PORQUE SÃO DADO: são gravados uma vez, no cadastro, e a
+ * partir dali a pessoa pode renomeá-los. Quem decide como aparecem na tela é
+ * `rotuloTipoAtividade` (src/i18n/sistema.ts), que traduz pelo id enquanto o
+ * texto gravado ainda for o que foi semeado — e cala assim que alguém escrever
+ * outro nome por cima.
+ */
 export const defaultActTypes: ActType[] = [
   { id: 'call', label: 'Ligação', icon: 'call', color: '#2f9e6f', bg: 'rgba(95,201,166,0.16)', evColor: '#5fc9a6' },
   { id: 'meeting', label: 'Reunião', icon: 'groups', color: '#4f7fc0', bg: 'rgba(111,155,207,0.16)', evColor: '#6f9bcf' },
@@ -101,8 +128,12 @@ export const defaultAssistantWhatsapp: AssistantWhatsapp = {
 export const defaultAgentConfig: AgentConfig = {
   name: 'Assistente',
   persona: 'Consultor de Vendas',
+  // Sem instrução de idioma aqui: quem manda no idioma da resposta é a
+  // preferência da pessoa, passada à callable e aplicada em functions/src/idioma.ts.
+  // Deixar "fale em português do Brasil" cravado no padrão faria a Assistente
+  // responder em português para quem pôs a tela em inglês.
   instructions:
-    'Você é o assistente comercial da Titãs CRM. Analise o pipeline, contatos, atividades e conversas para sugerir próximos passos, priorizar negócios e redigir mensagens. Seja objetivo, estratégico e fale em português do Brasil.',
+    'Você é o assistente comercial da Titãs CRM. Analise o pipeline, contatos, atividades e conversas para sugerir próximos passos, priorizar negócios e redigir mensagens. Seja objetivo e estratégico.',
   sources: { pipeline: true, contatos: true, atividades: true, conversas: true, faturamento: false, agenda: true },
   whatsapp: defaultAssistantWhatsapp,
 }
@@ -114,19 +145,23 @@ export const defaultAgentConfig: AgentConfig = {
  * `group` vazio = item solto no topo, sem cabeçalho (o Dashboard).
  * Configurações NÃO está aqui: é fixo no rodapé da barra (ver settingsNav).
  */
+// `label` e `group` são CHAVES do catálogo, não texto: quem monta o menu passa
+// as duas por t(). O grupo vazio é o item solto do topo (o Dashboard), e por
+// isso o campo guarda a chave do cabeçalho em vez de um id à parte — não há
+// dois nomes para a mesma coisa.
 export const navDefs = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: '/', group: '' },
+  { id: 'dashboard', label: 'nav.dashboard', icon: 'dashboard', path: '/', group: '' },
 
-  { id: 'pipeline', label: 'Pipeline', icon: 'view_kanban', path: '/pipeline', group: 'OPERAÇÃO' },
-  { id: 'contatos', label: 'Contatos', icon: 'forum', path: '/contatos', group: 'OPERAÇÃO' },
-  { id: 'atividades', label: 'Atividades', icon: 'task_alt', path: '/atividades', group: 'OPERAÇÃO' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar_month', path: '/agenda', group: 'OPERAÇÃO' },
+  { id: 'pipeline', label: 'nav.pipeline', icon: 'view_kanban', path: '/pipeline', group: 'nav.grupoOperacao' },
+  { id: 'contatos', label: 'nav.contatos', icon: 'forum', path: '/contatos', group: 'nav.grupoOperacao' },
+  { id: 'atividades', label: 'nav.atividades', icon: 'task_alt', path: '/atividades', group: 'nav.grupoOperacao' },
+  { id: 'agenda', label: 'nav.agenda', icon: 'calendar_month', path: '/agenda', group: 'nav.grupoOperacao' },
 
-  { id: 'assistente', label: 'Assistente', icon: 'auto_awesome', path: '/assistente', group: 'CRESCIMENTO' },
-  { id: 'campanhas', label: 'Campanhas', icon: 'campaign', path: '/campanhas', group: 'CRESCIMENTO' },
+  { id: 'assistente', label: 'nav.assistente', icon: 'auto_awesome', path: '/assistente', group: 'nav.grupoCrescimento' },
+  { id: 'campanhas', label: 'nav.campanhas', icon: 'campaign', path: '/campanhas', group: 'nav.grupoCrescimento' },
 
-  { id: 'faturamento', label: 'Faturamento', icon: 'receipt_long', path: '/faturamento', group: 'GESTÃO' },
-  { id: 'relatorios', label: 'Relatórios', icon: 'insights', path: '/relatorios', group: 'GESTÃO' },
+  { id: 'faturamento', label: 'nav.faturamento', icon: 'receipt_long', path: '/faturamento', group: 'nav.grupoGestao' },
+  { id: 'relatorios', label: 'nav.relatorios', icon: 'insights', path: '/relatorios', group: 'nav.grupoGestao' },
 ] as const
 
 /**
@@ -141,7 +176,7 @@ export const navSoGestor: readonly string[] = ['faturamento']
 /** Fixo no pé do menu, separado do resto — como na interface de referência. */
 export const settingsNav = {
   id: 'configuracoes',
-  label: 'Configurações',
+  label: 'nav.configuracoes',
   icon: 'settings',
   path: '/configuracoes',
 } as const

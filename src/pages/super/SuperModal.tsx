@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import MaterialIcon from '../../components/common/MaterialIcon'
+import { t } from '../../i18n'
 
 /**
  * Caixa de diálogo do painel SUPER TITAN. O Modal de components/modals é branco
@@ -41,7 +42,7 @@ export default function SuperModal({ title, subtitle, icon, width = 460, onClose
           </div>
           <button
             onClick={onClose}
-            title="Fechar"
+            title={t('comum.fechar')}
             className="w-8 h-8 rounded-lg grid place-items-center text-[#8a7d97] hover:bg-[rgba(255,255,255,0.06)]"
           >
             <MaterialIcon name="close" size={18} />

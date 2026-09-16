@@ -7,6 +7,7 @@ import { C, FONT_UI } from '../../styles/sx'
 import { useTenantStore } from '../../store/tenantStore'
 import { useMemberships } from '../../hooks/useTeam'
 import { useAuth } from '../../contexts/AuthContext'
+import { t, type Chave } from '../../i18n'
 
 /**
  * Cabeçalho por rota. Só entra onde a tela não tem um próprio:
@@ -16,11 +17,11 @@ import { useAuth } from '../../contexts/AuthContext'
  *    identificados pelo menu lateral; um cabeçalho ali roubaria altura da
  *    conversa e ainda quebraria o cálculo de altura dos painéis.
  */
-const HEADERS: Record<string, { title: string; subtitle: string }> = {
-  '/atividades': { title: 'Atividades', subtitle: 'Ligações, reuniões, e-mails e tarefas — o que está pendente, atrasado e concluído.' },
-  '/faturamento': { title: 'Faturamento', subtitle: 'Cobranças emitidas, o que já foi pago e o que está vencendo.' },
-  '/agenda': { title: 'Agenda', subtitle: 'Compromissos e mensagens agendadas do mês.' },
-  '/configuracoes': { title: 'Configurações', subtitle: 'Perfil, equipe, atendimento e automações deste ambiente.' },
+const HEADERS: Record<string, { title: Chave; subtitle: Chave }> = {
+  '/atividades': { title: 'header.atividades', subtitle: 'header.atividadesSub' },
+  '/faturamento': { title: 'header.faturamento', subtitle: 'header.faturamentoSub' },
+  '/agenda': { title: 'header.agenda', subtitle: 'header.agendaSub' },
+  '/configuracoes': { title: 'header.configuracoes', subtitle: 'header.configuracoesSub' },
 }
 
 export default function Layout() {
@@ -44,16 +45,13 @@ export default function Layout() {
         {conviteAguardandoVerificacao && (
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', minHeight: 38, background: 'rgba(216,169,96,0.14)', borderBottom: '1px solid rgba(216,169,96,0.3)', color: C.amberDeep, fontSize: 12.5 }}>
             <MaterialIcon name="mark_email_unread" size={17} />
-            <span>
-              Você tem um convite para uma equipe. Confirme seu e-mail para entrar —
-              o link foi enviado no cadastro.
-            </span>
+            <span>{t('layout.conviteAguardando')}</span>
             <div style={{ flex: 1 }} />
             <button
               onClick={() => { void reenviarVerificacao().catch(() => {}) }}
               style={{ background: 'transparent', border: '1px solid rgba(216,169,96,0.45)', borderRadius: 9, padding: '4px 10px', color: C.amberDeep, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: FONT_UI }}
             >
-              Reenviar
+              {t('layout.reenviar')}
             </button>
           </div>
         )}
@@ -63,7 +61,7 @@ export default function Layout() {
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', height: 38, background: C.tintPurple, borderBottom: `1px solid ${C.selBorder}`, color: C.purple, fontSize: 12.5 }}>
             <MaterialIcon name="groups" size={17} />
             <span>
-              Atendendo em <b>{client?.name ?? 'sua conta'}</b>
+              {t('layout.atendendoEm')} <b>{client?.name ?? t('layout.suaConta')}</b>
               {role && <> · {role}</>}
             </span>
             <div style={{ flex: 1 }} />
@@ -76,7 +74,7 @@ export default function Layout() {
               }}
               style={{ background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 9, padding: '5px 9px', fontSize: 12, color: C.purple, fontFamily: FONT_UI, cursor: 'pointer', outline: 'none' }}
             >
-              <option value="">Minha conta</option>
+              <option value="">{t('layout.minhaConta')}</option>
               {memberships.map((m) => (
                 <option key={m.tenantUid} value={m.tenantUid}>{m.tenantName}</option>
               ))}
@@ -85,7 +83,7 @@ export default function Layout() {
         )}
         <Topbar />
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: C.panel }}>
-          {header && <PageHeader title={header.title} subtitle={header.subtitle} />}
+          {header && <PageHeader title={t(header.title)} subtitle={t(header.subtitle)} />}
           <Outlet />
         </div>
       </main>

@@ -1,4 +1,5 @@
 import { httpsCallable } from 'firebase/functions'
+import { idiomaAtual, type Idioma } from '../store/localeStore'
 import { functions } from '../lib/firebase'
 import { dateKeyOf } from '../lib/format'
 import type { ActType, Message } from '../types'
@@ -17,6 +18,7 @@ interface SugerirRequest {
   tipos: { id: string; label: string }[]
   cliente: string
   hoje: string
+  idioma: Idioma
 }
 interface SugerirResponse { tarefa: TarefaSugerida }
 
@@ -43,6 +45,7 @@ export async function sugerirTarefa(messages: Message[], types: ActType[], clien
   const res = await fn({
     mensagens,
     tipos: types.map((t) => ({ id: t.id, label: t.label })),
+    idioma: idiomaAtual(),
     cliente,
     hoje: dateKeyOf(new Date()),
   })

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
+import { idiomaAtual, type Idioma } from '../store/localeStore'
 import { doc, onSnapshot, collection, query, orderBy, addDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../lib/firebase'
@@ -93,12 +95,14 @@ export async function pushAgentMessage(role: 'user' | 'agent', text: string) {
 }
 
 interface AskRequest { system: string; history: { role: 'user' | 'assistant'; content: string }[]; question: string }
+/** O que vai no payload: o pedido da tela + o idioma em que a resposta deve sair. */
+type AskPayload = AskRequest & { idioma: Idioma }
 interface AskResponse { reply: string }
 
 /** Chama a Cloud Function askTitaIA (Gemini). Lança em erro de rede/quota. */
 export async function callTitaIA(req: AskRequest): Promise<string> {
-  const fn = httpsCallable<AskRequest, AskResponse>(functions, 'askTitaIA')
-  const res = await fn(req)
+  const fn = httpsCallable<AskPayload, AskResponse>(functions, 'askTitaIA')
+  const res = await fn({ ...req, idioma: idiomaAtual() })
   return (res.data?.reply || '').trim()
 }
 
@@ -110,21 +114,21 @@ export async function callTitaIA(req: AskRequest): Promise<string> {
  * diagnóstico num teste de ponta a ponta.
  */
 export function agentErrorHint(code: string): string {
-  const hint = (t: string) => `\n\n_(Diagnóstico: ${t})_`
+  const hint = (texto: string) => t('ia.diagnostico', { texto })
   switch (code) {
     case 'functions/not-found':
-      return hint('a Cloud Function askTitaIA não está publicada neste projeto — falta `firebase deploy --only functions`.')
+      return hint(t('ia.semFuncaoPublicada'))
     case 'functions/unauthenticated':
     case 'functions/permission-denied':
       // O App Check está desligado nesta função, então a causa provável mudou de
       // ordem: primeiro sessão caída, e só depois App Check (se alguém religar).
-      return hint('sessão expirada ou sem permissão — saia e entre de novo. Se o App Check tiver sido religado na função, a build também precisa de VITE_RECAPTCHA_SITE_KEY.')
+      return hint(t('ia.sessaoExpirada'))
     case 'functions/resource-exhausted':
-      return hint('cota da API do Gemini esgotada.')
+      return hint(t('ia.cotaEsgotada'))
     case 'functions/internal':
-      return hint('a função falhou por dentro — veja `firebase functions:log`.')
+      return hint(t('ia.falhouPorDentro'))
     case 'functions/unavailable':
-      return hint('não foi possível alcançar a função — verifique a região configurada.')
+      return hint(t('ia.regiaoErrada'))
     default:
       return code ? hint(code) : ''
   }
@@ -136,23 +140,25 @@ export function errorCode(err: unknown): string {
   return ''
 }
 
-/** Resposta scriptada de degradação (porta fallbackReply do protótipo). */
-export function fallbackReply(q: string): string {
-  const ql = q.toLowerCase()
-  if (ql.includes('priorid') || ql.includes('foco') || ql.includes('hoje')) {
-    return 'Olhando seu pipeline e atividades de hoje, eu priorizaria: 1) Reunião de fechamento com a Atlas Cloud (R$ 48k em negociação) — é o maior negócio aberto; 2) Follow-up com a Marina (Nexa Software) — ela já pediu a proposta, é só enviar e fechar R$ 12k; 3) Resolver a atividade atrasada "Atualizar pipeline semanal". Quer que eu redija a mensagem de follow-up pra Marina?'
-  }
-  if (ql.includes('atlas')) {
-    return 'A Atlas Cloud está em Negociação com R$ 48.000 — seu maior negócio aberto. O contato é o Rafa Lima, que já sinalizou "Fechado! Vamos seguir" no WhatsApp. Recomendo entrar já com a proposta formal e a nota de faturamento preparada para acelerar o sim.'
-  }
-  if (ql.includes('vencid') || ql.includes('receb') || ql.includes('fatur')) {
-    return 'No faturamento você tem R$ 51.200 a receber e R$ 31.000 vencidos — a nota #1046 da Hélix Data (R$ 31k) é a prioridade de cobrança. Quer que eu prepare uma mensagem de cobrança cordial para a Paula Nunes?'
-  }
-  if (ql.includes('mensag') || ql.includes('redij') || ql.includes('escrev') || ql.includes('propost')) {
-    return 'Sugestão de mensagem para a Marina (Nexa Software):\n\n"Oi Marina! Conforme combinamos, segue a proposta do plano Enterprise cobrindo os 3 ambientes (produção, homologação e dev) com suporte prioritário. Fico à disposição para ajustar qualquer ponto — podemos fechar ainda esta semana? 🚀"'
-  }
-  return 'Analisei os dados do seu CRM. Posso priorizar seu dia, analisar um negócio específico, cobrar notas vencidas ou redigir mensagens — é só pedir. (Observação: a IA respondeu em modo offline; configure a Cloud Function askTitaIA para respostas em tempo real.)'
+/**
+ * Resposta de quando a IA não responde.
+ *
+ * Ela NÃO analisa nada, e é isso que importa aqui. A versão anterior vinha do
+ * protótipo e devolvia parágrafos scriptados com números e empresas inventados
+ * — "a Atlas Cloud está em Negociação com R$ 48.000", "a nota #1046 da Hélix
+ * Data" — para qualquer pergunta sobre foco, cobrança ou proposta. Num
+ * ambiente real, sem a Cloud Function publicada, a pessoa perguntava "qual meu
+ * foco hoje?" e recebia a análise de um CRM que não é o dela, com cara de
+ * resposta legítima e sem nada dizendo que era ficção.
+ *
+ * Dizer "não consegui falar com a IA" é menos impressionante e infinitamente
+ * mais honesto. E era o único caminho na tradução: traduzir aqueles parágrafos
+ * teria multiplicado o dado falso por três idiomas.
+ */
+export function fallbackReply(): string {
+  return t('ia.modoOffline')
 }
+
 
 /**
  * Telefone do TENANT (users/{tenantUid}.phone) — o destino padrão do resumo diário.

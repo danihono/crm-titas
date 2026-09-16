@@ -3,6 +3,7 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { C, sx } from '../../styles/sx'
+import { t } from '../../i18n'
 import { tagMap } from '../../lib/theme'
 import { fmtMoney, parseValueBR } from '../../lib/format'
 import ClientCombo, { type ClientOption } from '../common/ClientCombo'
@@ -43,7 +44,7 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
   async function handleSave() {
     if (busy) return
     if (!company.trim() && !contact.trim()) {
-      setError('Preencha ao menos a empresa ou o contato.')
+      setError(t('modal.preenchaEmpresaOuContato'))
       return
     }
     setError('')
@@ -51,19 +52,19 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
     try {
       await onSave({ company, contact, value: parseValueBR(value), tag, contactId })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao salvar o negócio.')
+      setError(e instanceof Error ? e.message : t('modal.falhaSalvarNegocio'))
       setBusy(false)
     }
   }
 
   async function handleDelete() {
     if (!onDelete || busy) return
-    if (!confirm(`Excluir o negócio "${deal?.company || 'sem nome'}"? Isso não pode ser desfeito.`)) return
+    if (!confirm(t('modal.confirmarExcluirNegocio', { nome: deal?.company || t('modal.semNome') }))) return
     setBusy(true)
     try {
       await onDelete()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao excluir o negócio.')
+      setError(e instanceof Error ? e.message : t('modal.falhaExcluirNegocio'))
       setBusy(false)
     }
   }
@@ -71,14 +72,14 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
   return (
     <Modal width={480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{editing ? 'Editar negócio' : 'Novo negócio'}</div>
+        <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{t(editing ? 'modal.editarNegocio' : 'modal.novoNegocio')}</div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 18 }}>
-        {editing ? 'Atualize os dados deste negócio.' : 'Cadastre o negócio que entra no pipeline.'}
+        {t(editing ? 'modal.atualizeNegocio' : 'modal.cadastreNegocio')}
       </div>
 
-      <label style={sx.label}>Contato</label>
+      <label style={sx.label}>{t('comum.contato')}</label>
       {/* Escolher da agenda grava o vínculo — é ele que deixa o funil do painel seguir a
           MESMA pessoa até o fim. Digitar um nome solto continua valendo: numa conta nova não
           há contato nenhum, e exigir vínculo travaria o primeiro lead. */}
@@ -95,27 +96,27 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
             const empresa = opt?.company && opt.company !== '—' ? opt.company : ''
             if (empresa && !company.trim()) setCompany(empresa)
           }}
-          placeholder="Escolha um contato ou digite um nome novo"
+          placeholder={t('modal.escolhaContato')}
         />
       </div>
 
-      <Field label="Empresa" value={company} onChange={setCompany} placeholder="Ex: Atlas Cloud" />
+      <Field label={t('comum.empresa')} value={company} onChange={setCompany} placeholder={t('modal.empresaExemplo2')} />
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Valor (R$)</label>
+          <label style={sx.label}>{t('modal.valorReais')}</label>
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="Ex: 48.000"
+            placeholder={t('modal.valorExemplo')}
             inputMode="decimal"
             style={{ ...sx.input, margin: '6px 0 14px' }}
           />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Etiqueta</label>
+          <label style={sx.label}>{t('modal.etiqueta')}</label>
           <select value={tag} onChange={(e) => setTag(e.target.value)} style={{ ...sx.input, margin: '6px 0 14px' }}>
-            {tagOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+            {tagOptions.map((et) => <option key={et} value={et}>{et}</option>)}
           </select>
         </div>
       </div>
@@ -133,13 +134,13 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
             disabled={busy}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(193,77,119,0.1)', border: '1px solid rgba(193,77,119,0.22)', borderRadius: 11, padding: '10px 14px', color: C.roseDeep, fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
           >
-            <MaterialIcon name="delete" size={17} /> Excluir
+            <MaterialIcon name="delete" size={17} /> {t('comum.excluir')}
           </button>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('comum.cancelar')}</button>
         <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
-          {editing ? 'Salvar alterações' : 'Criar negócio'}
+          {t(editing ? 'modal.salvarAlteracoes' : 'modal.criarNegocio')}
         </RingButton>
       </div>
     </Modal>

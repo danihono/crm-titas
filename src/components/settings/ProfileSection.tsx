@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { removeSelfPhoto, saveSelfProfile, uploadSelfPhoto, useSelfProfile } from '../../hooks/useProfile'
 import { initialsOf } from '../../lib/format'
 import { sx, C } from '../../styles/sx'
+import { t } from '../../i18n'
 import Avatar from '../common/Avatar'
 import PhotoAction from '../common/PhotoAction'
 import { Field, PrimaryButton, SettingsCard } from './primitives'
@@ -62,7 +63,7 @@ export default function ProfileSection() {
     try {
       await uploadSelfPhoto(file, saved.photoPath || undefined)
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Não foi possível enviar a foto.')
+      setPhotoError(err instanceof Error ? err.message : t('perfil.falhaEnviarFoto'))
     } finally {
       setPhotoBusy(false)
       if (photoInput.current) photoInput.current.value = ''
@@ -75,14 +76,14 @@ export default function ProfileSection() {
     try {
       await removeSelfPhoto(saved.photoPath || undefined)
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Não foi possível remover a foto.')
+      setPhotoError(err instanceof Error ? err.message : t('perfil.falhaRemoverFoto'))
     } finally {
       setPhotoBusy(false)
     }
   }
 
   return (
-    <SettingsCard title="Dados do seu perfil" subtitle="Nome, cargo e foto aparecem no rodapé da barra lateral. A assinatura vai nas mensagens que você envia.">
+    <SettingsCard title={t('perfil.titulo')} subtitle={t('perfil.subtitulo')}>
       <div style={{ display: 'grid', gap: 14 }}>
         {/* Foto — é o que aparece no rodapé da barra lateral, junto do nome e do cargo. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -97,19 +98,19 @@ export default function ProfileSection() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <PhotoAction
                 icon="photo_camera"
-                title={saved.photoUrl ? 'Trocar foto' : 'Adicionar foto'}
+                title={t(saved.photoUrl ? 'perfil.trocarFoto' : 'perfil.adicionarFoto')}
                 onClick={() => photoInput.current?.click()}
                 disabled={photoBusy}
                 busy={photoBusy}
               />
               {saved.photoUrl && !photoBusy && (
-                <PhotoAction icon="delete" title="Remover foto" onClick={() => void dropPhoto()} rose />
+                <PhotoAction icon="delete" title={t('perfil.removerFoto')} onClick={() => void dropPhoto()} rose />
               )}
               <span style={{ fontSize: 12.5, color: C.sub }}>
-                {saved.photoUrl ? 'Sua foto no rodapé da barra lateral.' : 'Sem foto — aparecem suas iniciais.'}
+                {t(saved.photoUrl ? 'perfil.comFoto' : 'perfil.semFoto')}
               </span>
             </div>
-            <div style={{ fontSize: 11.5, color: C.faint }}>PNG ou JPG · até 2 MB</div>
+            <div style={{ fontSize: 11.5, color: C.faint }}>{t('perfil.limiteFoto')}</div>
             {photoError && <div style={{ fontSize: 12.5, color: C.rose, fontWeight: 600 }}>{photoError}</div>}
           </div>
           <input
@@ -122,17 +123,17 @@ export default function ProfileSection() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <Field label="Nome">
+          <Field label={t('comum.nome')}>
             <input
               value={draft.displayName}
               onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value }))}
               style={sx.input}
             />
           </Field>
-          <Field label="Cargo">
+          <Field label={t('perfil.cargo')}>
             <input
               value={draft.role}
-              placeholder="Gerente Comercial"
+              placeholder={t('perfil.cargoExemplo')}
               onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))}
               style={sx.input}
             />
@@ -140,10 +141,10 @@ export default function ProfileSection() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <Field label="Telefone">
+          <Field label={t('comum.telefone')}>
             <input
               value={draft.phone}
-              placeholder="(19) 99999-9999"
+              placeholder={t('perfil.telefoneExemplo')}
               onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
               style={sx.input}
             />
@@ -151,11 +152,11 @@ export default function ProfileSection() {
           <div />
         </div>
 
-        <Field label="Assinatura (vai no fim das mensagens que você enviar)">
+        <Field label={t('perfil.assinatura')}>
           <textarea
             value={draft.signature}
             rows={2}
-            placeholder="— Pedro, Titãs Consultoria"
+            placeholder={t('perfil.assinaturaExemplo')}
             onChange={(e) => setDraft((d) => ({ ...d, signature: e.target.value }))}
             style={{ ...sx.input, resize: 'vertical', fontFamily: 'inherit' }}
           />
@@ -168,15 +169,15 @@ export default function ProfileSection() {
             onChange={(e) => setDraft((d) => ({ ...d, closingEnabled: e.target.checked }))}
             style={{ accentColor: C.purple, width: 16, height: 16 }}
           />
-          <span style={{ fontSize: 13, color: C.ink }}>Enviar mensagem ao finalizar a conversa</span>
+          <span style={{ fontSize: 13, color: C.ink }}>{t('perfil.finalizarAtivo')}</span>
         </label>
 
         {draft.closingEnabled && (
-          <Field label="Sua mensagem de encerramento">
+          <Field label={t('perfil.encerramento')}>
             <textarea
               value={draft.closingMessage}
               rows={3}
-              placeholder="Foi um prazer atender você! Qualquer coisa, é só chamar."
+              placeholder={t('perfil.encerramentoExemplo')}
               onChange={(e) => setDraft((d) => ({ ...d, closingMessage: e.target.value }))}
               style={{ ...sx.input, resize: 'vertical', fontFamily: 'inherit' }}
             />
@@ -184,12 +185,12 @@ export default function ProfileSection() {
         )}
 
         <div style={{ fontSize: 12.5, color: C.sub }}>
-          Conta: <b style={{ color: C.ink }}>{user?.email}</b>
+          {t('perfil.conta')} <b style={{ color: C.ink }}>{user?.email}</b>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <PrimaryButton icon="save" onClick={save} disabled={!dirty}>Salvar perfil</PrimaryButton>
-          {!dirty && savedAt > 0 && <span style={{ fontSize: 12.5, color: C.green, fontWeight: 600 }}>Salvo.</span>}
+          <PrimaryButton icon="save" onClick={save} disabled={!dirty}>{t('perfil.salvar')}</PrimaryButton>
+          {!dirty && savedAt > 0 && <span style={{ fontSize: 12.5, color: C.green, fontWeight: 600 }}>{t('perfil.salvo')}</span>}
         </div>
       </div>
     </SettingsCard>

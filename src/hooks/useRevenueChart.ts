@@ -1,4 +1,4 @@
-import { MESES_CURTO } from '../lib/format'
+import { mesAbrev } from '../i18n/formato'
 import { invoiceStatus } from './useInvoices'
 import type { Invoice } from '../types'
 
@@ -39,7 +39,7 @@ export function revenueChart(invoices: Invoice[], now = new Date()): RevChart {
   const firstKey = keyOf(baseYear, baseMonth) - 11
 
   for (let i = 0; i < 12; i++) {
-    months.push(MESES_CURTO[(firstKey + i) % 12])
+    months.push(mesAbrev((firstKey + i) % 12))
   }
 
   for (const iv of invoices) {

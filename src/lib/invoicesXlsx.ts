@@ -1,4 +1,6 @@
 import { downloadBlob } from './download'
+import { t } from '../i18n'
+import { rotuloPagamento, rotuloStatusNota } from '../i18n/sistema'
 import { brandTitle, dataRow, tableHeader, PURPLE, SUB } from './xlsxStyle'
 import { invoiceStatus } from '../hooks/useInvoices'
 import type { Invoice } from '../types'
@@ -20,20 +22,21 @@ export async function exportInvoicesXlsx(invoices: Invoice[], orgName: string, s
   wb.creator = 'Titãs CRM'
   wb.created = new Date()
 
-  const ws = wb.addWorksheet('Faturamento', { properties: { tabColor: { argb: PURPLE } } })
+  const ws = wb.addWorksheet(t('exp.faturamento'), { properties: { tabColor: { argb: PURPLE } } })
   ws.columns = [
     { width: 10 }, { width: 30 }, { width: 34 }, { width: 14 },
     { width: 13 }, { width: 12 }, { width: 13 }, { width: 16 }, { width: 11 },
   ]
-  brandTitle(ws, 9, orgName ? `TITÃS CRM · ${orgName}` : 'TITÃS CRM', `Faturamento · ${subtitle}`)
+  brandTitle(ws, 9, orgName ? t('exp.cabecalho', { org: orgName }) : 'TITÃS CRM', t('exp.faturamentoCabecalho', { recorte: subtitle }))
 
   const headerRow = 4
   tableHeader(ws, headerRow, [
-    'Nota', 'Cliente', 'Descrição', 'Valor', 'Vencimento', 'Status', 'Pago em', 'Pagamento', 'Parcela',
+    t('exp.colNota'), t('exp.colCliente'), t('exp.colDescricao'), t('exp.colValor'),
+    t('exp.colVencimento'), t('exp.colStatus'), t('exp.colPagoEm'), t('exp.colPagamento'), t('exp.colParcela'),
   ])
 
   if (invoices.length === 0) {
-    ws.getCell(headerRow + 1, 1).value = 'Nenhuma nota no recorte selecionado.'
+    ws.getCell(headerRow + 1, 1).value = t('exp.semNotasRecorte')
     ws.getCell(headerRow + 1, 1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: SUB } }
   } else {
     invoices.forEach((iv, i) => {
@@ -46,9 +49,9 @@ export async function exportInvoicesXlsx(invoices: Invoice[], orgName: string, s
         iv.desc ?? '',
         iv.value,
         iv.dueAt,
-        st,
+        rotuloStatusNota(st),
         iv.paidAt ?? '',
-        iv.paymentMethod ?? '',
+        iv.paymentMethod ? rotuloPagamento(iv.paymentMethod) : '',
         iv.installment ? `${iv.installment.n}/${iv.installment.of}` : '',
       ], i % 2 === 1)
       ws.getCell(headerRow + 1 + i, 4).numFmt = 'R$ #,##0'
@@ -58,7 +61,7 @@ export async function exportInvoicesXlsx(invoices: Invoice[], orgName: string, s
 
     // Linha de total, para a planilha fechar sozinha.
     const totalRow = headerRow + 1 + invoices.length
-    ws.getCell(totalRow, 3).value = 'Total'
+    ws.getCell(totalRow, 3).value = t('exp.total')
     ws.getCell(totalRow, 3).font = { name: 'Calibri', size: 10, bold: true }
     ws.getCell(totalRow, 3).alignment = { horizontal: 'right' }
     ws.getCell(totalRow, 4).value = { formula: `SUM(D${headerRow + 1}:D${totalRow - 1})` }

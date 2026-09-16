@@ -4,6 +4,7 @@ import { useConversations, convOf } from '../hooks/useConversations'
 import { useMembers } from '../hooks/useTeam'
 import { useSectors, useTags, useOrgName } from '../hooks/useSettings'
 import { sx, C } from '../styles/sx'
+import { t } from '../i18n'
 import MaterialIcon from '../components/common/MaterialIcon'
 import TabBar, { type TabDef } from '../components/common/TabBar'
 import { buildReport, fmtDuration, avgSpan } from '../lib/reportData'
@@ -17,18 +18,14 @@ import { useIsDark } from '../store/themeStore'
 type ReportTab = 'geral' | 'agora' | 'atendentes' | 'setores' | 'etiquetas'
 
 const TABS: TabDef<ReportTab>[] = [
-  { id: 'geral', label: 'Geral', icon: 'insights' },
-  { id: 'agora', label: 'Agora', icon: 'bolt' },
-  { id: 'atendentes', label: 'Atendentes', icon: 'badge' },
-  { id: 'setores', label: 'Setores', icon: 'account_tree' },
-  { id: 'etiquetas', label: 'Etiquetas', icon: 'label' },
+  { id: 'geral', label: 'relatorios.abaGeral', icon: 'insights' },
+  { id: 'agora', label: 'relatorios.abaAgora', icon: 'bolt' },
+  { id: 'atendentes', label: 'relatorios.abaAtendentes', icon: 'badge' },
+  { id: 'setores', label: 'relatorios.abaSetores', icon: 'account_tree' },
+  { id: 'etiquetas', label: 'relatorios.abaEtiquetas', icon: 'label' },
 ]
 
-const RANGES = [
-  { days: 7, label: '7 dias' },
-  { days: 30, label: '30 dias' },
-  { days: 90, label: '90 dias' },
-]
+const RANGES = [7, 30, 90]
 
 export default function Reports() {
   // Só o gráfico DE TELA muda de paleta: o do documento de impressão (e o PNG
@@ -93,29 +90,29 @@ export default function Reports() {
       <div style={{ padding: '26px 30px 16px', background: C.surface, borderBottom: '1px solid ' + C.fieldBorder }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>Relatórios</h1>
+            <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>{t('relatorios.titulo')}</h1>
             <div style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>
-              Volume de conversas, tempo de resposta e desempenho por atendente, setor e etiqueta.
+              {t('relatorios.subtitulo')}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            <button onClick={() => setShowExport(true)} title="Escolher seções e formato" style={exportBtn}>
-              <MaterialIcon name="download" size={17} /> Exportar
+            <button onClick={() => setShowExport(true)} title={t('relatorios.escolherSecoes')} style={exportBtn}>
+              <MaterialIcon name="download" size={17} /> {t('comum.exportar')}
             </button>
             <span style={{ width: 1, height: 22, background: C.fieldBorder, margin: '0 4px' }} />
             {RANGES.map((r) => (
               <button
-                key={r.days}
-                onClick={() => setDays(r.days)}
+                key={r}
+                onClick={() => setDays(r)}
                 style={{
-                  border: '1px solid ' + (days === r.days ? C.purple : C.fieldBorder),
-                  background: days === r.days ? C.tintPurple : C.surface,
-                  color: days === r.days ? C.purple : C.sub,
+                  border: '1px solid ' + (days === r ? C.purple : C.fieldBorder),
+                  background: days === r ? C.tintPurple : C.surface,
+                  color: days === r ? C.purple : C.sub,
                   borderRadius: 20, padding: '7px 15px', fontSize: 12.5, fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                {r.label}
+                {t('relatorios.dias', { n: r })}
               </button>
             ))}
           </div>
@@ -125,35 +122,35 @@ export default function Reports() {
       <TabBar tabs={TABS} active={tab} onChange={setTab} />
 
       <div style={{ padding: '24px 30px 40px' }}>
-        {loading && <div style={{ color: C.faint, fontSize: 13 }}>Carregando…</div>}
+        {loading && <div style={{ color: C.faint, fontSize: 13 }}>{t('comum.carregando')}</div>}
 
         {!loading && tab === 'geral' && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 18 }}>
-              <Kpi icon="forum" color={C.purple} label="Total de conversas" hint="Iniciadas no período" value={String(conversations.length)} />
-              <Kpi icon="mark_chat_unread" color={C.amber} label="Em aberto" hint="Ainda sem finalização" value={String(open.length)} />
-              <Kpi icon="task_alt" color={C.green} label="Finalizadas" hint="Encerradas pela equipe" value={String(closed.length)} />
+              <Kpi icon="forum" color={C.purple} label={t('relatorios.totalConversas')} hint={t('relatorios.iniciadasNoPeriodo')} value={String(conversations.length)} />
+              <Kpi icon="mark_chat_unread" color={C.amber} label={t('relatorios.emAberto')} hint={t('relatorios.semFinalizacao')} value={String(open.length)} />
+              <Kpi icon="task_alt" color={C.green} label={t('relatorios.finalizadas')} hint={t('relatorios.encerradasEquipe')} value={String(closed.length)} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 16 }}>
               <Kpi
                 icon="bolt"
                 color={C.blue}
-                label="Primeira resposta"
-                hint="Média entre abrir a conversa e a equipe responder"
+                label={t('relatorios.primeiraResposta')}
+                hint={t('relatorios.primeiraRespostaDesc')}
                 value={fmtDuration(avgSpan(conversations, (r) => r.firstResponseAt))}
               />
               <Kpi
                 icon="schedule"
                 color={C.rose}
-                label="Tempo até finalizar"
-                hint="Média entre abrir e encerrar o atendimento"
+                label={t('relatorios.ateFinalizar')}
+                hint={t('relatorios.ateFinalizarDesc')}
                 value={fmtDuration(avgSpan(closed, (r) => r.closedAt))}
               />
             </div>
             <div style={{ ...sx.card, padding: '20px 22px', marginTop: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Conversas por dia</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{t('relatorios.conversasPorDia')}</div>
               <div style={{ fontSize: 12, color: C.sub, marginTop: 2, marginBottom: 10 }}>
-                Volume diário de atendimentos iniciados no período.
+                {t('relatorios.volumeDiario')}
               </div>
               <TrendArea points={model.byDay} width={860} palette={dark ? CHART_DARK : undefined} />
             </div>
@@ -173,7 +170,7 @@ export default function Reports() {
 
         {!loading && tab === 'atendentes' && (
           <Breakdown
-            title="Desempenho por atendente"
+            title={t('relatorios.porAtendente')}
             rows={members.map((m) => {
               const mine = conversations.filter((c) => c.assignedTo === m.id)
               return {
@@ -187,7 +184,7 @@ export default function Reports() {
               }
             }).concat({
               key: '__sem__',
-              label: 'Sem responsável',
+              label: t('relatorios.semResponsavel'),
               color: C.faint,
               total: conversations.filter((c) => !c.assignedTo).length,
               closed: conversations.filter((c) => !c.assignedTo && c.closedAt).length,
@@ -200,7 +197,7 @@ export default function Reports() {
 
         {!loading && tab === 'setores' && (
           <Breakdown
-            title="Conversas por setor"
+            title={t('relatorios.porSetor')}
             rows={sectors.map((s) => {
               const mine = conversations.filter((c) => c.sectorId === s.id)
               return {
@@ -214,13 +211,13 @@ export default function Reports() {
               }
             })}
             fmtDuration={fmtDuration}
-            empty="Nenhum setor cadastrado. Crie setores em Configurações › Setores."
+            empty={t('relatorios.semSetores')}
           />
         )}
 
         {!loading && tab === 'etiquetas' && (
           <Breakdown
-            title="Conversas por etiqueta"
+            title={t('relatorios.porEtiqueta')}
             rows={tags.map((t) => {
               const mine = conversations.filter((c) => c.tagIds.includes(t.id))
               return {
@@ -234,7 +231,7 @@ export default function Reports() {
               }
             })}
             fmtDuration={fmtDuration}
-            empty="Nenhuma etiqueta cadastrada. Crie etiquetas em Configurações › Etiquetas."
+            empty={t('relatorios.semEtiquetas')}
           />
         )}
       </div>
@@ -304,7 +301,7 @@ function Breakdown({ title, rows, fmtDuration, empty }: {
         {title}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: `1px solid ${C.lineHair}` }}>
-        <span>NOME</span><span>CONVERSAS</span><span>FINALIZADAS</span><span>1ª RESPOSTA</span><span>ATÉ FINALIZAR</span>
+        <span>{t('relatorios.colNome')}</span><span>{t('relatorios.colConversas')}</span><span>{t('relatorios.colFinalizadas')}</span><span>{t('relatorios.colPrimeiraResposta')}</span><span>{t('relatorios.colAteFinalizar')}</span>
       </div>
       {rows.filter((r) => r.total > 0).map((r) => (
         <div key={r.key} style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '14px 22px', alignItems: 'center', borderBottom: `1px solid ${C.lineHair}` }}>
@@ -320,7 +317,7 @@ function Breakdown({ title, rows, fmtDuration, empty }: {
       ))}
       {rows.every((r) => r.total === 0) && (
         <div style={{ textAlign: 'center', padding: 34, color: C.faint, fontSize: 13 }}>
-          {empty ?? 'Nada registrado neste período.'}
+          {empty ?? t('comum.semRegistros')}
         </div>
       )}
     </div>
@@ -341,14 +338,14 @@ function NowPanel({ contacts }: { contacts: ReturnType<typeof useContacts>['docs
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 18 }}>
-        <Kpi icon="pending" color={C.rose} label="Na fila" hint="Sem responsável definido" value={String(naFila.length)} />
-        <Kpi icon="support_agent" color={C.green} label="Em atendimento" hint="Com atendente responsável" value={String(emAtendimento.length)} />
-        <Kpi icon="hourglass_top" color={C.amber} label="Esperando" hint="Aguardando retorno do cliente" value={String(esperando.length)} />
+        <Kpi icon="pending" color={C.rose} label={t('relatorios.naFila')} hint={t('relatorios.semResponsavelDef')} value={String(naFila.length)} />
+        <Kpi icon="support_agent" color={C.green} label={t('relatorios.emAtendimento')} hint={t('relatorios.comAtendente')} value={String(emAtendimento.length)} />
+        <Kpi icon="hourglass_top" color={C.amber} label={t('relatorios.esperando')} hint={t('relatorios.aguardandoCliente')} value={String(esperando.length)} />
       </div>
 
       <div style={{ ...sx.card, borderRadius: 20, overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid ' + C.lineSoft, fontSize: 15, fontWeight: 700, color: C.ink }}>
-          Conversas abertas agora
+          {t('relatorios.abertasAgora')}
         </div>
         {live.map((c) => {
           const conv = convOf(c)
@@ -356,17 +353,17 @@ function NowPanel({ contacts }: { contacts: ReturnType<typeof useContacts>['docs
             <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 130px', gap: 14, padding: '13px 22px', alignItems: 'center', borderBottom: `1px solid ${C.lineHair}` }}>
               <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{c.name}</span>
               <span style={{ fontSize: 12.5, color: conv.assignedName ? C.sub : C.rose }}>
-                {conv.assignedName || 'sem responsável'}
+                {conv.assignedName || t('relatorios.semResponsavelMin')}
               </span>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: conv.status === 'esperando' ? C.amber : C.green, textAlign: 'center', background: conv.status === 'esperando' ? C.tintAmber : C.tintGreen, borderRadius: 20, padding: '4px 11px' }}>
-                {conv.status === 'esperando' ? 'Esperando' : 'Entrada'}
+                {t(conv.status === 'esperando' ? 'relatorios.esperando' : 'relatorios.entrada')}
               </span>
             </div>
           )
         })}
         {live.length === 0 && (
           <div style={{ textAlign: 'center', padding: 34, color: C.faint, fontSize: 13 }}>
-            Nenhuma conversa aberta no momento.
+            {t('relatorios.nenhumaAberta')}
           </div>
         )}
       </div>

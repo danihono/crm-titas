@@ -16,18 +16,20 @@ import Modal from '../components/modals/Modal'
 import type { Campaign, CampaignStatus } from '../types'
 import { chipColors } from '../lib/color'
 import { useIsDark } from '../store/themeStore'
+import { t, type Chave } from '../i18n'
+import { num1 } from '../i18n/formato'
 
-const STATUS_STYLE: Record<CampaignStatus, [string, string, string]> = {
-  rascunho: ['Rascunho', C.sub, '#eeebf3'],
-  enviando: ['Enviando', '#1f8a4c', 'rgba(52,199,89,0.14)'],
-  pausada: ['Pausada', '#8a5f12', 'rgba(216,169,96,0.18)'],
-  concluida: ['Concluída', C.blue, 'rgba(111,155,207,0.16)'],
+const STATUS_STYLE: Record<CampaignStatus, [Chave, string, string]> = {
+  rascunho: ['campanhas.rascunho', C.sub, '#eeebf3'],
+  enviando: ['campanhas.enviando', '#1f8a4c', 'rgba(52,199,89,0.14)'],
+  pausada: ['campanhas.pausada', '#8a5f12', 'rgba(216,169,96,0.18)'],
+  concluida: ['campanhas.concluida', C.blue, 'rgba(111,155,207,0.16)'],
 }
 
 function fmtHours(h: number): string {
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`
-  if (h < 24) return `${h.toFixed(1).replace('.', ',')} h`
-  return `${(h / 24).toFixed(1).replace('.', ',')} dias`
+  if (h < 1) return t('campanhas.min', { n: Math.max(1, Math.round(h * 60)) })
+  if (h < 24) return t('campanhas.horas', { n: num1(h) })
+  return t('campanhas.dias', { n: num1(h / 24) })
 }
 
 export default function Campaigns() {
@@ -46,15 +48,14 @@ export default function Campaigns() {
     <div style={{ padding: '28px 30px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 20 }}>
         <div>
-          <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>Campanhas</h1>
+          <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>{t('campanhas.titulo')}</h1>
           <div style={{ fontSize: 13, color: C.sub, marginTop: 4, maxWidth: 620, lineHeight: 1.6 }}>
-            Disparo de mensagens para um público filtrado por etiqueta. O envio é lento de
-            propósito — ver o aviso abaixo.
+            {t('campanhas.subtitulo')}
           </div>
         </div>
         {canEdit && (
           <RingButton radius={11} onClick={() => setCreating(true)} style={sx.btnPrimary}>
-            <MaterialIcon name="campaign" size={18} /> Nova campanha
+            <MaterialIcon name="campaign" size={18} /> {t('campanhas.nova')}
           </RingButton>
         )}
       </div>
@@ -62,13 +63,7 @@ export default function Campaigns() {
       <div style={{ display: 'flex', gap: 11, background: 'rgba(216,169,96,0.14)', border: '1px solid rgba(216,169,96,0.34)', borderRadius: 14, padding: '14px 16px', marginBottom: 20 }}>
         <MaterialIcon name="warning" size={20} color={C.amber} />
         <div style={{ fontSize: 12.5, color: C.amberDeep, lineHeight: 1.65 }}>
-          <b>Sobre o ritmo do disparo.</b> O Titãs fala WhatsApp por uma conexão não-oficial
-          (a mesma do WhatsApp Web). Disparo rápido em massa é a forma mais comum de o número
-          ser banido, e um número banido leva junto todas as conversas. Por isso o envio é
-          espaçado, com intervalo sorteado entre as mensagens, cota diária, aquecimento
-          progressivo nos primeiros dias e, se você quiser, respeito ao horário de
-          atendimento. Quem responder <b>SAIR</b> ou <b>PARE</b> é marcado automaticamente e
-          não recebe mais nenhuma campanha.
+          <b>{t('campanhas.sobreRitmo')}</b> {t('campanhas.avisoRitmo')}
         </div>
       </div>
 
@@ -115,7 +110,8 @@ function Note({ icon, children }: { icon: string; children: React.ReactNode }) {
 }
 
 function CampaignCard({ campaign: c, canEdit }: { campaign: Campaign; canEdit: boolean }) {
-  const [label, color, bg] = STATUS_STYLE[c.status]
+  const [chaveStatus, color, bg] = STATUS_STYLE[c.status]
+  const label = t(chaveStatus)
   const done = c.sent + c.failed + c.skipped
   const pct = c.total > 0 ? Math.round((done / c.total) * 100) : 0
   const remaining = Math.max(0, c.total - done)
@@ -134,12 +130,12 @@ function CampaignCard({ campaign: c, canEdit }: { campaign: Campaign; canEdit: b
           <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
             {(c.status === 'rascunho' || c.status === 'pausada') && c.total > done && (
               <button onClick={() => startCampaign(c.id)} style={btn('#1f8a4c', 'rgba(52,199,89,0.14)')}>
-                <MaterialIcon name="play_arrow" size={17} /> {c.status === 'pausada' ? 'Retomar' : 'Iniciar'}
+                <MaterialIcon name="play_arrow" size={17} /> {t(c.status === 'pausada' ? 'campanhas.retomar' : 'campanhas.iniciar')}
               </button>
             )}
             {c.status === 'enviando' && (
               <button onClick={() => pauseCampaign(c.id)} style={btn('#8a5f12', 'rgba(216,169,96,0.18)')}>
-                <MaterialIcon name="pause" size={17} /> Pausar
+                <MaterialIcon name="pause" size={17} /> {t('campanhas.pausar')}
               </button>
             )}
             {c.status !== 'enviando' && (
@@ -156,16 +152,16 @@ function CampaignCard({ campaign: c, canEdit }: { campaign: Campaign; canEdit: b
       </div>
 
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', marginTop: 12, fontSize: 12.5, color: C.sub }}>
-        <Stat label="Público" value={String(c.total)} />
-        <Stat label="Enviadas" value={String(c.sent)} color={C.green} />
-        {c.failed > 0 && <Stat label="Falhas" value={String(c.failed)} color={C.rose} />}
-        {c.skipped > 0 && <Stat label="Puladas" value={String(c.skipped)} color={C.amber} />}
-        <Stat label="Ritmo" value={`${c.ratePerHour}/hora`} />
-        {remaining > 0 && <Stat label="Faltam" value={`${remaining} · ~${fmtHours(estimateHours(remaining, c.ratePerHour))}`} />}
+        <Stat label={t('campanhas.publico')} value={String(c.total)} />
+        <Stat label={t('campanhas.enviadas')} value={String(c.sent)} color={C.green} />
+        {c.failed > 0 && <Stat label={t('campanhas.falhas')} value={String(c.failed)} color={C.rose} />}
+        {c.skipped > 0 && <Stat label={t('campanhas.puladas')} value={String(c.skipped)} color={C.amber} />}
+        <Stat label={t('campanhas.ritmo')} value={t('campanhas.porHora', { n: c.ratePerHour })} />
+        {remaining > 0 && <Stat label={t('campanhas.faltam')} value={t('campanhas.faltamValor', { n: remaining, tempo: fmtHours(estimateHours(remaining, c.ratePerHour)) })} />}
       </div>
 
       {c.lastError && (
-        <div style={{ fontSize: 12, color: C.rose, marginTop: 10 }}>Último erro: {c.lastError}</div>
+        <div style={{ fontSize: 12, color: C.rose, marginTop: 10 }}>{t('campanhas.ultimoErro')} {c.lastError}</div>
       )}
     </div>
   )
@@ -212,7 +208,7 @@ function NewCampaignModal({ contacts, tags, createdBy, onClose }: {
       await createCampaign({ name, text, tagIds, ratePerHour: rate, respectBusinessHours: respectHours }, audience, createdBy)
       onClose()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Não foi possível criar a campanha.')
+      alert(err instanceof Error ? err.message : t('campanhas.falhaCriar'))
     } finally {
       setSaving(false)
     }
@@ -220,29 +216,29 @@ function NewCampaignModal({ contacts, tags, createdBy, onClose }: {
 
   return (
     <Modal onClose={onClose} width={560}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 16 }}>Nova campanha</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 16 }}>{t('campanhas.nova')}</div>
       <div style={{ display: 'grid', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={sx.label}>Nome da campanha</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Promoção de setembro" style={sx.input} />
+          <span style={sx.label}>{t('campanhas.nome')}</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('campanhas.nomeExemplo')} style={sx.input} />
         </label>
 
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={sx.label}>Mensagem</span>
+          <span style={sx.label}>{t('campanhas.mensagem')}</span>
           <textarea
             value={text}
             rows={4}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Oi {{nome}}! Temos uma condição especial este mês..."
+            placeholder={t('campanhas.mensagemExemplo')}
             style={{ ...sx.input, resize: 'vertical', fontFamily: 'inherit' }}
           />
           <span style={{ fontSize: 11.5, color: C.faint }}>
-            {'{{nome}}'} e {'{{empresa}}'} são trocados pelos dados de cada contato no envio.
+            {t('campanhas.variaveisDica')}
           </span>
         </label>
 
         <div style={{ display: 'grid', gap: 6 }}>
-          <span style={sx.label}>Público (etiquetas) — sem seleção, vale toda a base</span>
+          <span style={sx.label}>{t('campanhas.publicoEtiquetas')}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {tags.map((t) => {
               const on = tagIds.includes(t.id)
@@ -291,18 +287,18 @@ function NewCampaignModal({ contacts, tags, createdBy, onClose }: {
             onChange={(e) => setRespectHours(e.target.checked)}
             style={{ accentColor: C.purple, width: 16, height: 16 }}
           />
-          <span style={{ fontSize: 13, color: C.ink }}>Enviar só dentro do horário de atendimento</span>
+          <span style={{ fontSize: 13, color: C.ink }}>{t('campanhas.soNoHorario')}</span>
         </label>
 
         <div style={{ background: C.field, border: '1px solid ' + C.fieldBorder, borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: C.sub, lineHeight: 1.6 }}>
-          <b style={{ color: C.ink }}>{audience.length}</b> contatos vão receber
-          {optOuts > 0 && <> · <b style={{ color: C.ink }}>{optOuts}</b> excluídos por opt-out</>}
+          <b style={{ color: C.ink }}>{audience.length}</b> {t('campanhas.vaoReceber')}
+          {optOuts > 0 && <> · <b style={{ color: C.ink }}>{optOuts}</b> {t('campanhas.excluidosOptOut')}</>}
           <br />
-          Tempo estimado do disparo: <b style={{ color: C.ink }}>{fmtHours(estimateHours(audience.length, rate))}</b>
+          {t('campanhas.tempoEstimado')} <b style={{ color: C.ink }}>{fmtHours(estimateHours(audience.length, rate))}</b>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
-          <button onClick={onClose} style={sx.btnGhost}>Cancelar</button>
+          <button onClick={onClose} style={sx.btnGhost}>{t('comum.cancelar')}</button>
           <RingButton
             radius={11}
             onClick={save}

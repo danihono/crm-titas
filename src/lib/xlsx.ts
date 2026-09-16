@@ -1,4 +1,6 @@
 import type { ReportModel, ReportRow } from './reportData'
+import { t, type Chave } from '../i18n'
+import { dataHoraCurta } from '../i18n/formato'
 import { fmtDate, fmtDuration } from './reportData'
 import { downloadBlob, reportFileName } from './download'
 import { brandTitle, dataRow, tableHeader, PURPLE, SUB } from './xlsxStyle'
@@ -8,13 +10,13 @@ export type SectionId = 'resumo' | 'porDia' | 'agora' | 'atendentes' | 'setores'
 
 export type ReportSections = Record<SectionId, boolean>
 
-export const SECTION_DEFS: { id: SectionId; label: string; hint: string }[] = [
-  { id: 'resumo', label: 'Resumo', hint: 'Indicadores do período' },
-  { id: 'porDia', label: 'Conversas por dia', hint: 'Série diária e gráfico' },
-  { id: 'agora', label: 'Fila agora', hint: 'Estado das conversas abertas' },
-  { id: 'atendentes', label: 'Por atendente', hint: 'Desempenho de cada pessoa' },
-  { id: 'setores', label: 'Por setor', hint: 'Volume por fila de atendimento' },
-  { id: 'etiquetas', label: 'Por etiqueta', hint: 'Volume por classificação' },
+export const SECTION_DEFS: { id: SectionId; label: Chave; hint: Chave }[] = [
+  { id: 'resumo', label: 'exp.secResumo', hint: 'exp.secResumoDica' },
+  { id: 'porDia', label: 'exp.secPorDia', hint: 'exp.secPorDiaDica' },
+  { id: 'agora', label: 'exp.secAgora', hint: 'exp.secAgoraDica' },
+  { id: 'atendentes', label: 'exp.secAtendentes', hint: 'exp.secAtendentesDica' },
+  { id: 'setores', label: 'exp.secSetores', hint: 'exp.secSetoresDica' },
+  { id: 'etiquetas', label: 'exp.secEtiquetas', hint: 'exp.secEtiquetasDica' },
 ]
 
 export const ALL_SECTIONS: ReportSections = {
@@ -34,8 +36,8 @@ function titleBlock(ws: Sheet, model: ReportModel, orgName: string, title: strin
   brandTitle(
     ws,
     cols,
-    orgName ? `TITÃS CRM · ${orgName}` : 'TITÃS CRM',
-    `${title} · ${fmtDate(model.from)} a ${fmtDate(model.to)} (${model.days} dias)`,
+    orgName ? t('exp.cabecalho', { org: orgName }) : 'TITÃS CRM',
+    t('exp.periodo', { titulo: title, de: fmtDate(model.from), ate: fmtDate(model.to), dias: model.days }),
   )
 }
 
@@ -46,10 +48,10 @@ function breakdownSheet(wb: Wb, name: string, entity: string, rows: ReportRow[],
   ]
   titleBlock(ws, model, orgName, name, 5)
   const headerRow = 4
-  tableHeader(ws, headerRow, [entity, 'Conversas', 'Finalizadas', '1ª resposta', 'Até finalizar'])
+  tableHeader(ws, headerRow, [entity, t('exp.colConversas'), t('exp.colFinalizadas'), t('exp.colPrimeiraResposta'), t('exp.colAteFinalizar')])
 
   if (rows.length === 0) {
-    ws.getCell(headerRow + 1, 1).value = 'Nada registrado neste período.'
+    ws.getCell(headerRow + 1, 1).value = t('comum.semRegistros')
     ws.getCell(headerRow + 1, 1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: SUB } }
     return
   }
@@ -86,23 +88,23 @@ export async function exportReportXlsx(
   wb.created = new Date()
 
   if (sections.resumo) {
-    const ws = wb.addWorksheet('Resumo', { properties: { tabColor: { argb: PURPLE } } })
+    const ws = wb.addWorksheet(t('exp.secResumo'), { properties: { tabColor: { argb: PURPLE } } })
     ws.columns = [{ width: 38 }, { width: 24 }]
-    titleBlock(ws, model, orgName, 'Relatório de atendimento', 2)
-    tableHeader(ws, 4, ['Indicador', 'Valor'])
+    titleBlock(ws, model, orgName, t('exp.relatorioAtendimento'), 2)
+    tableHeader(ws, 4, [t('exp.indicador'), t('exp.valor')])
 
     const k = model.kpis
     const rows: [string, string | number][] = [
-      ['Total de conversas', k.total],
-      ['Em aberto', k.open],
-      ['Finalizadas', k.closed],
-      ['Tempo médio de 1ª resposta', fmtDuration(k.firstResponseMs)],
-      ['Tempo médio até finalizar', fmtDuration(k.resolutionMs)],
+      [t('exp.totalConversas'), k.total],
+      [t('exp.emAberto'), k.open],
+      [t('exp.colFinalizadas'), k.closed],
+      [t('exp.tempoPrimeiraResposta'), fmtDuration(k.firstResponseMs)],
+      [t('exp.tempoAteFinalizar'), fmtDuration(k.resolutionMs)],
     ]
     rows.forEach(([label, value], i) => dataRow(ws, 5 + i, [label, value], i % 2 === 1))
 
     const after = 5 + rows.length + 1
-    ws.getCell(after, 1).value = `Emitido em ${new Date().toLocaleString('pt-BR')}`
+    ws.getCell(after, 1).value = t('doc.emitidoEm', { data: dataHoraCurta(new Date()) })
     ws.getCell(after, 1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: SUB } }
 
     if (charts.trend) {
@@ -112,29 +114,29 @@ export async function exportReportXlsx(
   }
 
   if (sections.porDia) {
-    const ws = wb.addWorksheet('Conversas por dia', { properties: { tabColor: { argb: PURPLE } } })
+    const ws = wb.addWorksheet(t('exp.secPorDia'), { properties: { tabColor: { argb: PURPLE } } })
     ws.columns = [{ width: 16 }, { width: 14 }]
-    titleBlock(ws, model, orgName, 'Conversas por dia', 2)
-    tableHeader(ws, 4, ['Data', 'Conversas'])
+    titleBlock(ws, model, orgName, t('exp.secPorDia'), 2)
+    tableHeader(ws, 4, [t('exp.data'), t('exp.colConversas')])
     model.byDay.forEach((d, i) => dataRow(ws, 5 + i, [d.label, d.total], i % 2 === 1))
   }
 
   if (sections.agora) {
-    const ws = wb.addWorksheet('Fila agora', { properties: { tabColor: { argb: PURPLE } } })
+    const ws = wb.addWorksheet(t('exp.secAgora'), { properties: { tabColor: { argb: PURPLE } } })
     ws.columns = [{ width: 28 }, { width: 14 }]
-    titleBlock(ws, model, orgName, 'Fila no momento da emissão', 2)
-    tableHeader(ws, 4, ['Estado', 'Conversas'])
+    titleBlock(ws, model, orgName, t('exp.filaNaEmissao'), 2)
+    tableHeader(ws, 4, [t('exp.estado'), t('exp.colConversas')])
     const rows: [string, number][] = [
-      ['Na fila', model.live.fila],
-      ['Em atendimento', model.live.atendimento],
-      ['Esperando cliente', model.live.esperando],
+      [t('relatorios.naFila'), model.live.fila],
+      [t('atend.emAtendimento'), model.live.atendimento],
+      [t('atend.esperandoCliente'), model.live.esperando],
     ]
     rows.forEach(([label, value], i) => dataRow(ws, 5 + i, [label, value], i % 2 === 1))
   }
 
-  if (sections.atendentes) breakdownSheet(wb, 'Por atendente', 'Atendente', model.byAgent, model, orgName)
-  if (sections.setores) breakdownSheet(wb, 'Por setor', 'Setor', model.bySector, model, orgName)
-  if (sections.etiquetas) breakdownSheet(wb, 'Por etiqueta', 'Etiqueta', model.byTag, model, orgName)
+  if (sections.atendentes) breakdownSheet(wb, t('exp.secAtendentes'), t('exp.atendente'), model.byAgent, model, orgName)
+  if (sections.setores) breakdownSheet(wb, t('exp.secSetores'), t('exp.setor'), model.bySector, model, orgName)
+  if (sections.etiquetas) breakdownSheet(wb, t('exp.secEtiquetas'), t('exp.etiqueta'), model.byTag, model, orgName)
 
   const buffer = await wb.xlsx.writeBuffer()
   downloadBlob(

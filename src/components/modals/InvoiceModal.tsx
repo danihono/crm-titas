@@ -3,11 +3,14 @@ import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
 import { sx, C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
+import { dataCurta } from '../../i18n/formato'
+import { rotuloPagamento } from '../../i18n/sistema'
 import {
   saveInvoice, updateInvoice, deleteInvoice, deleteInvoiceSeries, billingPreview,
   PAYMENT_METHODS, type Billing, type InvoiceForm,
 } from '../../hooks/useInvoices'
-import { parseValueBR, fmtMoney, dateKeyOf } from '../../lib/format'
+import { parseValueBR, fmtBRL, fmtMoney, dateKeyOf } from '../../lib/format'
 import ClientCombo, { type ClientOption } from '../common/ClientCombo'
 import type { Invoice, PaymentMethod } from '../../types'
 
@@ -80,33 +83,33 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
 
   function handleSave() {
     if (busy) return
-    if (!client.trim()) { setError('Informe o cliente desta nota.'); return }
-    if (parsedValue <= 0) { setError('Informe um valor maior que zero.'); return }
-    if (!due) { setError('Escolha a data de vencimento.'); return }
-    if (kind === 'parcelada' && (parcels < 2 || parcels > 60)) { setError('O parcelamento vai de 2 a 60 vezes.'); return }
-    if (kind === 'mensal' && (months < 2 || months > 60)) { setError('A recorrência vai de 2 a 60 meses.'); return }
+    if (!client.trim()) { setError(t('nota.informeCliente')); return }
+    if (parsedValue <= 0) { setError(t('nota.valorMaiorZero')); return }
+    if (!due) { setError(t('nota.escolhaVencimento')); return }
+    if (kind === 'parcelada' && (parcels < 2 || parcels > 60)) { setError(t('nota.parcelamentoFaixa')); return }
+    if (kind === 'mensal' && (months < 2 || months > 60)) { setError(t('nota.recorrenciaFaixa')); return }
     void run(
       () => (editing ? updateInvoice(invoice.id, form()) : saveInvoice(form(), invoices, billing)),
-      editing ? 'Falha ao salvar a nota.' : 'Falha ao emitir a nota.',
+      t(editing ? 'nota.falhaSalvar' : 'nota.falhaEmitir'),
     )
   }
 
-  const kinds: { id: Billing['kind']; label: string }[] = [
-    { id: 'avista', label: 'À vista' },
-    { id: 'parcelada', label: 'Parcelada' },
-    { id: 'mensal', label: 'Mensal' },
+  const kinds: { id: Billing['kind']; label: Chave }[] = [
+    { id: 'avista', label: 'nota.avista' },
+    { id: 'parcelada', label: 'nota.parcelada' },
+    { id: 'mensal', label: 'nota.mensal' },
   ]
 
   return (
     <Modal width={520} onClose={() => !busy && onClose()}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>
-          {editing ? `Nota ${invoice.num}` : 'Emitir nota de faturamento'}
+          {editing ? t('nota.tituloEditar', { num: invoice.num }) : t('nota.tituloEmitir')}
         </div>
         <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
 
-      <label style={sx.label}>Cliente</label>
+      <label style={sx.label}>{t('comum.cliente')}</label>
       {/* Combo próprio, não o <datalist> nativo: aquele o navegador desenhava do jeito dele
           e não mostrava empresa, telefone nem foto. Segue aceitando texto livre — numa conta
           sem contato nenhum, é o que permite emitir a primeira nota. */}
@@ -115,17 +118,17 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
           value={client}
           options={clientOptions}
           onChange={(label, id) => { setClient(label); setContactId(id) }}
-          placeholder="Escolha um contato ou digite um cliente novo"
+          placeholder={t('nota.escolhaCliente')}
         />
       </div>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Valor (R$)</label>
+          <label style={sx.label}>{t('modal.valorReais')}</label>
           <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" style={{ ...sx.input, margin: '6px 0 14px' }} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>{kind === 'avista' || editing ? 'Vencimento' : 'Primeiro vencimento'}</label>
+          <label style={sx.label}>{t(kind === 'avista' || editing ? 'nota.vencimento' : 'nota.primeiroVencimento')}</label>
           <input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ ...sx.input, margin: '6px 0 14px' }} />
         </div>
       </div>
@@ -133,7 +136,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
       {/* Cobrança só na emissão: reparcelar uma nota já emitida bagunçaria a numeração. */}
       {!editing && (
         <>
-          <label style={sx.label}>Cobrança</label>
+          <label style={sx.label}>{t('nota.cobranca')}</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '7px 0 12px', flexWrap: 'wrap' }}>
             {kinds.map((k) => (
               <button
@@ -147,7 +150,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
                   borderRadius: 10, padding: '8px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                 }}
               >
-                {k.label}
+                {t(k.label)}
               </button>
             ))}
             {kind === 'parcelada' && (
@@ -169,20 +172,19 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
           {preview.length > 0 && (
             <div style={{ background: C.field, border: '1px solid ' + C.fieldBorder, borderRadius: 12, padding: '11px 13px', marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.ink, marginBottom: 6 }}>
-                {preview.length} notas · total R$ {fmtMoney(preview.reduce((s, p) => s + p.value, 0))}
+                {t('nota.previaTotal', { n: preview.length, valor: fmtBRL(preview.reduce((s, p) => s + p.value, 0)) })}
               </div>
               <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>
                 {preview.slice(0, 3).map((p, i) => (
                   <div key={i}>
-                    {i + 1}/{preview.length} · R$ {fmtMoney(p.value)} · vence {p.dueAt.toLocaleDateString('pt-BR')}
+                    {t('nota.previaLinha', { i: i + 1, n: preview.length, valor: fmtBRL(p.value), data: dataCurta(p.dueAt) })}
                   </div>
                 ))}
-                {preview.length > 3 && <div>…e mais {preview.length - 3}, um por mês.</div>}
+                {preview.length > 3 && <div>{t('nota.previaMais', { n: preview.length - 3 })}</div>}
               </div>
               {kind === 'mensal' && (
                 <div style={{ fontSize: 11.5, color: C.faint, marginTop: 7, lineHeight: 1.5 }}>
-                  As {preview.length} notas são criadas agora, com os vencimentos já distribuídos —
-                  não há cobrança sendo gerada automaticamente mês a mês.
+                  {t('nota.previaAviso', { n: preview.length })}
                 </div>
               )}
             </div>
@@ -192,20 +194,20 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1.4 }}>
-          <label style={sx.label}>Descrição do serviço</label>
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Consultoria mensal" style={{ ...sx.input, margin: '6px 0 14px' }} />
+          <label style={sx.label}>{t('nota.descricaoServico')}</label>
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t('nota.descricaoExemplo')} style={{ ...sx.input, margin: '6px 0 14px' }} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={sx.label}>Forma de pagamento</label>
+          <label style={sx.label}>{t('nota.formaPagamento')}</label>
           <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod | '')} style={{ ...sx.input, margin: '6px 0 14px' }}>
-            <option value="">Não definida</option>
-            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            <option value="">{t('nota.naoDefinida')}</option>
+            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{rotuloPagamento(m)}</option>)}
           </select>
         </div>
       </div>
 
-      <label style={sx.label}>Observações</label>
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anotações internas sobre esta cobrança" style={{ ...sx.input, margin: '6px 0 18px', resize: 'vertical', fontFamily: 'inherit' }} />
+      <label style={sx.label}>{t('comum.observacoes')}</label>
+      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('nota.observacoesExemplo')} style={{ ...sx.input, margin: '6px 0 18px', resize: 'vertical', fontFamily: 'inherit' }} />
 
       {error && (
         <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
@@ -217,8 +219,8 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
         <div style={{ background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
           <div style={{ fontSize: 12.5, color: C.sub, lineHeight: 1.5 }}>
             {confirming === 'serie'
-              ? `Excluir as ${invoices.filter((x) => x.seriesId === invoice.seriesId).length} notas desta série? Não dá para desfazer.`
-              : `Excluir a nota ${invoice.num}? Não dá para desfazer.`}
+              ? t('nota.confirmarSerie', { n: invoices.filter((x) => x.seriesId === invoice.seriesId).length })
+              : t('nota.confirmarNota', { num: invoice.num })}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
             <button
@@ -226,14 +228,14 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
                 () => (confirming === 'serie' && invoice.seriesId
                   ? deleteInvoiceSeries(invoice.seriesId, invoices)
                   : deleteInvoice(invoice.id)),
-                'Falha ao excluir.',
+                t('nota.falhaExcluir'),
               )}
               disabled={busy}
               style={{ border: 'none', borderRadius: 10, padding: '8px 14px', background: '#c14d77', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}
             >
-              {busy ? 'Excluindo…' : 'Sim, excluir'}
+              {t(busy ? 'nota.excluindo' : 'nota.simExcluir')}
             </button>
-            <button onClick={() => setConfirming(null)} disabled={busy} style={{ ...sx.btnGhost, padding: '8px 14px', fontSize: 12.5 }}>Manter</button>
+            <button onClick={() => setConfirming(null)} disabled={busy} style={{ ...sx.btnGhost, padding: '8px 14px', fontSize: 12.5 }}>{t('nota.manter')}</button>
           </div>
         </div>
       )}
@@ -246,7 +248,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
               disabled={busy}
               style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
             >
-              <MaterialIcon name="delete" size={18} /> Excluir
+              <MaterialIcon name="delete" size={18} /> {t('comum.excluir')}
             </button>
             {invoice.seriesId && (
               <button
@@ -254,13 +256,13 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
                 disabled={busy}
                 style={{ border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
               >
-                Excluir a série
+                {t('nota.excluirSerie')}
               </button>
             )}
           </>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={onClose} disabled={busy} style={sx.btnGhost}>Cancelar</button>
+        <button onClick={onClose} disabled={busy} style={sx.btnGhost}>{t('comum.cancelar')}</button>
         <RingButton
           radius={11}
           disabled={busy}
@@ -269,7 +271,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
           style={{ ...sx.btnPrimary }}
         >
           <MaterialIcon name="check" size={18} />
-          {busy ? 'Salvando…' : editing ? 'Salvar' : preview.length > 1 ? `Emitir ${preview.length} notas` : 'Emitir nota'}
+          {busy ? t('comum.salvando') : editing ? t('comum.salvar') : preview.length > 1 ? t('nota.emitirVarias', { n: preview.length }) : t('nota.emitirNota')}
         </RingButton>
       </div>
     </Modal>

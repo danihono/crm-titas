@@ -1,4 +1,5 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
+import type { Chave } from '../i18n'
 import type { FlowEdge, FlowNode, FlowNodeKind } from '../types'
 import { BRAND, C } from '../styles/sx'
 
@@ -21,11 +22,11 @@ const EDGE_COLOR = '#b6aec6'
 // BRAND, e não C: estas cores passam por chipColors()/shade(), que fazem parse
 // do hex — um token cairia no fallback e o seletor de tipo de caixa ficaria todo
 // da mesma cor.
-export const NODE_KINDS: { id: FlowNodeKind; label: string; icon: string; color: string }[] = [
-  { id: 'start', label: 'Início', icon: 'play_circle', color: BRAND.green },
-  { id: 'step', label: 'Etapa', icon: 'radio_button_checked', color: BRAND.purple },
-  { id: 'decision', label: 'Decisão', icon: 'call_split', color: BRAND.amber },
-  { id: 'end', label: 'Fim', icon: 'flag', color: BRAND.rose },
+export const NODE_KINDS: { id: FlowNodeKind; label: Chave; icon: string; color: string }[] = [
+  { id: 'start', label: 'fluxos.tipoInicio', icon: 'play_circle', color: BRAND.green },
+  { id: 'step', label: 'fluxos.tipoEtapa', icon: 'radio_button_checked', color: BRAND.purple },
+  { id: 'decision', label: 'fluxos.tipoDecisao', icon: 'call_split', color: BRAND.amber },
+  { id: 'end', label: 'fluxos.tipoFim', icon: 'flag', color: BRAND.rose },
 ]
 
 export function kindMeta(kind: FlowNodeKind) {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import SuperShell from './SuperShell'
+import { t } from '../../i18n'
 import ClientEditModal from './ClientEditModal'
 import ClientDeleteModal from './ClientDeleteModal'
 import { useClients, type Client } from '../../hooks/useClients'
@@ -21,14 +22,14 @@ export default function ClientsList() {
   const filtered = clients.filter((c) => c.displayName.toLowerCase().includes(q.toLowerCase()) || (c.email || '').toLowerCase().includes(q.toLowerCase()))
 
   return (
-    <SuperShell title="Clientes" back>
+    <SuperShell title={t('super.clientes')} back>
       <div className="flex items-center gap-3 mb-4">
-        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6]">Clientes</h1>
+        <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[31px] font-normal text-[#f3eef6]">{t('super.clientes')}</h1>
         <span className="text-[12px] text-[#9a6fb8] font-bold bg-[rgba(150,110,200,0.14)] rounded-full px-2.5 py-0.5">{clients.length}</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] rounded-xl px-3 h-10 w-64 max-w-full">
           <MaterialIcon name="search" size={18} color="#7d7388" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente..." className="bg-transparent outline-none text-[13px] text-[#e8e2ee] w-full" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('super.buscarCliente')} className="bg-transparent outline-none text-[13px] text-[#e8e2ee] w-full" />
         </div>
       </div>
 
@@ -73,7 +74,7 @@ export default function ClientsList() {
                 </div>
                 <button
                   onClick={() => setDeleting(c)}
-                  title="Excluir cliente"
+                  title={t('super.excluirCliente')}
                   className="w-9 h-9 rounded-xl grid place-items-center text-[#a8899a] hover:text-[#e8a9be] hover:bg-[rgba(193,77,119,0.14)] transition-colors"
                 >
                   <MaterialIcon name="delete" size={19} />
@@ -82,11 +83,11 @@ export default function ClientsList() {
               <div className="flex gap-2 mb-4">
                 <div className="flex-1 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(176,148,210,0.10)] p-2.5">
                   <div className="text-[15px] font-extrabold text-[#ece6f0]">R$ {fmtMoney(pc?.pipeline ?? 0)}</div>
-                  <div className="text-[10.5px] text-[#9a8fa8]">pipeline</div>
+                  <div className="text-[10.5px] text-[#9a8fa8]">{t('super.pipelineMin')}</div>
                 </div>
                 <div className="flex-1 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(176,148,210,0.10)] p-2.5">
                   <div className="text-[15px] font-extrabold text-[#ece6f0]">{pc?.deals ?? 0}</div>
-                  <div className="text-[10.5px] text-[#9a8fa8]">negócios</div>
+                  <div className="text-[10.5px] text-[#9a8fa8]">{t('super.negociosMin')}</div>
                 </div>
               </div>
               <RingButton

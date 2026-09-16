@@ -3,6 +3,7 @@ import { useUIStore } from '../../store/uiStore'
 import { addFlow, useFlows, type GeneratedFlow } from '../../hooks/useFlows'
 import FlowsList from './FlowsList'
 import FlowEditor from './FlowEditor'
+import { t } from '../../i18n'
 import AiFlowModal from './AiFlowModal'
 
 /** Aba "Fluxos": lista de fluxos ou o editor do fluxo aberto. */
@@ -17,9 +18,9 @@ export default function FlowsView() {
 
   async function handleCreate() {
     try {
-      openFlow(await addFlow('Novo fluxo'))
+      openFlow(await addFlow(t('fluxos.novo')))
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao criar o fluxo.')
+      alert(e instanceof Error ? e.message : t('fluxos.falhaCriar'))
     }
   }
 
@@ -33,7 +34,7 @@ export default function FlowsView() {
       setShowAi(false)
       openFlow(id)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao salvar o fluxo gerado.')
+      alert(e instanceof Error ? e.message : t('fluxos.falhaSalvarGerado'))
     }
   }
 

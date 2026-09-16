@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { addSector, deleteSector, updateSector, useSectors } from '../../hooks/useSettings'
 import { sx, C } from '../../styles/sx'
+import { t } from '../../i18n'
 import { ColorDots, EmptyLine, Field, IconAction, PrimaryButton, Row, SettingsCard, SETTING_COLORS } from './primitives'
 
 export default function SectorsSection({ canEdit }: { canEdit: boolean }) {
@@ -29,10 +30,10 @@ export default function SectorsSection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <SettingsCard
-      title="Setores"
-      subtitle="Filas de atendimento — Comercial, Suporte, Financeiro. A conversa pode ser transferida entre elas."
+      title={t('setores.titulo')}
+      subtitle={t('setores.subtitulo')}
     >
-      {sectors.length === 0 && <EmptyLine>Nenhum setor criado ainda.</EmptyLine>}
+      {sectors.length === 0 && <EmptyLine>{t('setores.vazio')}</EmptyLine>}
       {sectors.map((s) => (
         <div key={s.id}>
           <Row
@@ -42,11 +43,11 @@ export default function SectorsSection({ canEdit }: { canEdit: boolean }) {
                 <>
                   <IconAction
                     icon="chat_bubble"
-                    title="Mensagem de boas-vindas do setor"
+                    title={t('setores.boasVindas')}
                     color={s.greeting ? C.purple : C.muted}
                     onClick={() => (editing === s.id ? setEditing(null) : startEdit(s.id, s.greeting))}
                   />
-                  <IconAction icon="delete" title="Excluir setor" color={C.rose} onClick={() => deleteSector(s.id)} />
+                  <IconAction icon="delete" title={t('setores.excluir')} color={C.rose} onClick={() => deleteSector(s.id)} />
                 </>
               ) : undefined
             }
@@ -60,16 +61,16 @@ export default function SectorsSection({ canEdit }: { canEdit: boolean }) {
           </Row>
           {editing === s.id && (
             <div style={{ display: 'flex', gap: 10, alignItems: 'end', padding: '12px 0 14px' }}>
-              <Field label="Mensagem enviada ao transferir para este setor" style={{ flex: 1 }}>
+              <Field label={t('setores.boasVindasDica')} style={{ flex: 1 }}>
                 <textarea
                   value={greeting}
                   onChange={(e) => setGreeting(e.target.value)}
                   rows={2}
-                  placeholder="Olá! Você foi transferido para o time Comercial."
+                  placeholder={t('setores.boasVindasExemplo')}
                   style={{ ...sx.input, resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </Field>
-              <PrimaryButton icon="check" onClick={() => saveGreeting(s.id)}>Salvar</PrimaryButton>
+              <PrimaryButton icon="check" onClick={() => saveGreeting(s.id)}>{t('comum.salvar')}</PrimaryButton>
             </div>
           )}
         </div>
@@ -77,17 +78,17 @@ export default function SectorsSection({ canEdit }: { canEdit: boolean }) {
 
       {canEdit && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr auto auto', gap: 14, alignItems: 'end', marginTop: 18 }}>
-          <Field label="Novo setor">
+          <Field label={t('setores.novo')}>
             <input
               value={name}
-              placeholder="Comercial"
+              placeholder={t('setores.exemplo')}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && add()}
               style={sx.input}
             />
           </Field>
-          <Field label="Cor"><ColorDots value={color} onChange={setColor} /></Field>
-          <PrimaryButton icon="add" onClick={add} disabled={!name.trim()}>Adicionar</PrimaryButton>
+          <Field label={t('config.cor')}><ColorDots value={color} onChange={setColor} /></Field>
+          <PrimaryButton icon="add" onClick={add} disabled={!name.trim()}>{t('comum.adicionar')}</PrimaryButton>
         </div>
       )}
     </SettingsCard>

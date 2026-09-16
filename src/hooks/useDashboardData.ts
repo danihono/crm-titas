@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { t } from '../i18n'
 import { useAllDeals, useBoards, LEADS_BOARD_ID } from './useDeals'
 import { useActivities, useActTypes } from './useActivities'
 import { useInvoices, invoiceStatus } from './useInvoices'
@@ -130,7 +131,7 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   const origens = useMemo<Origem[]>(() => {
     const contagem = new Map<string, number>()
     leadCards.forEach((l) => {
-      const key = l.tag?.trim() || 'Sem origem'
+      const key = l.tag?.trim() || t('painel.semOrigem')
       contagem.set(key, (contagem.get(key) ?? 0) + 1)
     })
     return [...contagem.entries()]

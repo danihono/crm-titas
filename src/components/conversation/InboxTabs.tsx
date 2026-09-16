@@ -1,11 +1,17 @@
 import { convOf } from '../../hooks/useConversations'
 import type { Contact, ConvStatus } from '../../types'
 import { C } from '../../styles/sx'
+import { t, type Chave } from '../../i18n'
 
-export const INBOX_TABS: { id: ConvStatus; label: string }[] = [
-  { id: 'entrada', label: 'Entrada' },
-  { id: 'esperando', label: 'Esperando' },
-  { id: 'finalizado', label: 'Finalizados' },
+/**
+ * As abas guardam a CHAVE, não o texto: uma constante de módulo é avaliada uma
+ * vez, no import, e um `t()` aqui congelaria o rótulo no idioma em que a página
+ * carregou — trocar de idioma deixaria estas três abas para trás.
+ */
+export const INBOX_TABS: { id: ConvStatus; label: Chave }[] = [
+  { id: 'entrada', label: 'inbox.entrada' },
+  { id: 'esperando', label: 'inbox.esperando' },
+  { id: 'finalizado', label: 'inbox.finalizados' },
 ]
 
 /** Contatos de uma aba do atendimento. Sem `conv`, o contato cai em Entrada. */
@@ -24,13 +30,13 @@ export default function InboxTabs({ contacts, active, onChange }: {
 }) {
   return (
     <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-      {INBOX_TABS.map((t) => {
-        const on = t.id === active
-        const count = filterByInbox(contacts, t.id).length
+      {INBOX_TABS.map((aba) => {
+        const on = aba.id === active
+        const count = filterByInbox(contacts, aba.id).length
         return (
           <button
-            key={t.id}
-            onClick={() => onChange(t.id)}
+            key={aba.id}
+            onClick={() => onChange(aba.id)}
             style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               border: 'none', borderRadius: 999, padding: '7px 6px', cursor: 'pointer',
@@ -39,7 +45,7 @@ export default function InboxTabs({ contacts, active, onChange }: {
               background: on ? C.sel : C.raised,
             }}
           >
-            {t.label}
+            {t(aba.label)}
             {count > 0 && (
               <span style={{
                 minWidth: 17, height: 17, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 800,

@@ -1,10 +1,11 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { INSTRUCAO_IDIOMA, msg, normalizarIdioma, type Idioma } from './idioma'
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
 import { perguntar } from './ia'
 import {
-  TZ_PADRAO, agoraNoFuso, dentroDaJanela, blocosPermitidos, montarResumo, RODAPE,
+  TZ_PADRAO, agoraNoFuso, dentroDaJanela, blocosPermitidos, montarResumo, rodape,
   type BlocosResumo, type DadosResumo, type ItemAgenda, type ItemConversa,
   type ItemFatura, type ItemTarefa,
 } from './resumo'
@@ -120,7 +121,9 @@ export async function coletarDados(uid: string, hojeKey: string, agora: Date): P
 // A saudação — a ÚNICA parte escrita pelo modelo
 // ---------------------------------------------------------------------------
 
-const SAUDACAO_PADRAO = 'Bom dia! Aqui está o seu resumo de hoje.'
+// A saudação de reserva, para quando o modelo falha ou demora. Segue o idioma
+// de quem recebe, como o resto do resumo.
+const saudacaoPadrao = (idioma: Idioma) => msg('saudacaoPadrao', idioma)
 const SAUDACAO_TIMEOUT_MS = 10_000
 
 /**
@@ -131,20 +134,21 @@ const SAUDACAO_TIMEOUT_MS = 10_000
  * O teto de tempo é obrigatório: `perguntar` não tem timeout próprio, e uma chamada
  * pendurada travaria a rodada inteira, que processa os ambientes em sequência.
  */
-async function saudacao(apiKey: string, nome: string, persona: string): Promise<string> {
+async function saudacao(apiKey: string, nome: string, persona: string, idioma: Idioma): Promise<string> {
   try {
     const texto = await Promise.race([
       perguntar(apiKey, {
-        system: `Você é "${nome}", ${persona}. Escreva APENAS uma saudação matinal curta (máx. 12 palavras), em português do Brasil, calorosa e profissional. Sem emojis no fim, sem listas, sem aspas.`,
+        system: `Você é "${nome}", ${persona}. Escreva APENAS uma saudação matinal curta (máx. 12 palavras), calorosa e profissional. ${INSTRUCAO_IDIOMA[idioma]} Sem emojis no fim, sem listas, sem aspas.`,
         question: 'Escreva a saudação de hoje.',
+        idioma,
       }),
       new Promise<string>((_, rej) => setTimeout(() => rej(new Error('timeout')), SAUDACAO_TIMEOUT_MS)),
     ])
     const limpa = texto.trim().split('\n')[0].slice(0, 120)
-    return limpa || SAUDACAO_PADRAO
+    return limpa || saudacaoPadrao(idioma)
   } catch (err) {
     console.warn('[assistente] saudação caiu para o texto fixo:', err)
-    return SAUDACAO_PADRAO
+    return saudacaoPadrao(idioma)
   }
 }
 
@@ -230,13 +234,18 @@ export const resumoDiario = onSchedule(
           'dono',
         )
 
+        // O resumo sai no idioma de quem RECEBE — a preferência do doc da conta,
+        // a mesma que manda na tela. Sem isto, quem pôs o CRM em inglês recebia
+        // o resumo diário em português no WhatsApp.
+        const idioma = normalizarIdioma((doc.get('prefs') as Record<string, unknown> | undefined)?.idioma)
         const dados = await coletarDados(uid, dateKey, agora)
         const abertura = await saudacao(
           GEMINI_API_KEY.value(),
           String(agent.name ?? 'Assistente'),
           String(agent.persona ?? 'assistente comercial'),
+          idioma,
         )
-        const texto = `${abertura}\n\n${montarResumo(dados, blocks)}\n\n${RODAPE}`
+        const texto = `${abertura}\n\n${montarResumo(dados, blocks, idioma)}\n\n${rodape(idioma)}`
 
         const enfileirou = await enfileirar(`${uid}_${dateKey}`, uid, digits, texto)
         if (!enfileirou) continue
@@ -391,6 +400,7 @@ export const responderPeloWhatsapp = onDocumentCreated(
     const tenant = await db.collection('users').doc(uid).get()
     const agent = (tenant.get('agent') ?? {}) as Record<string, unknown>
     const wa = (agent.whatsapp ?? {}) as Record<string, unknown>
+    const idiomaResposta = normalizarIdioma((tenant.get('prefs') as Record<string, unknown> | undefined)?.idioma)
     const digits = digitosDe(wa.phone) || digitosDe(tenant.get('phone'))
     if (digits.length < 8) return
 
@@ -399,9 +409,9 @@ export const responderPeloWhatsapp = onDocumentCreated(
     // Mesma cota do Titã IA na tela (aiUsage/{uid}, 40/hora). Sem ela, quem tem o número
     // da Assistente tem um proxy do Gemini pago pela casa, uma chamada por mensagem.
     try {
-      await consomeCota(uid)
+      await consomeCota(uid, idiomaResposta)
     } catch {
-      await responder('Você me fez muitas perguntas nesta hora. Tenta de novo mais tarde? 🙂')
+      await responder(msg('cotaNoWhatsapp', idiomaResposta))
       return
     }
 
@@ -422,17 +432,18 @@ export const responderPeloWhatsapp = onDocumentCreated(
         `${String(agent.instructions ?? '')}\n` +
         `Você é "${String(agent.name ?? 'Assistente')}", persona: ${String(agent.persona ?? 'assistente comercial')}.\n` +
         'Você está respondendo por WhatsApp: seja MUITO objetivo (máx. ~80 palavras), sem markdown de título e sem listas longas. ' +
-        'Responda em português do Brasil, usando os dados reais abaixo.\n' +
+        `${INSTRUCAO_IDIOMA[idiomaResposta]} Use os dados reais abaixo.\n` +
         `${await conhecimento(uid)}${contextoDoCrm(dados, blocks)}`
 
       const resposta = (await perguntar(GEMINI_API_KEY.value(), {
         system,
         history: await historico(uid),
         question: pergunta,
+        idioma: idiomaResposta,
       })).trim().slice(0, RESPOSTA_MAX_CHARS)
 
       if (!resposta) {
-        await responder('Não consegui responder isso agora. Pode reformular?')
+        await responder(msg('reformular', idiomaResposta))
         return
       }
 
@@ -448,7 +459,7 @@ export const responderPeloWhatsapp = onDocumentCreated(
       console.error(`[assistente] falha ao responder ${uid}:`, err)
       // Silêncio depois de uma pergunta parece sistema quebrado. Uma linha honesta custa
       // um envio e evita o usuário ficar repetindo a pergunta.
-      await responder('Tive um problema para consultar seus dados agora. Tenta de novo em alguns minutos?')
+      await responder(msg('problemaNosDados', idiomaResposta))
     }
   },
 )

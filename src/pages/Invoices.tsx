@@ -12,6 +12,9 @@ import InvoiceModal, { type ClientOption } from '../components/modals/InvoiceMod
 import { contactOptions, withLegacyNames } from '../components/common/ClientCombo'
 import InvoicesDocument from '../components/invoices/InvoicesDocument'
 import { sx, C } from '../styles/sx'
+import { t, type Chave } from '../i18n'
+import { compararTexto, dataCurta } from '../i18n/formato'
+import { rotuloPagamento, rotuloStatusNota } from '../i18n/sistema'
 import type { Invoice, InvoiceStatus } from '../types'
 
 type StatusFilter = 'todas' | InvoiceStatus
@@ -19,8 +22,9 @@ const STATUS_FILTERS: StatusFilter[] = ['todas', 'Pendente', 'Vencida', 'Paga']
 
 /** Colunas por onde a lista pode ser ordenada — e o que sai nos dois exports. */
 type SortKey = 'num' | 'client' | 'value' | 'dueAt' | 'status'
-const SORT_LABEL: Record<SortKey, string> = {
-  num: 'nota', client: 'cliente', value: 'valor', dueAt: 'vencimento', status: 'status',
+const SORT_LABEL: Record<SortKey, Chave> = {
+  num: 'fatura.ordNota', client: 'fatura.ordCliente', value: 'fatura.ordValor',
+  dueAt: 'fatura.ordVencimento', status: 'fatura.ordStatus',
 }
 
 const GRID = '86px 1.5fr 1fr 118px 104px 120px'
@@ -74,10 +78,10 @@ export default function Invoices() {
     const dir = sortDir === 'asc' ? 1 : -1
     return [...filtered].sort((a, b) => {
       switch (sortKey) {
-        case 'client': return dir * a.iv.client.localeCompare(b.iv.client, 'pt-BR')
+        case 'client': return dir * compararTexto(a.iv.client, b.iv.client)
         case 'value': return dir * (a.iv.value - b.iv.value)
         case 'dueAt': return dir * (a.iv.dueAt.getTime() - b.iv.dueAt.getTime())
-        case 'status': return dir * a.status.localeCompare(b.status, 'pt-BR')
+        case 'status': return dir * compararTexto(rotuloStatusNota(a.status), rotuloStatusNota(b.status))
         default: {
           // Pelo número: comparar como inteiro, porque '#1049' e '#999' em texto saem ao
           // contrário do esperado.
@@ -104,12 +108,12 @@ export default function Invoices() {
 
   /** Frase que descreve o recorte — vai no cabeçalho do PDF e no subtítulo do XLSX. */
   const recorte = [
-    status === 'todas' ? 'todas as notas' : `apenas ${status.toLowerCase()}s`,
-    q.trim() && `busca "${q.trim()}"`,
-    from && `de ${new Date(from + 'T12:00').toLocaleDateString('pt-BR')}`,
-    to && `até ${new Date(to + 'T12:00').toLocaleDateString('pt-BR')}`,
-    `por ${SORT_LABEL[sortKey]} ${sortDir === 'asc' ? '↑' : '↓'}`,
-    `${visible.length} nota(s)`,
+    status === 'todas' ? t('fatura.legendaTodas') : t('fatura.legendaApenas', { status: rotuloStatusNota(status).toLowerCase() }),
+    q.trim() && t('fatura.legendaBusca', { termo: q.trim() }),
+    from && t('fatura.legendaDe', { data: dataCurta(new Date(from + 'T12:00')) }),
+    to && t('fatura.legendaAte', { data: dataCurta(new Date(to + 'T12:00')) }),
+    t('fatura.legendaPor', { campo: t(SORT_LABEL[sortKey]), seta: sortDir === 'asc' ? '↑' : '↓' }),
+    t('fatura.legendaContagem', { n: visible.length }),
   ].filter(Boolean).join(' · ')
 
   async function togglePaid(iv: Invoice, isPaid: boolean) {
@@ -119,7 +123,7 @@ export default function Invoices() {
       await (isPaid ? markUnpaid(iv.id) : markPaid(iv.id))
     } catch (err) {
       console.error('[Invoices]', err)
-      setError('Não foi possível atualizar a baixa desta nota.')
+      setError(t('fatura.falhaBaixa'))
     } finally {
       setBusyId(null)
     }
@@ -142,7 +146,7 @@ export default function Invoices() {
       await exportInvoicesXlsx(visible.map((x) => x.iv), profile.displayName, recorte)
     } catch (err) {
       console.error('[Invoices/export]', err)
-      setError('Não foi possível gerar a planilha.')
+      setError(t('fatura.falhaPlanilha'))
     } finally {
       setExporting(false)
     }
@@ -151,23 +155,23 @@ export default function Invoices() {
   return (
     <div style={{ padding: '18px 30px 40px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 22 }}>
-        <SummaryCard icon="paid" color={C.green} label="Faturado (pago)" value={faturado} />
-        <SummaryCard icon="hourglass_top" color={C.amber} label="A receber" value={aReceber} />
-        <SummaryCard icon="warning" color={C.rose} label="Vencido" value={vencido} />
-        <SummaryCard icon="functions" color={C.purple} label={filtering ? 'Total do filtro' : 'Total emitido'} value={total} />
+        <SummaryCard icon="paid" color={C.green} label={t('fatura.faturado')} value={faturado} />
+        <SummaryCard icon="hourglass_top" color={C.amber} label={t('fatura.aReceber')} value={aReceber} />
+        <SummaryCard icon="warning" color={C.rose} label={t('fatura.vencido')} value={vencido} />
+        <SummaryCard icon="functions" color={C.purple} label={t(filtering ? 'fatura.totalFiltro' : 'fatura.totalEmitido')} value={total} />
       </div>
 
       <div style={{ ...sx.card, borderRadius: 20, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '18px 22px', borderBottom: '1px solid ' + C.lineSoft, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>
-            Notas de faturamento
+            {t('fatura.titulo')}
             <span style={{ fontSize: 12.5, fontWeight: 600, color: C.sub, marginLeft: 8 }}>
-              {visible.length}{filtering && ` de ${invoices.length}`}
+              {visible.length}{filtering && t('fatura.deTotal', { n: invoices.length })}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <button onClick={() => void handleExport()} disabled={exporting} style={{ ...sx.btnGhost, opacity: exporting ? 0.6 : 1 }}>
-              <MaterialIcon name="download" size={18} /> {exporting ? 'Gerando…' : 'Exportar XLSX'}
+              <MaterialIcon name="download" size={18} /> {t(exporting ? 'fatura.gerando' : 'fatura.exportarXlsx')}
             </button>
             <button onClick={() => void handlePdf()} style={sx.btnGhost}>
               <MaterialIcon name="picture_as_pdf" size={18} /> Exportar PDF
@@ -187,7 +191,7 @@ export default function Invoices() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nota, cliente ou descrição..."
+              placeholder={t('fatura.buscarPlaceholder')}
               style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: C.ink, width: '100%', fontFamily: 'inherit' }}
             />
           </div>
@@ -203,14 +207,14 @@ export default function Invoices() {
                   borderRadius: 10, padding: '8px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                 }}
               >
-                {s === 'todas' ? 'Todas' : s}
+                {s === 'todas' ? t('fatura.todas') : rotuloStatusNota(s)}
               </button>
             ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.sub }}>
-            <span>Vencimento</span>
+            <span>{t('fatura.vencimento')}</span>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ ...sx.input, width: 148, padding: '8px 10px' }} />
-            <span>até</span>
+            <span>{t('fatura.ate')}</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ ...sx.input, width: 148, padding: '8px 10px' }} />
           </div>
           {filtering && (
@@ -228,12 +232,12 @@ export default function Invoices() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '12px 22px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: '.04em', borderBottom: `1px solid ${C.lineHair}` }}>
-          <SortHead k="num" label="NOTA" active={sortKey} dir={sortDir} onClick={toggleSort} />
-          <SortHead k="client" label="CLIENTE" active={sortKey} dir={sortDir} onClick={toggleSort} />
-          <SortHead k="value" label="VALOR" active={sortKey} dir={sortDir} onClick={toggleSort} />
-          <SortHead k="dueAt" label="VENCIMENTO" active={sortKey} dir={sortDir} onClick={toggleSort} />
-          <SortHead k="status" label="STATUS" active={sortKey} dir={sortDir} onClick={toggleSort} />
-          <span style={{ textAlign: 'right' }}>AÇÕES</span>
+          <SortHead k="num" label={t('fatura.colNota')} active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="client" label={t('fatura.colCliente')} active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="value" label={t('fatura.colValor')} active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="dueAt" label={t('fatura.colVencimento')} active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <SortHead k="status" label={t('fatura.colStatus')} active={sortKey} dir={sortDir} onClick={toggleSort} />
+          <span style={{ textAlign: 'right' }}>{t('fatura.colAcoes')}</span>
         </div>
 
         {visible.map(({ iv, status: st }) => {
@@ -255,7 +259,7 @@ export default function Invoices() {
                 <div style={{ fontSize: 13, color: C.purple, fontWeight: 700 }}>{iv.num}</div>
                 {iv.installment && (
                   <div style={{ fontSize: 10.5, color: C.faint, fontWeight: 700 }}>
-                    {iv.installment.n}/{iv.installment.of}{iv.recurrence === 'mensal' ? ' · mensal' : ''}
+                    {iv.installment.n}/{iv.installment.of}{iv.recurrence === 'mensal' ? t('fatura.mensal') : ''}
                   </div>
                 )}
               </div>
@@ -267,24 +271,24 @@ export default function Invoices() {
               </div>
               <div>
                 <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700 }}>R$ {fmtMoney(iv.value)}</div>
-                {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{iv.paymentMethod}</div>}
+                {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{rotuloPagamento(iv.paymentMethod)}</div>}
               </div>
               <div>
-                <div style={{ fontSize: 12.5, color: C.sub }}>{iv.dueAt.toLocaleDateString('pt-BR')}</div>
-                {iv.paidAt && <div style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>pago {iv.paidAt.toLocaleDateString('pt-BR')}</div>}
+                <div style={{ fontSize: 12.5, color: C.sub }}>{dataCurta(iv.dueAt)}</div>
+                {iv.paidAt && <div style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{t('fatura.pagoEm', { data: dataCurta(iv.paidAt) })}</div>}
               </div>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color, background: bg, borderRadius: 20, padding: '4px 11px', textAlign: 'center', justifySelf: 'start' }}>{st}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color, background: bg, borderRadius: 20, padding: '4px 11px', textAlign: 'center', justifySelf: 'start' }}>{rotuloStatusNota(st)}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                 {!readOnly && (
                   <>
                     <RowAction
                       icon={isPaid ? 'undo' : 'task_alt'}
-                      title={isPaid ? 'Desfazer a baixa' : 'Dar baixa (marcar como paga)'}
+                      title={t(isPaid ? 'fatura.desfazerBaixa' : 'fatura.darBaixa')}
                       color={isPaid ? C.muted : C.green}
                       busy={busy}
                       onClick={() => void togglePaid(iv, isPaid)}
                     />
-                    <RowAction icon="edit" title="Editar nota" color={C.sub} onClick={() => setModal(iv)} />
+                    <RowAction icon="edit" title={t('fatura.editarNota')} color={C.sub} onClick={() => setModal(iv)} />
                   </>
                 )}
               </div>
@@ -294,7 +298,7 @@ export default function Invoices() {
 
         {visible.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13 }}>
-            {invoices.length === 0 ? 'Nenhuma nota emitida ainda.' : 'Nenhuma nota bate com o filtro.'}
+            {t(invoices.length === 0 ? 'fatura.vazio' : 'fatura.semFiltro')}
           </div>
         )}
       </div>
@@ -327,7 +331,7 @@ function SortHead({ k, label, active, dir, onClick }: {
     <button
       type="button"
       onClick={() => onClick(k)}
-      title={`Ordenar por ${label.toLowerCase()}`}
+      title={t('fatura.ordenarPor', { campo: label.toLowerCase() })}
       style={{
         display: 'flex', alignItems: 'center', gap: 2, border: 'none', background: 'transparent',
         padding: 0, cursor: 'pointer', font: 'inherit', letterSpacing: 'inherit',

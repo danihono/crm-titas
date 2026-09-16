@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { SettingsSection } from '../types'
 import { dateKeyOf } from '../lib/format'
 
 export type ContactView = 'chat' | 'info' | 'files' | 'agenda'
@@ -26,6 +27,16 @@ interface UIState {
   activeFlow: string | null
   selectedContact: string | null
   contactView: ContactView
+  /**
+   * Seção aberta em Configurações.
+   *
+   * Vive aqui, e não num useState da tela, por causa da troca de idioma: ela
+   * remonta a árvore inteira (ver a `key` do RouterProvider em App.tsx), e um
+   * useState voltaria para 'perfil'. Quem clicasse em "English" dentro de
+   * Preferências era jogado para o Perfil no mesmo instante, como se o clique
+   * tivesse dado errado. O zustand vive fora do React e atravessa a remontagem.
+   */
+  settingsSection: SettingsSection
   selectedDayKey: string
   calYear: number
   calMonth: number
@@ -48,6 +59,7 @@ interface UIState {
   closeFlow: () => void
   selectContact: (id: string) => void
   setContactView: (v: ContactView) => void
+  setSettingsSection: (v: SettingsSection) => void
   selectDay: (key: string) => void
   prevMonth: () => void
   nextMonth: () => void
@@ -79,6 +91,7 @@ export const useUIStore = create<UIState>((set) => ({
   activeFlow: null,
   selectedContact: null,
   contactView: 'chat',
+  settingsSection: 'perfil',
   selectedDayKey: dateKeyOf(now),
   calYear: now.getFullYear(),
   calMonth: now.getMonth(),
@@ -101,6 +114,7 @@ export const useUIStore = create<UIState>((set) => ({
   closeFlow: () => set({ activeFlow: null }),
   selectContact: (id) => set({ selectedContact: id, contactView: 'chat' }),
   setContactView: (v) => set({ contactView: v }),
+  setSettingsSection: (v) => set({ settingsSection: v }),
   selectDay: (key) => set({ selectedDayKey: key }),
   prevMonth: () =>
     set((s) => {

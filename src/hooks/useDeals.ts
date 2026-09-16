@@ -6,6 +6,8 @@ import { db } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
 import { boardFromDoc, dealFromDoc, leadFromDoc } from '../lib/converters'
 import { initialsOf } from '../lib/format'
+import { LEADS_BOARD_ID } from '../lib/theme'
+import { t } from '../i18n'
 import { useCollection } from './useCollection'
 import type { Board, Column, Deal } from '../types'
 
@@ -17,8 +19,9 @@ export function useBoards() {
   )
 }
 
-/** Id fixo do quadro do sistema. É fixo de propósito: o painel aponta para ele pelo nome. */
-export const LEADS_BOARD_ID = 'leads'
+// O id vive em src/lib/theme.ts (constantes puras); daqui ele só é reexportado,
+// para não quebrar quem já importava deste módulo.
+export { LEADS_BOARD_ID }
 
 /**
  * As etapas do quadro LEADS. Não são editáveis, e é isso que faz o funil do painel valer:
@@ -43,10 +46,10 @@ export function funnelColumns(board: Board): Column[] {
 }
 
 /** Mensagem única para as tentativas de mexer no quadro fixo. */
-const FIXO = 'O quadro Leads é fixo. Crie outro quadro para ter etapas próprias.'
+const FIXO = () => t('erro.quadroFixo')
 
 function travaQuadroFixo(boardId: string): void {
-  if (boardId === LEADS_BOARD_ID) throw new Error(FIXO)
+  if (boardId === LEADS_BOARD_ID) throw new Error(FIXO())
 }
 
 /**
@@ -135,12 +138,18 @@ export function nextOrder(deals: Deal[], columnId: string): number {
 /**
  * Cria o quadro já com três etapas — um quadro sem etapa não serve para nada. Todas são
  * renomeáveis, recoloríveis e removíveis depois; o que vem pronto é só o ponto de partida.
+ *
+ * As três nascem NO IDIOMA DE QUEM ESTÁ CRIANDO, e depois nunca mais mudam.
+ * Não dá para traduzir na hora de mostrar, como o quadro Leads faz: este quadro
+ * é da pessoa, e ela pode renomear qualquer etapa no minuto seguinte — traduzir
+ * pelo id apagaria a palavra dela. Semear no idioma ativo é o único momento em
+ * que o sistema sabe, sem adivinhar, em que língua ela está trabalhando.
  */
 export async function addBoard(name: string, icon = 'dashboard', color = '#7a52a0'): Promise<string> {
   const columns = [
-    { id: 'c1', title: 'A fazer', color: '#6f9bcf', order: 0 },
-    { id: 'c2', title: 'Em andamento', color: '#d8a960', order: 1 },
-    { id: 'c3', title: 'Concluído', color: '#5fc9a6', order: 2 },
+    { id: 'c1', title: t('sistema.etapaAFazer'), color: '#6f9bcf', order: 0 },
+    { id: 'c2', title: t('sistema.etapaEmAndamento'), color: '#d8a960', order: 1 },
+    { id: 'c3', title: t('sistema.etapaConcluido'), color: '#5fc9a6', order: 2 },
   ]
   const r = await addDoc(col('boards'), { name, icon, color, columns, createdAt: serverTimestamp() })
   return r.id
@@ -253,8 +262,10 @@ function dealFields(form: DealForm) {
   const company = form.company.trim()
   const contact = form.contact.trim()
   return {
-    company: company || 'Novo negócio',
-    contact: contact || 'Definir contato',
+    // Escrito no idioma de quem está criando: é dado, gravado uma vez, e a
+    // pessoa renomeia depois. Mesma lógica dos tipos de atividade semeados.
+    company: company || t('sistema.negocioSemNome'),
+    contact: contact || t('sistema.contatoADefinir'),
     value: Number.isFinite(form.value) && form.value > 0 ? Math.round(form.value) : 0,
     initials: initialsOf(contact || company) || '?',
     tag: form.tag || 'Novo',

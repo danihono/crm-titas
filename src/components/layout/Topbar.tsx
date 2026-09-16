@@ -9,6 +9,7 @@ import { useActivities } from '../../hooks/useActivities'
 import { useInvoices } from '../../hooks/useInvoices'
 import { useThemeStore } from '../../store/themeStore'
 import { settingsNav } from '../../lib/theme'
+import { t } from '../../i18n'
 import { C } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
 import { useTenantStore, canManage } from '../../store/tenantStore'
@@ -67,7 +68,7 @@ export default function Topbar() {
   const [menu, setMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const name = profile.displayName || user?.displayName || user?.email || 'Usuário'
+  const name = profile.displayName || user?.displayName || user?.email || t('sidebar.usuario')
 
   // Vive no Topbar, e não na página de Conversas, para o aviso valer em qualquer tela.
   useMessageNotifications(contacts, prefs)
@@ -138,7 +139,7 @@ export default function Topbar() {
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder="Buscar contato, negócio, atividade, nota..."
+            placeholder={t('topo.buscarPlaceholder')}
             style={{ background: 'transparent', border: 'none', outline: 'none', color: '#e8e2ee', fontSize: 13, width: '100%' }}
           />
         </div>
@@ -161,7 +162,7 @@ export default function Topbar() {
               </button>
             ))}
             {results.length === 0 && (
-              <div style={{ padding: '12px 10px', fontSize: 12.5, color: '#8a7d97', textAlign: 'center' }}>Nada encontrado para "{query.trim()}".</div>
+              <div style={{ padding: '12px 10px', fontSize: 12.5, color: '#8a7d97', textAlign: 'center' }}>{t('topo.nadaEncontrado', { termo: query.trim() })}</div>
             )}
           </div>
         )}
@@ -172,11 +173,11 @@ export default function Topbar() {
       {/* Claro / escuro. Dois botões em vez de um alternador porque o estado fica
           visível: dá para ver em qual tema se está sem precisar deduzir do ícone. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: 3 }}>
-        <ThemeBtn icon="light_mode" label="Tema claro" on={resolved === 'light'} onClick={() => trocarTema('light')} />
-        <ThemeBtn icon="dark_mode" label="Tema escuro" on={resolved === 'dark'} onClick={() => trocarTema('dark')} />
+        <ThemeBtn icon="light_mode" label={t('topo.temaClaro')} on={resolved === 'light'} onClick={() => trocarTema('light')} />
+        <ThemeBtn icon="dark_mode" label={t('topo.temaEscuro')} on={resolved === 'dark'} onClick={() => trocarTema('dark')} />
       </div>
 
-      <button onClick={() => navigate(settingsNav.path)} title="Configurações" style={chromeBtn}>
+      <button onClick={() => navigate(settingsNav.path)} title={t('nav.configuracoes')} style={chromeBtn}>
         <MaterialIcon name="settings" size={20} />
       </button>
 
@@ -197,10 +198,10 @@ export default function Topbar() {
 
         {menu && (
           <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 208, background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
-            <MenuItem icon="person" label="Meu perfil" onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
-            <MenuItem icon="settings" label="Configurações" onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
+            <MenuItem icon="person" label={t('topo.meuPerfil')} onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
+            <MenuItem icon="settings" label={t('nav.configuracoes')} onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
             <div style={{ height: 1, background: C.chromeBorder, margin: '5px 4px' }} />
-            <MenuItem icon="logout" label="Sair" danger onClick={() => { setMenu(false); void logout() }} />
+            <MenuItem icon="logout" label={t('topo.sair')} danger onClick={() => { setMenu(false); void logout() }} />
           </div>
         )}
       </div>

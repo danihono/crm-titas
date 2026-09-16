@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SuperShell from './SuperShell'
+import { t } from '../../i18n'
 import { useClients } from '../../hooks/useClients'
 import { useAuth } from '../../contexts/AuthContext'
 import MaterialIcon from '../../components/common/MaterialIcon'
@@ -16,22 +17,22 @@ export default function SuperHome() {
     {
       to: '/super/geral',
       icon: 'insights',
-      title: 'Visão Geral do Sistema',
-      desc: 'Dashboards agregados de todos os clientes — pipeline, faturamento, atividades e ranking.',
+      title: t('super.visaoGeralSistema'),
+      desc: t('super.visaoGeralSub'),
       accent: 'linear-gradient(140deg,#7a52a0,#553578)',
     },
     {
       to: '/super/clientes',
       icon: 'groups',
-      title: 'Clientes',
-      desc: `Acesse o CRM de cada cliente individualmente${clients.length ? ` · ${clients.length} cliente(s)` : ''}.`,
+      title: t('super.clientes'),
+      desc: t('super.clientesSub') + (clients.length ? t('super.clientesContagem', { n: clients.length }) : '') + '.',
       accent: 'linear-gradient(140deg,#4f7fc0,#2e4f86)',
     },
     {
       to: '/super/assistente',
       icon: 'auto_awesome',
-      title: 'Assistente',
-      desc: 'O número de WhatsApp da plataforma — o que manda o resumo diário para todos os clientes.',
+      title: t('assistente.titulo'),
+      desc: t('super.assistenteSub'),
       accent: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)',
     },
   ]
@@ -43,7 +44,7 @@ export default function SuperHome() {
         <h1 style={{ fontFamily: FONT_DISPLAY }} className="text-[38px] font-normal text-[#f3eef6] leading-snug">
           O que você quer ver hoje?
         </h1>
-        <p className="text-[#8a7d97] mt-1 max-w-xl">Como dono do sistema, você pode olhar o panorama geral de todos os clientes ou entrar no CRM de um cliente específico.</p>
+        <p className="text-[#8a7d97] mt-1 max-w-xl">{t('super.homeDica')}</p>
       </motion.div>
 
       <div className="grid sm:grid-cols-2 gap-5 mt-8">

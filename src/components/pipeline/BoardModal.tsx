@@ -5,6 +5,7 @@ import RingButton from '../common/RingButton'
 import { ColorDots, Field } from '../settings/primitives'
 import { colorGradient } from '../../lib/color'
 import { sx, C } from '../../styles/sx'
+import { plural, t } from '../../i18n'
 import type { BoardForm } from '../../hooks/useDeals'
 import type { Board } from '../../types'
 
@@ -52,23 +53,23 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
           <MaterialIcon name={icon} size={22} color="#fff" />
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>
-          {board ? 'Editar quadro' : 'Novo quadro'}
+          {t(board ? 'quadro.editar' : 'quadro.novo')}
         </div>
       </div>
 
       <div style={{ display: 'grid', gap: 16 }}>
-        <Field label="Nome do quadro">
+        <Field label={t('quadro.nome')}>
           <input
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void run(() => onSave({ name, icon, color }), 'Falha ao salvar o quadro.') }}
-            placeholder="Funil de vendas"
+            onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void run(() => onSave({ name, icon, color }), t('quadro.falhaSalvar')) }}
+            placeholder={t('quadro.nomeExemplo')}
             style={sx.input}
           />
         </Field>
 
-        <Field label="Ícone">
+        <Field label={t('modal.icone')}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {BOARD_ICONS.map((ic) => (
               <button
@@ -89,7 +90,7 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
           </div>
         </Field>
 
-        <Field label="Cor">
+        <Field label={t('config.cor')}>
           <ColorDots value={color} onChange={setColor} />
         </Field>
 
@@ -99,26 +100,26 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
 
         {confirming && onDelete && (
           <div style={{ background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 12, padding: '12px 14px' }}>
-            <div style={{ fontSize: 13, color: C.ink, fontWeight: 700, marginBottom: 4 }}>Excluir “{board?.name}”?</div>
+            <div style={{ fontSize: 13, color: C.ink, fontWeight: 700, marginBottom: 4 }}>{t('quadro.confirmarTitulo', { nome: board?.name ?? '' })}</div>
             <div style={{ fontSize: 12.5, color: C.sub, lineHeight: 1.5 }}>
               {dealCount > 0
-                ? `Este quadro tem ${dealCount} negócio${dealCount > 1 ? 's' : ''} — ${dealCount > 1 ? 'eles serão excluídos' : 'ele será excluído'} junto com as etapas. Não dá para desfazer.`
-                : 'O quadro e as etapas dele serão excluídos. Não dá para desfazer.'}
+                ? plural(dealCount, 'quadro.confirmarComNegocios_1', 'quadro.confirmarComNegocios_n')
+                : t('quadro.confirmarVazio')}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button
-                onClick={() => void run(onDelete, 'Falha ao excluir o quadro.')}
+                onClick={() => void run(onDelete, t('quadro.falhaExcluir'))}
                 disabled={busy}
                 style={{ border: 'none', borderRadius: 10, padding: '8px 14px', background: '#c14d77', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}
               >
-                {busy ? 'Excluindo…' : 'Sim, excluir'}
+                {t(busy ? 'nota.excluindo' : 'nota.simExcluir')}
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 disabled={busy}
                 style={{ ...sx.btnGhost, padding: '8px 14px', fontSize: 12.5 }}
               >
-                Manter
+                {t('nota.manter')}
               </button>
             </div>
           </div>
@@ -131,19 +132,19 @@ export default function BoardModal({ board, dealCount, onClose, onSave, onDelete
               disabled={busy}
               style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: C.roseDeep, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '8px 2px' }}
             >
-              <MaterialIcon name="delete" size={18} /> Excluir quadro
+              <MaterialIcon name="delete" size={18} /> {t('quadro.excluirQuadro')}
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={onClose} disabled={busy} style={sx.btnGhost}>Cancelar</button>
+          <button onClick={onClose} disabled={busy} style={sx.btnGhost}>{t('comum.cancelar')}</button>
           <RingButton
             radius={11}
             disabled={busy || !name.trim()}
-            onClick={() => void run(() => onSave({ name, icon, color }), 'Falha ao salvar o quadro.')}
+            onClick={() => void run(() => onSave({ name, icon, color }), t('quadro.falhaSalvar'))}
             wrapStyle={{ opacity: busy || !name.trim() ? 0.5 : 1 }}
             style={{ ...sx.btnPrimary, background: colorGradient(color, 140) }}
           >
-            <MaterialIcon name="check" size={18} /> {board ? 'Salvar' : 'Criar quadro'}
+            <MaterialIcon name="check" size={18} /> {t(board ? 'comum.salvar' : 'quadro.criar')}
           </RingButton>
         </div>
       </div>

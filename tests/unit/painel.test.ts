@@ -6,11 +6,21 @@
  * tempo tem de estar no topo — uma ordenação invertida mostra o caso menos urgente como
  * se fosse o mais grave, e ninguém desconfia de uma lista que parece cheia).
  */
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { ganhosPorMes, leadsDoMes } from '../../src/lib/dashboardData'
 import { saudacao, variacao } from '../../src/lib/format'
+import { useLocaleStore } from '../../src/store/localeStore'
 import { filaDeEspera } from '../../src/lib/reportData'
-import type { Contact, ConvState, Deal } from '../../src/types'
+import { useLocaleStore } from '../../src/store/localeStore'
+import type { Contact, ConvState, Deal, Idioma } from '../../src/types'
+
+/**
+ * As afirmações abaixo são sobre TEXTO ('Set', 'Dezembro de 2025', '22,2%'), e
+ * texto agora depende do idioma. O Node 21+ expõe um `navigator` global com
+ * 'en-US', então sem esta linha o módulo rodaria em inglês e o teste cobraria
+ * 'Sep' — falhando por um motivo que não é o dele.
+ */
+beforeEach(() => useLocaleStore.getState().setIdioma('pt'))
 
 const AGORA = new Date('2026-09-15T12:00:00')
 
@@ -199,6 +209,9 @@ describe('chip de variação', () => {
 
 describe('saudação do cabeçalho', () => {
   const em = (h: number, m = 0) => new Date(2026, 8, 16, h, m)
+  const idioma = (i: Idioma) => useLocaleStore.getState().setIdioma(i)
+
+  beforeEach(() => idioma('pt'))
 
   it('troca de parte do dia nas viradas', () => {
     expect(saudacao('Honor', em(0)).parte).toBe('Bom dia')
@@ -207,6 +220,26 @@ describe('saudação do cabeçalho', () => {
     expect(saudacao('Honor', em(17, 59)).parte).toBe('Boa tarde')
     expect(saudacao('Honor', em(18)).parte).toBe('Boa noite')
     expect(saudacao('Honor', em(23, 59)).parte).toBe('Boa noite')
+  })
+
+  it('segue o idioma ativo', () => {
+    // O cabeçalho do painel desenha esta metade separada do nome, então ela
+    // passa pelo catálogo como qualquer outro texto da interface. Sem isto o
+    // topo do painel seria a única parte do app presa em português.
+    idioma('es')
+    expect(saudacao('Honor', em(9)).parte).toBe('Buenos días')
+    expect(saudacao('Honor', em(15)).parte).toBe('Buenas tardes')
+    idioma('en')
+    expect(saudacao('Honor', em(9)).parte).toBe('Good morning')
+    expect(saudacao('Honor', em(20)).parte).toBe('Good evening')
+  })
+
+  it('o nome não é traduzido em idioma nenhum', () => {
+    // Nome é conteúdo, não interface: "Honor" é Honor nos três.
+    for (const i of ['pt', 'es', 'en'] as Idioma[]) {
+      idioma(i)
+      expect(saudacao('Honor Silva', em(9)).primeiro).toBe('Honor')
+    }
   })
 
   it('usa só o primeiro nome', () => {

@@ -3,6 +3,7 @@ import { deleteLibraryAsset, uploadLibraryAsset, useMediaLibrary } from '../../h
 import { fileTypeMap } from '../../lib/theme'
 import { fmtSize, relativeLabel } from '../../lib/format'
 import { C } from '../../styles/sx'
+import { t } from '../../i18n'
 import MaterialIcon from '../common/MaterialIcon'
 import { EmptyLine, IconAction, PrimaryButton, Row, SettingsCard } from './primitives'
 
@@ -23,7 +24,7 @@ export default function LibrarySection({ canEdit }: { canEdit: boolean }) {
     e.target.value = ''
     if (!file) return
     if (file.size > MAX_BYTES) {
-      setError(`"${file.name}" tem ${fmtSize(file.size)} — o limite é ${fmtSize(MAX_BYTES)}.`)
+      setError(t('biblioteca.grandeDemais', { nome: file.name, tamanho: fmtSize(file.size), limite: fmtSize(MAX_BYTES) }))
       return
     }
     setBusy(true)
@@ -31,7 +32,7 @@ export default function LibrarySection({ canEdit }: { canEdit: boolean }) {
     try {
       await uploadLibraryAsset(file)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao enviar o arquivo.')
+      setError(err instanceof Error ? err.message : t('biblioteca.falhaEnvio'))
     } finally {
       setBusy(false)
     }
@@ -39,12 +40,12 @@ export default function LibrarySection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <SettingsCard
-      title="Biblioteca de mídias"
-      subtitle="Arquivos que a equipe reaproveita — catálogo, tabela de preços, apresentação."
+      title={t('biblioteca.titulo')}
+      subtitle={t('biblioteca.subtitulo')}
       action={
         canEdit ? (
           <PrimaryButton icon="upload" onClick={() => inputRef.current?.click()} disabled={busy}>
-            {busy ? 'Enviando…' : 'Enviar arquivo'}
+            {t(busy ? 'comum.enviando' : 'biblioteca.enviarArquivo')}
           </PrimaryButton>
         ) : undefined
       }
@@ -52,7 +53,7 @@ export default function LibrarySection({ canEdit }: { canEdit: boolean }) {
       <input ref={inputRef} type="file" onChange={onPick} style={{ display: 'none' }} />
       {error && <div style={{ fontSize: 12.5, color: C.rose, marginBottom: 10 }}>{error}</div>}
 
-      {assets.length === 0 && <EmptyLine>Nenhum arquivo na biblioteca.</EmptyLine>}
+      {assets.length === 0 && <EmptyLine>{t('biblioteca.vazio')}</EmptyLine>}
       {assets.map((a) => {
         const [icon, color, bg] = fileTypeMap[a.type] ?? fileTypeMap.doc
         return (
@@ -64,13 +65,13 @@ export default function LibrarySection({ canEdit }: { canEdit: boolean }) {
                   href={a.downloadURL}
                   target="_blank"
                   rel="noreferrer"
-                  title="Abrir"
+                  title={t('biblioteca.abrir')}
                   style={{ display: 'flex', color: C.muted, padding: 4 }}
                 >
                   <MaterialIcon name="open_in_new" size={18} />
                 </a>
                 {canEdit && (
-                  <IconAction icon="delete" title="Excluir da biblioteca" color={C.rose} onClick={() => deleteLibraryAsset(a)} />
+                  <IconAction icon="delete" title={t('biblioteca.excluir')} color={C.rose} onClick={() => deleteLibraryAsset(a)} />
                 )}
               </>
             }

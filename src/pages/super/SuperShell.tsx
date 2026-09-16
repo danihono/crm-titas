@@ -2,13 +2,14 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import MaterialIcon from '../../components/common/MaterialIcon'
+import { t } from '../../i18n'
 import { FONT_DISPLAY } from '../../styles/sx'
 
 /** Moldura comum das telas SUPER TITAN — fundo escuro + header com logo e logout. */
 export default function SuperShell({ title, back, children }: { title?: string; back?: boolean; children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const name = user?.displayName || user?.email || 'Dono'
+  const name = user?.displayName || user?.email || t('super.dono')
 
   return (
     <div
@@ -20,7 +21,7 @@ export default function SuperShell({ title, back, children }: { title?: string; 
           <button
             onClick={() => navigate('/super')}
             className="w-10 h-10 rounded-xl grid place-items-center bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] text-[#b9aec6] hover:bg-[rgba(255,255,255,0.08)]"
-            title="Voltar ao SUPER TITAN"
+            title={t('super.voltar')}
           >
             <MaterialIcon name="arrow_back" size={20} />
           </button>
@@ -40,12 +41,12 @@ export default function SuperShell({ title, back, children }: { title?: string; 
         <div className="flex-1" />
         <div className="text-right hidden sm:block">
           <div className="text-[13px] font-semibold text-[#ece6f0] leading-tight">{name}</div>
-          <div className="text-[11px] text-[#7d7388]">Dono do sistema</div>
+          <div className="text-[11px] text-[#7d7388]">{t('super.donoDoSistema')}</div>
         </div>
         <button
           onClick={() => logout()}
           className="w-10 h-10 rounded-xl grid place-items-center bg-[rgba(255,255,255,0.04)] border border-[rgba(176,148,210,0.14)] text-[#b9aec6] hover:bg-[rgba(255,255,255,0.08)]"
-          title="Sair"
+          title={t('topo.sair')}
         >
           <MaterialIcon name="logout" size={19} />
         </button>

@@ -6,7 +6,9 @@ import { auth, db, storage } from '../lib/firebase'
 import { selfRef } from '../lib/paths'
 import { safeFileName, validarImagem } from '../lib/upload'
 import { prefsFromDoc } from '../lib/converters'
+import { t } from '../i18n'
 import { useThemeStore } from '../store/themeStore'
+import { useLocaleStore } from '../store/localeStore'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserPrefs } from '../types'
 
@@ -34,7 +36,7 @@ const EMPTY: SelfProfile = {
   phone: '',
   closingMessage: '',
   closingEnabled: false,
-  prefs: { notifyDesktop: true, notifySound: true, theme: 'system', dashboard: null },
+  prefs: { notifyDesktop: true, notifySound: true, theme: 'system', idioma: 'pt', dashboard: null },
 }
 
 /**
@@ -57,6 +59,8 @@ export function useSelfProfile(): SelfProfile {
       // Onde já existe escolha local, ela manda — senão duas abas com preferências
       // diferentes ficariam se sobrescrevendo a cada snapshot.
       useThemeStore.getState().adotarDoPerfil(prefs.theme)
+      // Mesma assimetria para o idioma: o aparelho que já escolheu manda.
+      useLocaleStore.getState().adotarDoPerfil(prefs.idioma)
       setProfile({
         displayName: d.displayName ?? '',
         role: d.role ?? '',
@@ -113,7 +117,7 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 /** uid da CONTA logada — a foto é da pessoa, não do tenant que ela está atendendo. */
 function selfUid(): string {
   const u = auth.currentUser
-  if (!u) throw new Error('Sem usuário autenticado')
+  if (!u) throw new Error(t('erro.semUsuario'))
   return u.uid
 }
 
