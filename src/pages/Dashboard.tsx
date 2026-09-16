@@ -109,17 +109,14 @@ export default function Dashboard() {
     // perderiam altura definida e o "rola por dentro do card" deixaria de valer
     // em silêncio. `minHeight` é a válvula para janela baixa demais.
     <div className="dash" style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
-      {/* O TOPO SEM SEPARAÇÃO.
-          Margem negativa cancelando o padding do painel: é o que deixa a foto
-          alcançar a borda de cima (encostando na Topbar) e a da direita sem
-          mexer no padding do `.dash`, que é quem mantém os cards no lugar.
-          `isolation` prende a foto (z-index -1) entre o véu do painel e o
-          texto. */}
+      {/* O TOPO SEM SEPARAÇÃO — nem card, nem linha: a saudação é a própria
+          página. A margem negativa cancela o padding do painel, então o bloco
+          sangra até a borda de cima (encostando na Topbar) e a da direita sem
+          mexer no padding do `.dash`, que é quem mantém os cards no lugar. */}
       <div
         className="dash-hero"
         style={{
           position: 'relative',
-          isolation: 'isolate',
           flexShrink: 0,
           margin: '-18px -26px 0',
           padding: '18px 26px 14px',
@@ -131,17 +128,6 @@ export default function Dashboard() {
           flexWrap: 'wrap',
         }}
       >
-        {/* A foto é OPCIONAL: sem o arquivo em public/, o `onError` esconde o
-            elemento e o cabeçalho fica só com o texto — nunca com o ícone de
-            imagem quebrada. */}
-        <img
-          src="/painel-topo.jpg"
-          alt=""
-          aria-hidden
-          className="dash-hero-foto"
-          onError={(e) => { e.currentTarget.hidden = true }}
-        />
-
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: C.muted }}>
             {quem.parte},

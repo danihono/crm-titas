@@ -443,40 +443,28 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
    tamanho do card, então funil, mapa de calor e o modo de edição continuam se
    comportando exatamente como antes.
    ══════════════════════════════════════════════════════════════════════════ */
+/* O FUNDO DO PAINEL É CHAPADO.
+   A versão anterior tinha um véu: dois sóis roxos que respiravam devagar por
+   cima de uma grade de 40px. A grade lia como papel quadriculado atrás dos
+   cards, e o painel é uma tela de trabalho — o fundo aqui é o silêncio contra o
+   qual o dado aparece, não mais um elemento disputando atenção.
+
+   O branco não é #ffffff: o card TAMBÉM é branco (--c-surface), e num fundo
+   igual a ele o card deixaria de existir como objeto, sobrando só a borda de
+   1px. Este tom é claro o bastante para ler como branco e ainda deixar o card
+   flutuar sobre ele.
+
+   No escuro "branco" não se aplica: lá o fundo segue a página, e o que muda é
+   só o fim da grade. */
 .dash {
   position: relative;
   isolation: isolate;
+  background: #fbfafe;
   --hud-line: rgba(122, 82, 160, 0.26);
-  --hud-grid: rgba(122, 82, 160, 0.05);
-  --hud-veil-a: rgba(150, 110, 200, 0.26);
-  --hud-veil-b: rgba(79, 127, 192, 0.16);
 }
 :root[data-theme='dark'] .dash {
+  background: var(--c-page);
   --hud-line: rgba(196, 163, 234, 0.34);
-  --hud-grid: rgba(177, 138, 210, 0.055);
-  --hud-veil-a: rgba(177, 138, 210, 0.16);
-  --hud-veil-b: rgba(143, 180, 221, 0.10);
-}
-
-/* O véu: dois sóis roxos que respiram devagar, por cima de uma grade de 40px.
-   `z-index:-1` + `isolation:isolate` no pai prendem a camada ATRÁS do conteúdo
-   sem precisar empilhar z-index em cada card. */
-.dash::before {
-  content: '';
-  position: absolute;
-  inset: -10% -6%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 46% at 12% 0%, var(--hud-veil-a), transparent 70%),
-    radial-gradient(34% 44% at 92% 8%, var(--hud-veil-b), transparent 72%),
-    linear-gradient(var(--hud-grid) 1px, transparent 1px) 0 0 / 40px 40px,
-    linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px) 0 0 / 40px 40px;
-  animation: hud-breathe 18s ease-in-out infinite alternate;
-}
-@keyframes hud-breathe {
-  from { opacity: .75; transform: translate3d(0, 0, 0) scale(1); }
-  to   { opacity: 1;   transform: translate3d(0, -1.5%, 0) scale(1.04); }
 }
 
 /* ── Cabeçalho ──────────────────────────────────────────────────────────────
@@ -492,54 +480,6 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   container-type: inline-size;
 }
 
-/* A foto do topo.
-   Sangra até a borda de cima e a da direita, e desaparece por MÁSCARA — não por
-   um gradiente na cor da página em cima dela. A diferença importa: a máscara
-   deixa o véu de luz do painel (.dash::before) continuar aparecendo por baixo,
-   enquanto um retângulo opaco na cor da página o apagaria naquele pedaço.
-
-   Duas máscaras cruzadas com `intersect`: uma apaga a esquerda (onde fica o
-   texto) e a outra o rodapé (senão a imagem terminaria numa linha reta
-   horizontal, exatamente em cima da primeira fileira de cards).
-
-   z-index -1 + `isolation:isolate` no pai: a foto fica ACIMA do véu e ABAIXO do
-   texto e dos botões, sem precisar empilhar z-index em cada um deles. */
-.dash-hero-foto {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: -1;
-  width: 78%;
-  height: 100%;
-  object-fit: cover;
-  /* ENQUADRAMENTO — os dois números saíram de conta, não de tentativa.
-     A caixa é larguíssima (~1000 × 132) contra uma foto 16:9, então o `cover`
-     escala SEMPRE pela largura: não sobra imagem na horizontal e o eixo X do
-     `object-position` não tem efeito nenhum aqui. Quem posiciona o pico na
-     horizontal é a LARGURA da caixa — o pico da foto fica a ~48% dela, então
-     78% do cabeçalho o deixa a ~60% da largura, o lugar dele na referência.
-     Na vertical sobra imagem, e 31% centra a faixa visível na crista em vez de
-     na névoa de baixo. */
-  object-position: 50% 31%;
-  pointer-events: none;
-  -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 42%),
-    linear-gradient(to bottom, #000 74%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent, #000 42%),
-    linear-gradient(to bottom, #000 74%, transparent);
-  mask-composite: intersect;
-}
-
-/* No escuro a foto é um problema de LUZ, não de cor: ela é quase branca e sobre
-   a página escura viraria um holofote atrás do texto claro. Baixar opacidade e
-   brilho resolve com o mesmo arquivo — segunda foto para o tema escuro seria
-   mais 300 KB para manter em sincronia. */
-:root[data-theme='dark'] .dash-hero-foto {
-  opacity: 0.32;
-  filter: brightness(0.82) contrast(1.05);
-}
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 /* Cantos em colchete, desenhados com gradientes na própria camada, sem nenhum
@@ -597,6 +537,5 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
 /* Movimento é tempero, não estrutura: quem pediu menos animação fica com o
    painel inteiro parado — e ainda assim completo. */
 @media (prefers-reduced-motion: reduce) {
-  .dash::before { animation: none; }
   .dash-grid > * { animation: none; }
 }
