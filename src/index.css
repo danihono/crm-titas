@@ -479,51 +479,66 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   to   { opacity: 1;   transform: translate3d(0, -1.5%, 0) scale(1.04); }
 }
 
-/* ── Cabeçalho ──────────────────────────────────────────────────────────── */
-.dash-head {
-  position: relative;
-  border-radius: 18px;
-  padding: 14px 18px;
-  background: linear-gradient(120deg, var(--c-surface), var(--c-surface-alt));
-  border: 1px solid var(--c-line);
-  box-shadow: var(--c-shadow-card);
-  overflow: hidden;
+/* ── Cabeçalho ──────────────────────────────────────────────────────────────
+   O topo da saudação NÃO é um card. Nada de fundo, borda ou sombra: ele é a
+   própria página, e a única coisa que o separa dos cards é o ar. A versão
+   anterior era um card com um filete de luz correndo no topo; a moldura saiu, e
+   o filete saiu com ela — era o brilho de uma borda que não existe mais.
+
+   `container-type` é o que faz o `clamp(..., 5cqw, ...)` do nome medir a LARGURA
+   DO CABEÇALHO, e não a da janela: com o menu lateral retraído ou expandido a
+   janela é a mesma e o espaço do texto não. */
+.dash-hero {
+  container-type: inline-size;
 }
-/* O filete de luz que corre no topo do cabeçalho. Um só, devagar: é o detalhe
-   que dá o "ligado" sem virar pisca-pisca. */
-.dash-head::after {
-  content: '';
+
+/* A foto do topo.
+   Sangra até a borda de cima e a da direita, e desaparece por MÁSCARA — não por
+   um gradiente na cor da página em cima dela. A diferença importa: a máscara
+   deixa o véu de luz do painel (.dash::before) continuar aparecendo por baixo,
+   enquanto um retângulo opaco na cor da página o apagaria naquele pedaço.
+
+   Duas máscaras cruzadas com `intersect`: uma apaga a esquerda (onde fica o
+   texto) e a outra o rodapé (senão a imagem terminaria numa linha reta
+   horizontal, exatamente em cima da primeira fileira de cards).
+
+   z-index -1 + `isolation:isolate` no pai: a foto fica ACIMA do véu e ABAIXO do
+   texto e dos botões, sem precisar empilhar z-index em cada um deles. */
+.dash-hero-foto {
   position: absolute;
-  top: 0; left: -30%;
-  width: 30%; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--c-purple-soft), transparent);
-  animation: hud-sweep 7s linear infinite;
-}
-@keyframes hud-sweep {
-  0%   { transform: translateX(0); opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { transform: translateX(440%); opacity: 0; }
+  top: 0;
+  right: 0;
+  z-index: -1;
+  width: 78%;
+  height: 100%;
+  object-fit: cover;
+  /* ENQUADRAMENTO — os dois números saíram de conta, não de tentativa.
+     A caixa é larguíssima (~1000 × 132) contra uma foto 16:9, então o `cover`
+     escala SEMPRE pela largura: não sobra imagem na horizontal e o eixo X do
+     `object-position` não tem efeito nenhum aqui. Quem posiciona o pico na
+     horizontal é a LARGURA da caixa — o pico da foto fica a ~48% dela, então
+     78% do cabeçalho o deixa a ~60% da largura, o lugar dele na referência.
+     Na vertical sobra imagem, e 31% centra a faixa visível na crista em vez de
+     na névoa de baixo. */
+  object-position: 50% 31%;
+  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 42%),
+    linear-gradient(to bottom, #000 74%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 42%),
+    linear-gradient(to bottom, #000 74%, transparent);
+  mask-composite: intersect;
 }
 
-/* Ponto de "sistema ativo" pulsando no rótulo do cabeçalho. */
-.hud-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--c-green);
-  box-shadow: 0 0 0 0 rgba(47, 158, 111, 0.55);
-  animation: hud-pulse 2.4s ease-out infinite;
-}
-@keyframes hud-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(47, 158, 111, 0.5); }
-  70%  { box-shadow: 0 0 0 7px rgba(47, 158, 111, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(47, 158, 111, 0); }
-}
-
-/* Relógio: tabular-nums para os dígitos não dançarem a cada segundo. */
-.hud-clock {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  letter-spacing: .04em;
+/* No escuro a foto é um problema de LUZ, não de cor: ela é quase branca e sobre
+   a página escura viraria um holofote atrás do texto claro. Baixar opacidade e
+   brilho resolve com o mesmo arquivo — segunda foto para o tema escuro seria
+   mais 300 KB para manter em sincronia. */
+:root[data-theme='dark'] .dash-hero-foto {
+  opacity: 0.32;
+  filter: brightness(0.82) contrast(1.05);
 }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
@@ -582,8 +597,6 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
 /* Movimento é tempero, não estrutura: quem pediu menos animação fica com o
    painel inteiro parado — e ainda assim completo. */
 @media (prefers-reduced-motion: reduce) {
-  .dash::before,
-  .dash-head::after,
-  .hud-dot { animation: none; }
+  .dash::before { animation: none; }
   .dash-grid > * { animation: none; }
 }

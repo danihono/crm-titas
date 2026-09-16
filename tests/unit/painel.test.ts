@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ganhosPorMes, leadsDoMes } from '../../src/lib/dashboardData'
-import { variacao } from '../../src/lib/format'
+import { saudacao, variacao } from '../../src/lib/format'
 import { filaDeEspera } from '../../src/lib/reportData'
 import type { Contact, ConvState, Deal } from '../../src/types'
 
@@ -194,5 +194,32 @@ describe('chip de variação', () => {
     expect(variacao(22.22)).toEqual({ seta: '▲', texto: '22,2%', sentido: 'sobe' })
     // A seta carrega o sinal: "▼ -34,5%" leria como dupla negação.
     expect(variacao(-34.5)).toEqual({ seta: '▼', texto: '34,5%', sentido: 'cai' })
+  })
+})
+
+describe('saudação do cabeçalho', () => {
+  const em = (h: number, m = 0) => new Date(2026, 8, 16, h, m)
+
+  it('troca de parte do dia nas viradas', () => {
+    expect(saudacao('Honor', em(0)).parte).toBe('Bom dia')
+    expect(saudacao('Honor', em(11, 59)).parte).toBe('Bom dia')
+    expect(saudacao('Honor', em(12)).parte).toBe('Boa tarde')
+    expect(saudacao('Honor', em(17, 59)).parte).toBe('Boa tarde')
+    expect(saudacao('Honor', em(18)).parte).toBe('Boa noite')
+    expect(saudacao('Honor', em(23, 59)).parte).toBe('Boa noite')
+  })
+
+  it('usa só o primeiro nome', () => {
+    // O cabeçalho mostra o nome em corpo 52: nome completo não cabe, e o
+    // sobrenome não é como a pessoa é chamada.
+    expect(saudacao('Daniel Henrique Sobral', em(9)).primeiro).toBe('Daniel')
+    expect(saudacao('  Marina   Prado ', em(9)).primeiro).toBe('Marina')
+  })
+
+  it('devolve vazio quando não há nome', () => {
+    // Conta sem displayName cai no e-mail, e conta sem nada cai aqui: quem
+    // chama decide o que desenhar, em vez de receber "Bom dia, ." montado.
+    expect(saudacao('', em(9)).primeiro).toBe('')
+    expect(saudacao('   ', em(9)).primeiro).toBe('')
   })
 })

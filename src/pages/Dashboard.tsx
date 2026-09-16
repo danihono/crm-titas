@@ -7,7 +7,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import {
   COLUNAS, FAIXAS, cabe, fontesDoLayout, layoutPadrao, widgetDef,
 } from '../lib/dashboardWidgets'
-import { greeting } from '../lib/format'
+import { saudacao } from '../lib/format'
 import WidgetShell from '../components/dashboard/WidgetShell'
 import WidgetContent from '../components/dashboard/WidgetContent'
 import DashboardEditor from '../components/dashboard/DashboardEditor'
@@ -20,22 +20,6 @@ function novoId(type: string, usados: DashboardWidget[]): string {
   let i = 2
   while (usados.some((w) => w.id === `${type}-${i}`)) i++
   return `${type}-${i}`
-}
-
-/**
- * Relógio do cabeçalho, atualizado de segundo em segundo.
- *
- * Um `setInterval` só, no cabeçalho: o resto do painel não re-renderiza por
- * causa dele porque o estado mora AQUI, e não na tela inteira — trocar o
- * segundo não pode remontar o mapa de calor.
- */
-function useRelogio(): string {
-  const [hora, setHora] = useState(() => new Date())
-  useEffect(() => {
-    const t = setInterval(() => setHora(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(hora)
 }
 
 export default function Dashboard() {
@@ -115,8 +99,7 @@ export default function Dashboard() {
     }
   }
 
-  const dateLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' }).format(now)
-  const hora = useRelogio()
+  const quem = saudacao(profile.displayName || user?.displayName || user?.email || '', now)
 
   return (
     // O painel cabe numa tela só: altura fixa, cabeçalho e uma GRADE EXPLÍCITA de
@@ -125,20 +108,55 @@ export default function Dashboard() {
     // perderiam altura definida e o "rola por dentro do card" deixaria de valer
     // em silêncio. `minHeight` é a válvula para janela baixa demais.
     <div className="dash" style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
-      <div className="dash-head" style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+      {/* O TOPO SEM SEPARAÇÃO.
+          Margem negativa cancelando o padding do painel: é o que deixa a foto
+          alcançar a borda de cima (encostando na Topbar) e a da direita sem
+          mexer no padding do `.dash`, que é quem mantém os cards no lugar.
+          `isolation` prende a foto (z-index -1) entre o véu do painel e o
+          texto. */}
+      <div
+        className="dash-hero"
+        style={{
+          position: 'relative',
+          isolation: 'isolate',
+          flexShrink: 0,
+          margin: '-18px -26px 0',
+          padding: '18px 26px 14px',
+          minHeight: 132,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* A foto é OPCIONAL: sem o arquivo em public/, o `onError` esconde o
+            elemento e o cabeçalho fica só com o texto — nunca com o ícone de
+            imagem quebrada. */}
+        <img
+          src="/painel-topo.jpg"
+          alt=""
+          aria-hidden
+          className="dash-hero-foto"
+          onError={(e) => { e.currentTarget.hidden = true }}
+        />
+
         <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-            <span className="hud-dot" />
-            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: C.muted }}>
-              Painel · Titãs
-            </span>
-            <span style={{ width: 1, height: 10, background: C.divider }} />
-            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', color: C.faint, textTransform: 'capitalize' }}>{dateLabel}</span>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: C.muted }}>
+            {quem.parte},
           </div>
-          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.25 }}>
-            {greeting(profile.displayName || user?.displayName || user?.email || '').split(' · ')[0]}
+          {/* Peso 400 obrigatório: a Maharlika tem um único peso, e negrito
+              sintético numa serif de contraste alto borra os filetes finos que
+              dão o ar da marca (ver o topo de src/index.css). O `clamp` em `cqw`
+              encolhe o nome na janela estreita em vez de quebrar linha. */}
+          <h1 style={{
+            fontFamily: FONT_DISPLAY, fontWeight: 400, color: C.ink, margin: '2px 0 0',
+            fontSize: 'clamp(34px, 5cqw, 52px)', lineHeight: 1.06, letterSpacing: '-.01em',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {quem.primeiro ? `${quem.primeiro}.` : 'Painel.'}
           </h1>
-          <div style={{ fontSize: 12.5, color: C.sub, marginTop: 3 }}>
+          <div style={{ fontSize: 12.5, color: C.sub, marginTop: 6 }}>
             {editando
               ? 'Arraste os blocos para trocar de lugar. Clique num deles para mudar tamanho e cor.'
               : dados.pendencias > 0
@@ -147,9 +165,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          {!editando && (
-            <span className="hud-clock" style={{ fontSize: 19, fontWeight: 300, color: C.ink, marginRight: 6 }}>{hora}</span>
-          )}
           {usaPeriodo && [30, 90, 365].map((d) => (
             <button
               key={d}

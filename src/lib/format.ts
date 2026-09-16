@@ -180,7 +180,6 @@ export function fmtSize(bytes: number): string {
   return bytes + ' B'
 }
 
-/** Saudação por horário. */
 /** Como a variação deve ser lida: subiu, caiu, ou não mudou. */
 export interface Variacao {
   /** '▲' · '▼' · '=' */
@@ -210,9 +209,28 @@ export function variacao(pct: number): Variacao {
     : { seta: '▼', texto, sentido: 'cai' }
 }
 
-export function greeting(name: string, now = new Date()): string {
+/** A saudação partida em duas, porque o painel desenha cada metade num corpo. */
+export interface Saudacao {
+  /** 'Bom dia' · 'Boa tarde' · 'Boa noite' */
+  parte: string
+  /** Só o primeiro nome. Vazio quando não há nome nenhum para mostrar. */
+  primeiro: string
+}
+
+/**
+ * Saudação por horário, em partes.
+ *
+ * Devolve as duas metades em vez de uma frase montada porque o cabeçalho do
+ * painel desenha cada uma num tamanho e num peso diferentes — "BOM DIA," miúdo em
+ * caixa alta, o nome grande na serif. A versão anterior (`greeting`) devolvia
+ * tudo concatenado com a data, e o call site desmontava a string de volta com
+ * `split(' · ')[0]`: frase remontada para ser quebrada de novo é onde um espaço a
+ * mais quebra a tela sem erro nenhum.
+ */
+export function saudacao(name: string, now = new Date()): Saudacao {
   const h = now.getHours()
-  const part = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
-  const first = name.trim().split(/\s+/)[0] || ''
-  return `${part}, ${first} · ${DIAS_CURTO[now.getDay()]}, ${now.getDate()} ${MESES_CURTO[now.getMonth()]}`
+  return {
+    parte: h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite',
+    primeiro: name.trim().split(/\s+/)[0] || '',
+  }
 }
