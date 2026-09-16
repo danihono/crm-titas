@@ -564,6 +564,9 @@ export const CATALOGO = {
   // ── Contatos · erros, histórico e mídias ──────────────────────────────
   'contatos.falhaEnviarMensagem': ['Falha ao enviar mensagem.', 'No se pudo enviar el mensaje.', 'The message couldn\'t be sent.'],
   'contatos.falhaAnexo': ['Falha ao enviar o anexo.', 'No se pudo enviar el adjunto.', 'The attachment couldn\'t be sent.'],
+  'contatos.naoEnviada': ['Não enviada', 'No enviada', 'Not sent'],
+  'contatos.reenviar': ['Reenviar', 'Reenviar', 'Send again'],
+  'contatos.descartar': ['Descartar', 'Descartar', 'Discard'],
   'contatos.falhaHistorico': ['Falha ao recuperar histórico.', 'No se pudo recuperar el historial.', 'The history couldn\'t be recovered.'],
   'contatos.falhaMidias': ['Falha ao recuperar as mídias.', 'No se pudieron recuperar los medios.', 'The media couldn\'t be recovered.'],
   'contatos.falhaArquivo': ['Falha ao enviar o arquivo.', 'No se pudo subir el archivo.', 'The file couldn\'t be uploaded.'],

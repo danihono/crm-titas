@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useUIStore } from '../store/uiStore'
 import { useTenantStore, canManage } from '../store/tenantStore'
 import { deleteContact, clearConversationLocal, useContacts, uploadContactPhoto, removeContactPhoto, markContactRead } from '../hooks/useContacts'
-import { useMessages, sendMessage, uploadOutgoingMedia, sendLocalMediaMessage } from '../hooks/useMessages'
+import { useMessages, sendMessage, uploadOutgoingMedia, sendLocalMediaMessage, mediaTypeOf } from '../hooks/useMessages'
+import { aindaPendentes, idsAtuais, mensagemDaSaida, novaChave, PRAZO_ENTREGUE_MS, type ItemSaida } from '../lib/outbox'
+import { validarAnexo } from '../lib/upload'
 import { useFiles, uploadContactFile } from '../hooks/useFiles'
 import { useWhatsappStatus } from '../hooks/useWhatsappStatus'
 import { useScheduledMessages } from '../hooks/useScheduledMessages'
@@ -60,6 +62,28 @@ const WA_DOT: Record<string, string> = {
   loggedOut: '#c14d77',
   disconnected: '#a39bb0',
 }
+
+/**
+ * A bolha, em constantes, porque agora há TRÊS desenhos dela: a mensagem confirmada, a
+ * otimista ainda em voo e a que falhou. Objeto de estilo criado inline em cada uma delas
+ * é como as três saem do lugar sem ninguém notar.
+ */
+const BOLHA_MINHA: CSSProperties = { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
+const BOLHA_DELE: CSSProperties = { maxWidth: '72%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }
+const RODAPE_BOLHA: CSSProperties = { fontSize: 10, textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }
+/**
+ * A bolha que falhou. Mantém o MESMO fundo das outras minhas, e é só a moldura que muda:
+ * `MessageBody` pinta o texto de `fromMe` em claro, então trocar o fundo por um tom rosa
+ * de superfície apagaria o que a pessoa escreveu — exatamente o que ela precisa ler para
+ * decidir se reenvia.
+ */
+const BOLHA_FALHOU: CSSProperties = { ...BOLHA_MINHA, border: '1.5px solid #ffa8bf', boxShadow: '0 0 0 3px rgba(193,77,119,0.14)' }
+/** Em voo: a mesma bolha, um pouco apagada — ainda não é um fato, é uma promessa. */
+const BOLHA_ENVIANDO: CSSProperties = { ...BOLHA_MINHA, opacity: 0.72 }
+/** Rosa claro: estes dois ficam SOBRE o roxo da bolha, não sobre a superfície da tela. */
+const ROSA_NA_BOLHA = '#ffc2d2'
+/** Reenviar / descartar, na bolha que falhou. */
+const ACAO_FALHA: CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,194,210,0.55)', borderRadius: 9, padding: '3px 9px', color: ROSA_NA_BOLHA, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }
 
 /** Folga (px) para considerar a conversa "no fim" — evita alternar por 1px de arredondamento. */
 const BOTTOM_SLACK = 120
@@ -209,9 +233,21 @@ function Atendimento() {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showAttach, setShowAttach] = useState(false)
   const [pendingMedia, setPendingMedia] = useState<File | null>(null)
-  const [mediaSending, setMediaSending] = useState(false)
   const [mediaSendError, setMediaSendError] = useState('')
   const [atBottom, setAtBottom] = useState(true)
+  /**
+   * Bolhas já na tela que ainda não viraram documento — ver src/lib/outbox.ts.
+   *
+   * Mora aqui, e não no composer, porque os DOIS caminhos de envio passam por `deliver`:
+   * o campo de texto e a mensagem de encerramento do AtendimentoBar.
+   */
+  const [saida, setSaida] = useState<ItemSaida[]>([])
+  /**
+   * Contador de despachos — é o que dispara a rolagem (ver o efeito mais abaixo).
+   * Contador, e não relógio: dois envios no mesmo milissegundo dariam o mesmo valor, e o
+   * efeito não rodaria no segundo.
+   */
+  const [enviouEm, setEnviouEm] = useState(0)
   const fileInput = useRef<HTMLInputElement>(null)
   const photoInput = useRef<HTMLInputElement>(null)
   const waInputRef = useRef<HTMLInputElement>(null)
@@ -228,8 +264,64 @@ function Atendimento() {
   /** Última contagem vista por conversa, para saber o que é mensagem NOVA. */
   const lastSeen = useRef<{ id: string; count: number }>({ id: '', count: 0 })
 
-  const unreadAnchorId = firstUnreadId(messages, openUnread)
+  /**
+   * A conversa em ordem de horário.
+   *
+   * A query já pede `orderBy('sentAt')`, mas a ordenação que vale na tela é a LOCAL, e
+   * ali a escrita do próprio navegador ainda tem `sentAt` por resolver — o Firestore
+   * ordena isso ANTES de qualquer timestamp, o que jogava a mensagem recém-enviada pelo
+   * caminho local para o topo da conversa. Reordenar aqui, com a estimativa que o
+   * `useCollection` já devolve, põe cada uma no lugar.
+   */
+  const mensagens = useMemo(
+    () => [...messages].sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime()),
+    [messages],
+  )
+  /** As bolhas otimistas deste contato que ainda não acharam o documento delas. */
+  const saidaAtiva = useMemo(
+    () => (activeId ? aindaPendentes(saida.filter((i) => i.contactId === activeId), mensagens) : []),
+    [saida, mensagens, activeId],
+  )
+  const unreadAnchorId = firstUnreadId(mensagens, openUnread)
   const chatOpen = ui.contactView === 'chat'
+
+  /**
+   * As bolhas da conversa, desenhadas uma vez por snapshot.
+   *
+   * O `waInput` mora neste componente, que é o mesmo que desenha até 500 bolhas com
+   * `<img>`, `<video>` e `AudioMessage` — sem este memo, cada tecla digitada redesenhava
+   * a conversa inteira. Com os elementos estáveis, o React pula o subtree quando a
+   * re-renderização veio do campo de texto (ou do heartbeat de 30 s do daemon).
+   *
+   * As dependências são só estas três: `C` é constante de módulo (o tema troca no CSS,
+   * não no JS) e o idioma remonta a árvore inteira pelo `key` do RouterProvider, então
+   * nenhum dos dois consegue deixar o memo velho.
+   */
+  const bolhas = useMemo(
+    () =>
+      mensagens.map((m) => (
+        <div key={m.id} style={{ display: 'contents' }}>
+          {m.id === unreadAnchorId && (
+            <div ref={unreadMarkRef} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 2px' }}>
+              <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
+              <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: C.greenDeep, background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
+                {plural(openUnread, 'contatos.naoLida_1', 'contatos.naoLida_n')}
+              </span>
+              <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
+            <div style={m.fromMe ? BOLHA_MINHA : BOLHA_DELE}>
+              <MessageBody message={m} />
+              <div style={{ ...RODAPE_BOLHA, color: m.fromMe ? 'rgba(240,230,250,0.7)' : C.faint }}>
+                {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
+              </div>
+            </div>
+          </div>
+        </div>
+      )),
+    [mensagens, unreadAnchorId, openUnread],
+  )
 
   function markPosition(el: HTMLDivElement) {
     const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_SLACK
@@ -299,6 +391,34 @@ function Atendimento() {
     if (messages.length > prev.count && atBottom) el.scrollTop = el.scrollHeight
   }, [activeId, chatOpen, messages.length, atBottom])
 
+  // Enviar SEMPRE leva ao fim — quem acabou de escrever quer ver o que escreveu, mesmo
+  // estando no meio da conversa. (Mensagem que CHEGA continua respeitando `atBottom`, no
+  // efeito acima.) Precisa ser efeito, e não uma linha no handler: o React só aplica o
+  // estado depois dele, então no handler a bolha ainda não existe para rolar até ela.
+  useEffect(() => {
+    if (enviouEm) scrollToEnd('auto')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enviouEm])
+
+  /**
+   * Poda da fila de saída: o que já achou o documento real sai do array.
+   *
+   * `aindaPendentes` é quem decide o que aparece; isto é só a limpeza, para a lista não
+   * crescer a cada mensagem enviada. Mexe apenas no contato ABERTO — das conversas
+   * fechadas não temos as mensagens para comparar, e lá quem limpa é o prazo do ACK.
+   */
+  useEffect(() => {
+    if (!activeId) return
+    const vivas = new Set(saidaAtiva.map((i) => i.chave))
+    const mortas = saida.filter((i) => i.contactId === activeId && !vivas.has(i.chave))
+    if (mortas.length === 0) return
+    // Fora do updater de propósito: em StrictMode ele roda duas vezes, e efeito colateral
+    // ali dentro não é lugar de confiança.
+    for (const i of mortas) if (i.mediaUrl) URL.revokeObjectURL(i.mediaUrl)
+    const chaves = new Set(mortas.map((i) => i.chave))
+    setSaida((atual) => atual.filter((i) => !chaves.has(i.chave)))
+  }, [saidaAtiva, saida, activeId])
+
   /** Insere o emoji na posição do cursor do campo de mensagem. */
   function insertEmoji(emoji: string) {
     const el = waInputRef.current
@@ -357,28 +477,80 @@ function Atendimento() {
     }
   }
 
-  async function handleSend() {
+  /**
+   * Põe a bolha na tela e só então despacha — o coração do envio instantâneo.
+   *
+   * A ordem é o ponto inteiro: `setSaida` ANTES de qualquer `await`. Pelo WhatsApp a
+   * entrega é uma volta completa pelo daemon (comando na fila, Baileys, e o documento
+   * gravado de lá para cá), e desenhar só no fim dela é o que fazia o clique parecer que
+   * não pegou. Quem tira a bolha depois é `aindaPendentes`, quando o documento real chega.
+   *
+   * Serve ao primeiro envio e ao reenvio: a chave é a mesma, então a bolha vermelha volta
+   * a ficar cinza em vez de virar uma segunda bolha.
+   */
+  function despachar(item: ItemSaida, entregar: (item: ItemSaida) => Promise<void>) {
+    const novo: ItemSaida = { ...item, status: 'enviando', erro: undefined, entregueEm: undefined }
+    setSaida((atual) => {
+      const i = atual.findIndex((x) => x.chave === novo.chave)
+      return i < 0 ? [...atual, novo] : atual.map((x, n) => (n === i ? novo : x))
+    })
+    setEnviouEm((n) => n + 1)
+    void entregar(novo).then(
+      () => {
+        // Entregue. A bolha ainda não sai daqui: quem manda é o casamento com o documento
+        // real. Este carimbo só liga a válvula de segurança, para a bolha nunca ficar
+        // pendurada quando o documento não vem (conversa acima do teto da janela).
+        setSaida((atual) => atual.map((x) => (x.chave === item.chave ? { ...x, entregueEm: Date.now() } : x)))
+        setTimeout(() => {
+          setSaida((atual) =>
+            atual.some((x) => x.chave === item.chave && x.status === 'enviando')
+              ? atual.filter((x) => x.chave !== item.chave)
+              : atual,
+          )
+        }, PRAZO_ENTREGUE_MS)
+      },
+      (e: unknown) => {
+        // Sem `alert()`: o que a pessoa escreveu está na bolha vermelha, que é onde ela
+        // consegue reenviar. Um diálogo modal só travaria a tela e jogaria o texto fora.
+        const erro = e instanceof Error ? e.message : t('contatos.falhaEnviarMensagem')
+        setSaida((atual) => atual.map((x) => (x.chave === item.chave ? { ...x, status: 'falhou', erro } : x)))
+      },
+    )
+  }
+
+  /** Tira a bolha da fila sem reenviar — o "descartar" da bolha vermelha. */
+  function descartarSaida(item: ItemSaida) {
+    if (item.mediaUrl) URL.revokeObjectURL(item.mediaUrl)
+    setSaida((atual) => atual.filter((x) => x.chave !== item.chave))
+  }
+
+  /** Manda de novo o que falhou, pelo caminho certo (texto ou anexo). */
+  function reenviarSaida(item: ItemSaida) {
+    if (item.mediaType) {
+      despachar(item, () => entregarAnexo(item))
+      return
+    }
+    despachar(item, () => deliver(item.contactId, item.text))
+  }
+
+  function handleSend() {
     const raw = waInput.trim()
     if (!active || !raw) return
     // Variável escrita à mão também vale, não só a que veio de resposta rápida; e a
     // assinatura entra aqui, no envio, para não ficar no caminho de quem está digitando.
     const text = withSignature(applyVariables(raw, composeVars(active)), profile.signature)
-    // Limpa ANTES de esperar a entrega. Pelo WhatsApp o envio é uma ida e volta pelo daemon
-    // — comando na fila, Baileys, e a resposta de volta — e segurar o campo até o fim faz o
-    // clique parecer que não pegou. Se a entrega falhar, o texto volta para o campo logo
-    // abaixo: quem escreveu não perde o que escreveu.
+    const alvo = active
     setWaInput('')
     setShowEmoji(false)
-    try {
-      await deliver(active.id, text)
-      scrollToEnd('auto')
-      // Métrica de primeira resposta — depois do envio, e sem await: a mensagem já saiu,
-      // e o relatório não pode segurar a UI nem falhar junto com ela.
-      if (!readOnly) void markFirstResponse(active)
-    } catch (e) {
-      setWaInput(raw)
-      alert(e instanceof Error ? e.message : t('contatos.falhaEnviarMensagem'))
-    }
+    despachar(
+      { chave: novaChave(), contactId: alvo.id, text, at: new Date(), status: 'enviando', jaVistas: idsAtuais(mensagens) },
+      async () => {
+        await deliver(alvo.id, text)
+        // Métrica de primeira resposta — depois do envio, e sem await: a mensagem já saiu,
+        // e o relatório não pode segurar a UI nem falhar junto com ela.
+        if (!readOnly) void markFirstResponse(alvo)
+      },
+    )
   }
 
   function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
@@ -394,31 +566,74 @@ function Atendimento() {
    * Sobe o anexo e o despacha. O upload vem primeiro nos dois caminhos: com o arquivo já no
    * Storage, o daemon só precisa baixá-lo, e o fallback local reaproveita a mesma URL.
    */
-  async function handleSendMedia(caption: string) {
-    if (!active || !pendingMedia || mediaSending) return
-    setMediaSending(true)
-    setMediaSendError('')
-    try {
-      const media = await uploadOutgoingMedia(active.id, pendingMedia, caption)
-      if (waEnabled && wa.status === 'connected') {
-        try {
-          await sendWhatsappMedia(active.id, media)
-        } catch (err) {
-          // Daemon fora do ar: o arquivo já subiu, então a mensagem fica no CRM em vez de
-          // se perder. Qualquer outra falha é real e precisa aparecer.
-          if (waErrorCode(err) !== 'daemon_offline') throw err
-          await sendLocalMediaMessage(active.id, media)
-        }
-      } else {
-        await sendLocalMediaMessage(active.id, media)
+  /**
+   * O despacho de um anexo — a parte que o reenvio também usa.
+   *
+   * O upload vem primeiro nos dois caminhos: com o arquivo já no Storage, o daemon só
+   * precisa baixá-lo, e o fallback local reaproveita a mesma URL. O descritor fica
+   * guardado no item, então reenviar depois de uma falha de ENVIO não sobe o mesmo
+   * arquivo de novo — só quando foi o próprio upload que falhou.
+   */
+  async function entregarAnexo(item: ItemSaida): Promise<void> {
+    let media = item.media
+    if (!media) {
+      if (!item.file) throw new Error(t('contatos.falhaAnexo'))
+      media = await uploadOutgoingMedia(item.contactId, item.file, item.caption)
+      const subido = media
+      setSaida((atual) => atual.map((x) => (x.chave === item.chave ? { ...x, media: subido } : x)))
+    }
+    if (waEnabled && wa.status === 'connected') {
+      try {
+        await sendWhatsappMedia(item.contactId, media)
+        return
+      } catch (err) {
+        // Daemon fora do ar: o arquivo já subiu, então a mensagem fica no CRM em vez de
+        // se perder. Qualquer outra falha é real e precisa aparecer.
+        if (waErrorCode(err) !== 'daemon_offline') throw err
       }
-      setPendingMedia(null)
-      scrollToEnd('auto')
+    }
+    await sendLocalMediaMessage(item.contactId, media)
+  }
+
+  function handleSendMedia(caption: string) {
+    if (!active || !pendingMedia) return
+    const file = pendingMedia
+    // Validar ANTES de enfileirar. Arquivo grande demais ou de tipo recusado é erro de
+    // escolha e tem de aparecer no modal, junto do arquivo — não virar bolha vermelha na
+    // conversa, de um envio que nunca deveria ter começado.
+    try {
+      validarAnexo(file)
     } catch (err) {
       setMediaSendError(err instanceof Error ? err.message : t('contatos.falhaAnexo'))
-    } finally {
-      setMediaSending(false)
+      return
     }
+    const legenda = caption.trim()
+    const mediaType = mediaTypeOf(file)
+    setMediaSendError('')
+    setPendingMedia(null) // o modal fecha na hora: a conferência acabou aqui
+    despachar(
+      {
+        chave: novaChave(),
+        contactId: active.id,
+        // O mesmo texto que os dois caminhos de envio gravam: a legenda quando há, senão o
+        // marcador canônico — o que mantém a bolha otimista idêntica à que vai substituí-la.
+        text: legenda || placeholderMidia(mediaType),
+        at: new Date(),
+        status: 'enviando',
+        jaVistas: idsAtuais(mensagens),
+        mediaType,
+        // A pré-via é o próprio arquivo escolhido, direto do disco: aparece no mesmo quadro
+        // do clique, sem esperar o upload. Devolvida ao navegador quando a bolha sai.
+        mediaUrl: URL.createObjectURL(file),
+        fileName: file.name,
+        sizeBytes: file.size,
+        caption: legenda || undefined,
+        file,
+      },
+      // A função recebe o item recém-criado pelo `despachar`, e não este literal: no
+      // reenvio é o item JÁ com o descritor do upload que precisa chegar aqui.
+      (item) => entregarAnexo(item),
+    )
   }
 
   function handleFetchHistory() {
@@ -780,26 +995,36 @@ function Atendimento() {
                       />
                     )}
                     {activeSchedule && <ScheduledBanner schedule={activeSchedule} readOnly={readOnly} onEdit={() => openScheduleEdit(activeSchedule)} onDelete={() => handleDeleteSchedule(activeSchedule)} />}
-                    {messages.map((m) => (
-                      <div key={m.id} style={{ display: 'contents' }}>
-                        {m.id === unreadAnchorId && (
-                          <div ref={unreadMarkRef} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 2px' }}>
-                            <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
-                            <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: C.greenDeep, background: 'rgba(52,199,89,0.14)', border: '1px solid rgba(52,199,89,0.26)', borderRadius: 20, padding: '4px 12px' }}>
-                              {plural(openUnread, 'contatos.naoLida_1', 'contatos.naoLida_n')}
-                            </span>
-                            <span style={{ flex: 1, height: 1, background: 'rgba(52,199,89,0.4)' }} />
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
-                          <div style={m.fromMe
-                            ? { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
-                            : { maxWidth: '72%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }}>
-                            <MessageBody message={m} />
-                            <div style={{ fontSize: 10, color: m.fromMe ? 'rgba(240,230,250,0.7)' : C.faint, textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
-                              {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
+                    {bolhas}
+                    {/* As bolhas que ainda não viraram documento. Ficam no fim, sempre:
+                        são o que acabou de ser enviado. Saem sozinhas quando a mensagem
+                        de verdade chega pelo snapshot — ver src/lib/outbox.ts. */}
+                    {saidaAtiva.map((item) => (
+                      <div key={item.chave} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={item.status === 'falhou' ? BOLHA_FALHOU : BOLHA_ENVIANDO}>
+                          <MessageBody message={mensagemDaSaida(item)} />
+                          {item.status === 'falhou' ? (
+                            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <span style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: ROSA_NA_BOLHA }}>
+                                <MaterialIcon name="error_outline" size={14} color={ROSA_NA_BOLHA} />
+                                {item.erro || t('contatos.naoEnviada')}
+                              </span>
+                              <button onClick={() => reenviarSaida(item)} style={ACAO_FALHA}>
+                                <MaterialIcon name="refresh" size={14} color={ROSA_NA_BOLHA} />
+                                {t('contatos.reenviar')}
+                              </button>
+                              <button onClick={() => descartarSaida(item)} style={ACAO_FALHA}>
+                                {t('contatos.descartar')}
+                              </button>
                             </div>
-                          </div>
+                          ) : (
+                            <div style={{ ...RODAPE_BOLHA, color: 'rgba(240,230,250,0.7)' }}>
+                              {timeHHMM(item.at)}
+                              {/* Relógio, e não o ✓✓: o ✓✓ é promessa de entrega, e esta
+                                  mensagem ainda está a caminho. */}
+                              <MaterialIcon name="schedule" size={14} color="#cdb6e6" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -935,7 +1160,7 @@ function Atendimento() {
                 contact={active}
                 activities={activities}
                 types={actTypes}
-                messages={messages}
+                messages={mensagens}
                 canWrite={!readOnly}
                 onNova={(sugestao) => setNovaAtividade({ sugestao })}
               />
@@ -1029,7 +1254,6 @@ function Atendimento() {
         <MediaSendModal
           file={pendingMedia}
           contactName={active.name}
-          sending={mediaSending}
           error={mediaSendError || undefined}
           onSend={handleSendMedia}
           onClose={() => { setPendingMedia(null); setMediaSendError('') }}

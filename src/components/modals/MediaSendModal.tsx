@@ -11,9 +11,11 @@ import { mediaTypeOf, MAX_UPLOAD_BYTES, type OutgoingMediaType } from '../../hoo
 /**
  * Confirmação do anexo antes de sair: preview do arquivo, legenda (com emojis) e o envio.
  *
- * O upload NÃO acontece aqui — quem sobe e roteia (WhatsApp x local) é a página, que passa
- * `sending` e `error` de volta. Assim o modal continua sendo só a etapa de conferência, e a
- * regra de envio mora num lugar só.
+ * O upload NÃO acontece aqui — quem sobe e roteia (WhatsApp x local) é a página. Confirmado
+ * o anexo, o modal FECHA na hora e a pré-via vira bolha na conversa; o que demora (upload,
+ * daemon, Baileys) acontece atrás dela. Por isso não há mais estado de "enviando" aqui: o
+ * modal é só a etapa de conferência, e `error` cobre o que ainda pode reprovar antes de
+ * sair — arquivo grande demais ou de tipo recusado.
  */
 
 const TYPE_ICON: Record<OutgoingMediaType, string> = {
@@ -33,13 +35,12 @@ const TYPE_LABEL: Record<OutgoingMediaType, Chave> = {
 interface Props {
   file: File
   contactName: string
-  sending: boolean
   error?: string
   onSend: (caption: string) => void
   onClose: () => void
 }
 
-export default function MediaSendModal({ file, contactName, sending, error, onSend, onClose }: Props) {
+export default function MediaSendModal({ file, contactName, error, onSend, onClose }: Props) {
   const [caption, setCaption] = useState('')
   const [showEmoji, setShowEmoji] = useState(false)
   const captionRef = useRef<HTMLInputElement>(null)
@@ -70,15 +71,15 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
   }
 
   function submit() {
-    if (sending || tooBig) return
+    if (tooBig) return
     onSend(caption)
   }
 
   return (
-    <Modal width={470} onClose={sending ? () => {} : onClose}>
+    <Modal width={470} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ ...sx.serif, fontSize: 23, color: C.ink }}>{t('modal.enviarMidia', { tipo: t(TYPE_LABEL[mediaType]).toLowerCase() })}</div>
-        {!sending && <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />}
+        <MaterialIcon name="close" size={23} color={C.muted} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
       <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 16 }}>
         {t('modal.midiaDestino')} <b>{contactName}</b>.
@@ -141,7 +142,6 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
           onChange={(e) => setCaption(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           placeholder={t('modal.legendaPlaceholder')}
-          disabled={sending}
           style={{ ...sx.input, flex: 1 }}
         />
         {showEmoji && (
@@ -154,19 +154,18 @@ export default function MediaSendModal({ file, contactName, sending, error, onSe
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button
           onClick={onClose}
-          disabled={sending}
-          style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1 }}
+          style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >
           {t('comum.cancelar')}
         </button>
         <RingButton
           radius={11}
           onClick={submit}
-          disabled={sending || tooBig}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: '1px solid rgba(150,220,170,0.4)', padding: '10px 20px', color: '#ffffff', fontSize: 13, fontWeight: 700, cursor: sending || tooBig ? 'default' : 'pointer', opacity: sending || tooBig ? 0.6 : 1 }}
+          disabled={tooBig}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'linear-gradient(140deg,#34c759,#1f9c46)', border: '1px solid rgba(150,220,170,0.4)', padding: '10px 20px', color: '#ffffff', fontSize: 13, fontWeight: 700, cursor: tooBig ? 'default' : 'pointer', opacity: tooBig ? 0.6 : 1 }}
         >
-          <MaterialIcon name={sending ? 'progress_activity' : 'send'} size={16} className={sending ? 'icon-spin' : undefined} />
-          {t(sending ? 'comum.enviando' : 'comum.enviar')}
+          <MaterialIcon name="send" size={16} />
+          {t('comum.enviar')}
         </RingButton>
       </div>
     </Modal>

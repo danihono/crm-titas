@@ -36,7 +36,12 @@ export function useCollection<T>(
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setDocs(snap.docs.map((d) => mapper(d.id, d.data())))
+        // `serverTimestamps: 'estimate'` porque `serverTimestamp()` chega NULO no eco
+        // local da própria escrita — o valor só existe depois do servidor confirmar. Sem
+        // a estimativa, a mensagem recém-enviada aparecia carimbada na época Unix
+        // (21:00 em UTC-3) até o ACK chegar. Só afeta documento nosso ainda pendente:
+        // em qualquer outro caso o campo já é um Timestamp de verdade.
+        setDocs(snap.docs.map((d) => mapper(d.id, d.data({ serverTimestamps: 'estimate' }))))
         setLoading(false)
       },
       (err) => {
