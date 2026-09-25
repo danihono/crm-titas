@@ -319,7 +319,7 @@ export default function KanbanBoard() {
                 placeholder={t('etapa.nova')}
                 style={{ flex: 1, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 12px', color: C.ink, fontSize: 13, outline: 'none' }}
               />
-              <RingButton radius={11} onClick={handleAddColumn} style={{ width: 42, alignSelf: 'stretch', background: 'linear-gradient(140deg,#7a52a0,#553578)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <RingButton radius={11} onClick={handleAddColumn} style={{ width: 42, alignSelf: 'stretch', background: 'var(--c-purple-solid)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialIcon name="add" size={20} />
               </RingButton>
             </div>

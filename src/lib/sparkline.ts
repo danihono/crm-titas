@@ -109,3 +109,47 @@ export function porSemana<T>(
   }
   return baldes
 }
+
+/**
+ * Média móvel CENTRADA: cada ponto é a média de até `janela` pontos à sua volta
+ * (metade antes, metade depois).
+ *
+ * O volume diário de atendimento tem fim de semana — sábado e domingo afundam
+ * a linha toda semana, e o que a pessoa quer ver é a tendência, não o
+ * calendário. Centrada, e não só olhando para trás, porque a janela que olha
+ * para trás começa com um ponto só: o primeiro dia do período vira um pico ou
+ * um buraco que não existe. Nas pontas a janela encolhe para o que há — e não é
+ * completada com zero, que puxaria as pontas para baixo.
+ */
+export function mediaMovel(values: number[], janela = 7): number[] {
+  const meia = Math.floor(janela / 2)
+  return values.map((_, i) => {
+    const trecho = values.slice(Math.max(0, i - meia), i + meia + 1)
+    return trecho.reduce((a, b) => a + b, 0) / trecho.length
+  })
+}
+
+/**
+ * Linha suave (curva cúbica entre os pontos) para um SVG de `w` × `h`, com o
+ * eixo Y começando no zero. Devolve o traço e a área embaixo dele.
+ *
+ * O teto é 25% acima do maior valor para a linha não encostar no alto do card,
+ * e o zero é o chão de verdade: uma escala que começasse no menor valor faria
+ * uma oscilação de 2% parecer um penhasco.
+ */
+export function curvaSuave(values: number[], w: number, h: number, pad = 4): { line: string; area: string } {
+  if (values.length < 2) return { line: '', area: '' }
+  const max = Math.max(...values, 1) * 1.25
+  const pts = values.map((v, i) => [
+    (i / (values.length - 1)) * w,
+    h - pad - (v / max) * (h - 2 * pad),
+  ])
+  let line = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1]
+    const [x1, y1] = pts[i]
+    const mx = (x0 + x1) / 2
+    line += ` C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`
+  }
+  return { line, area: `${line} L${w} ${h} L0 ${h} Z` }
+}

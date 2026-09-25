@@ -17,7 +17,9 @@ import { ChartCard } from './WidgetShell'
 import { TrendArea, RankedBars, StatusStack, MonthBars, CHART_DARK } from '../reports/Charts'
 import type { DadosPainel } from '../../hooks/useDashboardData'
 import type { DashboardWidget, Activity, EventDoc, ActType } from '../../types'
-import type { EmEspera, ReportRow } from '../../lib/reportData'
+import { fmtDuration, type EmEspera, type ReportRow } from '../../lib/reportData'
+import { curvaSuave, mediaMovel } from '../../lib/sparkline'
+import { num } from '../../i18n/formato'
 
 /**
  * Desenha um widget do painel.
@@ -33,6 +35,8 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
   const setContactsView = useUIStore((s) => s.setContactsView)
   const dark = useIsDark()
   const paleta = dark ? CHART_DARK : undefined
+
+  const abrirAtendimento = () => { setContactsView('atendimento'); navigate('/contatos') }
 
   const stat = (p: Parameters<typeof StatCard>[0]) => (
     <StatCard {...p} featured={w.variant === 'featured'} accent={w.accent ?? p.accent} />
@@ -179,10 +183,48 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
 
     case 'funil':
       return (
-        <ChartCard title={t('widget.funil')} sub={t('painel.funilSub')} style={{ }}>
-          <LeadFunnel dados={dados.funil} />
+        <ChartCard title={t('widget.funil')} sub={t('painel.funilSub')} right={<VerTudo onClick={() => { setActiveBoard(LEADS_BOARD_ID); navigate('/pipeline') }} />}>
+          <LeadFunnel dados={dados.funil} deitado={w.rows === 1} />
         </ChartCard>
       )
+
+    // ── Atendimento ─────────────────────────────────────────────────────
+    case 'atendidos': {
+      const r = dados.relatorio
+      const conversas = r?.kpis.total ?? 0
+      return (
+        <HeroCard
+          label={t('widget.atendidos')}
+          value={num(dados.clientesAtendidos)}
+          icon="support_agent"
+          sub={conversas === 1 ? t('painel.atendidosSub_1') : t('painel.atendidosSub', { n: num(conversas) })}
+          linkLabel={t('painel.abrirAtendimento')}
+          onLink={abrirAtendimento}
+        >
+          {r && r.byDay.length > 1 && conversas > 0 && <LinhaAtendidos pontos={r.byDay} />}
+        </HeroCard>
+      )
+    }
+
+    case 'aguardando': {
+      const a = dados.aguardando
+      return stat({
+        label: t('widget.aguardando'), value: String(a.total),
+        sub: a.desde ? t('painel.aguardandoDesde', { quando: relativeLabel(a.desde) }) : t('painel.ninguemAguardando'),
+        icon: 'hourglass_top', accent: 'rose',
+        linkLabel: t('painel.abrirAtendimento'), onLink: abrirAtendimento,
+      })
+    }
+
+    case 'primeiraResposta': {
+      const ms = dados.relatorio?.kpis.firstResponseMs ?? null
+      return stat({
+        label: t('widget.primeiraResposta'), value: fmtDuration(ms),
+        sub: ms === null ? t('painel.semRespostaNoPeriodo') : t('painel.primeiraRespostaSub'),
+        icon: 'bolt', accent: 'green',
+        linkLabel: t('painel.verRelatorios'), onLink: () => navigate('/relatorios'),
+      })
+    }
 
     case 'calor':
       return (
@@ -234,10 +276,11 @@ export default function WidgetContent({ w, dados }: { w: DashboardWidget; dados:
     case 'filaEspera':
       return (
         <ChartCard title={t('widget.filaEspera')} sub={t('painel.filaEsperaSub')}>
-          {dados.espera.map((e) => (
+          {dados.espera.map((e, i) => (
             <LinhaEspera
               key={e.contactId}
               e={e}
+              primeiro={i === 0}
               onAbrir={() => { selectContact(e.contactId); setContactsView('atendimento'); navigate('/contatos') }}
             />
           ))}
@@ -326,9 +369,9 @@ function Fluido({ children }: { children: (w: number) => React.ReactNode }) {
 
 function VerTudo({ onClick }: { onClick: () => void }) {
   return (
-    <span onClick={onClick} style={{ fontSize: 11.5, color: C.purple, cursor: 'pointer', fontWeight: 700, flexShrink: 0 }}>
-      Ver tudo
-    </span>
+    <button onClick={onClick} style={{ fontSize: 12, color: C.purple, cursor: 'pointer', fontWeight: 500, flexShrink: 0, background: 'none', border: 'none', padding: 0 }}>
+      {t('painel.verTudo')}
+    </button>
   )
 }
 
@@ -381,7 +424,7 @@ function useMinuto(): number {
   return t
 }
 
-function LinhaEspera({ e, onAbrir }: { e: EmEspera; onAbrir: () => void }) {
+function LinhaEspera({ e, onAbrir, primeiro }: { e: EmEspera; onAbrir: () => void; primeiro?: boolean }) {
   const agora = useMinuto()
   const st = ESTADO[e.estado]
   // Quem ainda não recebeu nenhuma resposta é o caso grave da lista, e é a espera
@@ -395,13 +438,19 @@ function LinhaEspera({ e, onAbrir }: { e: EmEspera; onAbrir: () => void }) {
       tabIndex={0}
       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onAbrir() } }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0',
-        borderBottom: `1px solid ${C.lineHair}`, cursor: 'pointer',
+        // O primeiro da fila — quem espera há mais tempo — vem destacado em roxo:
+        // é por ele que se começa.
+        display: 'flex', alignItems: 'center', gap: 11, padding: '8px 10px',
+        borderRadius: 12, cursor: 'pointer',
+        background: primeiro ? C.tintPurple : 'transparent',
+        transition: 'background .15s ease',
       }}
+      onMouseEnter={(ev) => { if (!primeiro) ev.currentTarget.style.background = 'var(--c-surface-alt)' }}
+      onMouseLeave={(ev) => { if (!primeiro) ev.currentTarget.style.background = 'transparent' }}
     >
-      <Avatar photoUrl={e.photoUrl} initials={e.initials} size={30} bg={purpleAvatar} fontSize={11.5} />
+      <Avatar photoUrl={e.photoUrl} initials={e.initials} size={32} bg={purpleAvatar} fontSize={11.5} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, color: C.ink, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 13, color: C.ink, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {e.nome}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
@@ -424,7 +473,7 @@ function LinhaEspera({ e, onAbrir }: { e: EmEspera; onAbrir: () => void }) {
           {e.naoLidas}
         </span>
       )}
-      <div style={{ fontSize: 10.5, color: corEspera, flexShrink: 0, fontWeight: e.semResposta ? 700 : 400 }}>
+      <div className="num" style={{ fontSize: 11.5, color: corEspera, flexShrink: 0, fontWeight: e.semResposta ? 600 : 400 }}>
         {relativeLabel(e.desde, new Date(agora))}
       </div>
     </div>
@@ -448,6 +497,37 @@ function LinhaEvento({ e }: { e: EventDoc }) {
       </div>
       <div style={{ fontSize: 10.5, color: C.faint, flexShrink: 0, textAlign: 'right', lineHeight: 1.35 }}>
         {diaDoEvento(e.date)}<br />{e.time}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A linha do card roxo de clientes atendidos: conversas por dia, em média móvel
+ * de 7 dias, branca sobre o roxo. O card é roxo nos DOIS temas, então as cores
+ * são literais claras — mesma regra do HeroCard.
+ */
+function LinhaAtendidos({ pontos }: { pontos: { label: string; total: number }[] }) {
+  const W = 320
+  const H = 150
+  const { line, area } = curvaSuave(mediaMovel(pontos.map((p) => p.total)), W, H)
+  const meio = pontos[Math.floor((pontos.length - 1) / 2)]
+  return (
+    <div style={{ flex: 1, minHeight: 50, display: 'flex', flexDirection: 'column', marginTop: 10 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden style={{ flex: 1, minHeight: 36, width: '100%', display: 'block' }}>
+        <defs>
+          <linearGradient id="wAtendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.28" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#wAtendFill)" />
+        <path d={line} fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="widget-legenda num" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.62)' }}>
+        <span>{pontos[0].label}</span>
+        <span>{meio.label}</span>
+        <span>{pontos[pontos.length - 1].label}</span>
       </div>
     </div>
   )

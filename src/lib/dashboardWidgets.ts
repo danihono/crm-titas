@@ -53,7 +53,8 @@ export const CATALOGO: WidgetDef[] = [
   { type: 'novosLeads', nome: 'widget.novosLeads', descricao: 'widget.novosLeadsDesc', icone: 'person_add', minCols: 1, minRows: 1, cols: 1, rows: 1, colorivel: true, fontes: ['negocios', 'quadros'], unico: true },
   { type: 'leadsMes', nome: 'widget.leadsMes', descricao: 'widget.leadsMesDesc', icone: 'rocket_launch', minCols: 2, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
   { type: 'ganhosMes', nome: 'widget.ganhosMes', descricao: 'widget.ganhosMesDesc', icone: 'bar_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
-  { type: 'funil', nome: 'widget.funil', descricao: 'widget.funilDesc', icone: 'filter_alt', minCols: 2, minRows: 2, cols: 2, rows: 2, colorivel: false, fontes: ['negocios', 'quadros'], unico: true },
+  // Com uma faixa de altura o funil deita (LeadFunnel `deitado`), por isso minRows 1.
+  { type: 'funil', nome: 'widget.funil', descricao: 'widget.funilDesc', icone: 'filter_alt', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['negocios', 'quadros'], unico: true },
   { type: 'origem', nome: 'widget.origem', descricao: 'widget.origemDesc', icone: 'donut_small', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['negocios'], unico: true },
 
   // ── Dia a dia ───────────────────────────────────────────────────────────
@@ -64,6 +65,9 @@ export const CATALOGO: WidgetDef[] = [
   { type: 'proximosCompromissos', nome: 'widget.proximosCompromissos', descricao: 'widget.proximosCompromissosDesc', icone: 'calendar_month', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['eventos'], unico: true },
 
   // ── Conversas ───────────────────────────────────────────────────────────
+  { type: 'atendidos', nome: 'widget.atendidos', descricao: 'widget.atendidosDesc', icone: 'support_agent', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['conversas'], unico: true },
+  { type: 'aguardando', nome: 'widget.aguardando', descricao: 'widget.aguardandoDesc', icone: 'hourglass_top', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: true, fontes: ['contatos'], unico: true },
+  { type: 'primeiraResposta', nome: 'widget.primeiraResposta', descricao: 'widget.primeiraRespostaDesc', icone: 'bolt', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: true, fontes: ['conversas'], unico: true },
   { type: 'calor', nome: 'widget.calor', descricao: 'widget.calorDesc', icone: 'grid_on', minCols: 2, minRows: 1, cols: 2, rows: 2, colorivel: false, fontes: ['conversas'], unico: true },
   { type: 'conversasDia', nome: 'widget.conversasDia', descricao: 'widget.conversasDiaDesc', icone: 'show_chart', minCols: 2, minRows: 1, cols: 3, rows: 1, colorivel: false, fontes: ['conversas'], unico: true },
   { type: 'filaEspera', nome: 'widget.filaEspera', descricao: 'widget.filaEsperaDesc', icone: 'hourglass_bottom', minCols: 1, minRows: 1, cols: 2, rows: 1, colorivel: false, fontes: ['contatos'], unico: true },
@@ -91,14 +95,15 @@ export function widgetDef(type: string): WidgetDef | undefined {
  * padrão que deixa buraco entrega uma tela que parece inacabada. Por isso mexer
  * aqui é sempre uma troca — entrou um bloco, saiu outro do mesmo tamanho.
  *
- * A ordem não é estética, é o que o `grid-auto-flow: dense` empacota:
- *   faixa 1 · herói 2 + quatro KPIs de 1
- *   faixa 2 · funil (2×2, desce para a faixa 3) + ganhos por mês 3 + leads 1
- *   faixa 3 · o resto do funil + fila 2 + atividade 2
+ * O CRM é sobre o cliente, então o painel abre pelo atendimento, e com POUCOS
+ * blocos grandes. A ordem é o que o `grid-auto-flow: dense` empacota:
+ *   faixas 1–2 · clientes atendidos (2×2, o card roxo)
+ *   faixa 1     · esperando resposta 2 + tempo de 1ª resposta 2
+ *   faixa 2     · quem atender primeiro 4
+ *   faixa 3     · funil deitado 4 + próximos compromissos 2
  *
- * O mapa de calor, a origem dos leads e o ticket médio saíram do padrão quando o
- * herói, as barras e a fila entraram — os três continuam no catálogo, a um clique
- * em "Adicionar bloco". Quem já tinha personalizado o painel não é afetado: este
+ * Os blocos de negócio e de faturamento continuam no catálogo, a um clique em
+ * "Adicionar bloco". Quem já tinha personalizado o painel não é afetado: este
  * layout só vale para quem nunca salvou o seu.
  */
 export function layoutPadrao(): DashboardLayout {
@@ -108,16 +113,12 @@ export function layoutPadrao(): DashboardLayout {
   }
   return {
     widgets: [
-      w('leadsMes'),
-      w('pipeline', { variant: 'featured', accent: 'green' }),
-      w('negocios', { accent: 'purple' }),
-      w('tarefasHoje', { accent: 'purple' }),
-      w('agendaHoje', { accent: 'blue' }),
-      w('funil'),
-      w('ganhosMes'),
-      w('novosLeads', { accent: 'green' }),
-      w('filaEspera'),
-      w('atividade'),
+      w('atendidos'),
+      w('aguardando', { accent: 'rose' }),
+      w('primeiraResposta', { accent: 'green' }),
+      w('filaEspera', { cols: 4 }),
+      w('funil', { cols: 4, rows: 1 }),
+      w('proximosCompromissos'),
     ],
   }
 }

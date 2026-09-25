@@ -174,7 +174,7 @@ export default function Agent() {
       {/* Builder */}
       <div style={{ width: 400, flexShrink: 0, background: C.surface, borderRight: `1px solid ${C.fieldBorder}`, overflowY: 'auto', padding: '24px 24px 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(120,70,160,0.3)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: 'var(--c-purple-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(120,70,160,0.3)' }}>
             <MaterialIcon name="auto_awesome" size={24} color="#fff" />
           </div>
           <div>
@@ -305,7 +305,7 @@ export default function Agent() {
       {/* Chat */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: C.panel }}>
         <div style={{ height: 66, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '0 24px', borderBottom: `1px solid ${C.fieldBorder}`, background: C.surface }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--c-purple-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MaterialIcon name="auto_awesome" size={20} color="#fff" />
           </div>
           <div style={{ flex: 1 }}>
@@ -329,7 +329,7 @@ export default function Agent() {
               : (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <div style={{ maxWidth: '74%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <div style={{ background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.5, color: '#f5f0fa', whiteSpace: 'pre-wrap', boxShadow: '0 2px 8px rgba(110,65,150,0.25)' }}>{m.text}</div>
+                    <div style={{ background: 'var(--c-purple-solid)', borderRadius: '15px 15px 4px 15px', padding: '13px 16px', fontSize: 13.5, lineHeight: 1.5, color: '#f5f0fa', whiteSpace: 'pre-wrap', boxShadow: '0 2px 8px rgba(110,65,150,0.25)' }}>{m.text}</div>
                     <SeloCanal m={m} />
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function Agent() {
           ))}
           {typing && (
             <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--c-purple-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <MaterialIcon name="auto_awesome" size={17} color="#fff" />
               </div>
               <div style={{ display: 'flex', gap: 4, background: C.surface, border: '1px solid #e9e6f0', borderRadius: 13, padding: '13px 16px' }}>
@@ -362,7 +362,7 @@ export default function Agent() {
               placeholder={t('assistente.perguntePlaceholder')}
               style={{ flex: 1, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 14, padding: '14px 17px', color: C.ink, fontSize: 13.5, outline: 'none', boxShadow: '0 1px 2px rgba(28,20,50,0.04)' }}
             />
-            <RingButton radius={14} onClick={() => send()} style={{ width: 48, height: 48, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(110,65,150,0.3)' }}>
+            <RingButton radius={14} onClick={() => send()} style={{ width: 48, height: 48, background: 'var(--c-purple-solid)', border: '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(110,65,150,0.3)' }}>
               <MaterialIcon name="send" size={21} color="#f4eefa" />
             </RingButton>
           </div>
@@ -376,7 +376,7 @@ export default function Agent() {
 /** A chave liga/desliga — mesma peça nas fontes de conhecimento e nos blocos do resumo. */
 function Chave({ on }: { on: boolean }) {
   return (
-    <div style={{ width: 38, height: 22, borderRadius: 20, flexShrink: 0, position: 'relative', transition: '.2s', background: on ? 'linear-gradient(140deg,#9a6fb8,#5a3a7e)' : '#dcd8e6' }}>
+    <div style={{ width: 38, height: 22, borderRadius: 20, flexShrink: 0, position: 'relative', transition: '.2s', background: on ? 'var(--c-purple-solid)' : '#dcd8e6' }}>
       <div style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: C.surface, transition: '.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }} />
     </div>
   )
@@ -398,7 +398,7 @@ function SeloCanal({ m }: { m: AgentMessage }) {
 function AgentBubble({ text, m }: { text: string; m?: AgentMessage }) {
   return (
     <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-      <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--c-purple-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <MaterialIcon name="auto_awesome" size={17} color="#fff" />
       </div>
       <div style={{ maxWidth: '74%' }}>

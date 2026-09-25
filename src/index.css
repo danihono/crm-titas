@@ -12,7 +12,10 @@
    A família tem UM ÚNICO peso (400). Pedir 600/700 num título faz o navegador
    engrossar o traço por conta própria, e negrito sintético numa serif de
    contraste alto borra justamente os filetes finos que dão o ar da marca.
-   Por isso todo ponto que usa --font-display carrega weight 400 explícito.
+   Por isso todo ponto que usa --font-brand carrega weight 400 explícito.
+
+   Ela ficou SÓ na marca: a palavra TITÃS e o monograma. Os títulos das telas
+   passaram para a Geist (--font-display), no desenho limpo do sistema.
    ══════════════════════════════════════════════════════════════════════════ */
 @font-face {
   font-family: 'Maharlika';
@@ -43,75 +46,91 @@
    usa `BRAND` em src/styles/sx.ts, NUNCA `C`. Um `shade('var(--c-purple)')`
    cai em preto silenciosamente.
    ══════════════════════════════════════════════════════════════════════════ */
+/* A LINGUAGEM VISUAL
+
+   Base neutra e quente — off-white no fundo, cartão branco, tinta quase
+   preta — e UM acento só, o roxo da marca. O menu e o topo não são mais uma
+   faixa escura: são a própria página. O roxo marca o que está selecionado e o
+   que é principal (item do menu, botão, card em destaque); o preto fica para o
+   texto e para os destaques DENTRO de um gráfico.
+
+   Tipografia em Geist, números em Geist Mono. A Maharlika, a serif da logo,
+   ficou só na marca (--font-brand). */
 :root {
   color-scheme: light;
 
-  /* Tipografia — San Francisco onde ela existe (Apple), o equivalente do
-     sistema no resto. A SF não pode ser servida pela web: a licença da Apple
-     só a libera como fonte DO SISTEMA. Esta é a mesma pilha que a Apple, o
-     GitHub e o próprio app da referência usam. */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+  /* Tipografia. Geist no texto e nos títulos — uma grotesca de desenho
+     apertado, que é o que dá o ar limpo aos títulos grandes com tracking
+     negativo. A pilha do sistema fica de reserva enquanto a fonte não chega. */
+  --font-ui: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Text',
              'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  /* Título e marca saem na Maharlika, a serif da logo. O corpo do app continua
-     na pilha do sistema acima: a serif é para TÍTULO e para a palavra TITÃS,
-     não para texto corrido. O fallback é serifado de propósito — se o woff2
-     não chegar, o título ainda lê como título, e não como parágrafo.
-     Quem usa isto: FONT_DISPLAY e sx.serif em src/styles/sx.ts. */
-  --font-display: 'Maharlika', Georgia, 'Times New Roman', serif;
+  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+                  'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Números de painel: algarismos de mesma largura, para "1.248" e "38%"
+     alinharem e não dançarem quando o valor muda. */
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* A serif da logo — só na palavra TITÃS e no monograma. Peso único 400. */
+  --font-brand: 'Maharlika', Georgia, 'Times New Roman', serif;
 
   /* superfícies */
-  --c-void: #0a080c;
-  --c-page: #f5f3f8;
+  --c-void: #f6f5f2;
+  --c-page: #f6f5f2;
   --c-surface: #ffffff;
-  --c-raised: #f3f1f7;
-  --c-surface-alt: #faf9fc;
-  --c-field: #f7f5fa;
-  --c-column: #edebf3;
+  --c-raised: #f1f0ec;
+  --c-surface-alt: #fafaf8;
+  --c-field: #f7f6f3;
+  --c-column: #efeee9;
   /* papel de parede da conversa (o WhatsApp tem um; este é o nosso) */
-  --c-chat-bg: #ece7f1;
-  /* card em destaque do painel: escuro nos dois temas, mas no escuro precisa
-     ficar MAIS CLARO que a superfície, senão ele deixa de se destacar. */
-  --c-featured: linear-gradient(155deg, #2f1f45, #1a1024);
-  --c-featured-border: rgba(180, 140, 220, 0.22);
-  --c-inverse: #1d1726;
+  --c-chat-bg: #efede8;
+  /* card em destaque: roxo da marca nos DOIS temas */
+  --c-featured: linear-gradient(155deg, #7a52a0, #5a3a80);
+  --c-featured-border: transparent;
+  --c-inverse: #141416;
   --c-on-inverse: #ffffff;
 
   /* texto */
-  --c-ink: #1d1726;
-  --c-sub: #6e6780;
-  --c-muted: #9c95a8;
-  --c-faint: #a39bb0;
-  --c-strong: #4a4458;
-  --c-on-accent: #f4eefa;
+  --c-ink: #141416;
+  --c-sub: #6f6f75;
+  --c-muted: #9a9aa0;
+  --c-faint: #a9a9ae;
+  --c-strong: #3b3b40;
+  --c-on-accent: #ffffff;
+  /* a segunda linha, cinza, dos títulos em dois tons */
+  --c-headline-dim: #a8a8ad;
 
   /* bordas */
-  --c-line: #ececf3;
-  --c-line-soft: #eeebf3;
-  --c-line-hair: #f4f2f8;
-  --c-field-border: #e6e3ee;
-  --c-divider: #e0dcea;
+  --c-line: #ebeae6;
+  --c-line-soft: #eeede9;
+  --c-line-hair: #f2f1ee;
+  --c-field-border: #e4e3de;
+  --c-divider: #e2e1dc;
 
-  /* cromagem (menu lateral e topo) — escura nos DOIS temas: é a identidade
-     atual e é o que a interface de referência também faz. */
-  --c-chrome-sidebar: linear-gradient(180deg, #0d0a11, #0a070d);
-  --c-chrome-topbar: linear-gradient(180deg, #0d0a11, #0b080f);
-  --c-chrome-ink: #f1ecf5;
-  --c-chrome-dim: #8e8499;
-  --c-chrome-label: #5f5668;
-  --c-chrome-hairline: rgba(176, 148, 210, 0.08);
-  --c-chrome-fill: rgba(255, 255, 255, 0.04);
-  --c-chrome-border: rgba(176, 148, 210, 0.12);
-  --c-chrome-pop: #17121e;
-  /* item selecionado do menu: pílula roxa clara + barra à esquerda */
-  --c-chrome-sel: rgba(154, 111, 184, 0.18);
-  --c-chrome-sel-ink: #e9dcf5;
-  --c-chrome-sel-bar: #b692d6;
+  /* cromagem (menu lateral e topo) — a própria página: mesma cor de fundo,
+     sem faixa e sem sombra. */
+  --c-chrome-sidebar: #f6f5f2;
+  --c-chrome-topbar: #f6f5f2;
+  --c-chrome-ink: #141416;
+  --c-chrome-dim: #7d7d83;
+  --c-chrome-label: #a9a9ae;
+  --c-chrome-hairline: #ebeae6;
+  --c-chrome-fill: #ffffff;
+  --c-chrome-border: #e7e6e1;
+  --c-chrome-pop: #ffffff;
+  --c-chrome-hover: rgba(20, 20, 22, 0.05);
+  /* item selecionado do menu: pílula roxa cheia, tinta branca */
+  --c-chrome-sel: #7a52a0;
+  --c-chrome-sel-ink: #ffffff;
+  --c-chrome-sel-bar: transparent;
 
   /* acentos */
   --c-purple: #7a52a0;
   --c-purple-deep: #553578;
   --c-purple-soft: #9a6fb8;
-  --c-purple-grad: linear-gradient(140deg, #7a52a0, #553578);
+  --c-purple-grad: linear-gradient(155deg, #7a52a0, #5a3a80);
+  /* roxo CHEIO de botão e seleção: fundo sólido com texto branco. Não é
+     --c-purple porque no escuro aquele clareia para ser lido como TEXTO, e
+     branco sobre lavanda não tem contraste. */
+  --c-purple-solid: #7a52a0;
   --c-avatar-grad: linear-gradient(150deg, #b692d6, #6f4d92);
   --c-green: #2f9e6f;
   --c-green-deep: #1f8a4c;
@@ -123,63 +142,76 @@
   --c-blue: #4f7fc0;
 
   /* tintas translúcidas (badge, chip, selecionado) */
-  --c-tint-purple: rgba(150, 110, 200, 0.12);
-  --c-tint-purple-strong: rgba(150, 110, 200, 0.14);
-  --c-tint-purple-weak: rgba(150, 110, 200, 0.08);
-  --c-tint-green: rgba(95, 201, 166, 0.16);
-  --c-tint-amber: rgba(216, 169, 96, 0.18);
-  --c-tint-rose: rgba(217, 138, 171, 0.16);
-  --c-tint-blue: rgba(111, 155, 207, 0.16);
-  --c-tint-neutral: rgba(28, 20, 50, 0.06);
-  --c-sel: rgba(150, 110, 200, 0.12);
-  --c-sel-border: rgba(150, 110, 200, 0.28);
+  --c-tint-purple: rgba(122, 82, 160, 0.10);
+  --c-tint-purple-strong: rgba(122, 82, 160, 0.13);
+  --c-tint-purple-weak: rgba(122, 82, 160, 0.06);
+  --c-tint-green: rgba(47, 158, 111, 0.12);
+  --c-tint-amber: rgba(179, 128, 31, 0.13);
+  --c-tint-rose: rgba(193, 77, 119, 0.12);
+  --c-tint-blue: rgba(79, 127, 192, 0.12);
+  --c-tint-neutral: rgba(20, 20, 22, 0.05);
+  --c-sel: rgba(122, 82, 160, 0.10);
+  --c-sel-border: rgba(122, 82, 160, 0.26);
 
-  /* sombras e véus */
-  --c-shadow-sm: 0 1px 2px rgba(28, 20, 50, 0.04);
-  --c-shadow-card: 0 1px 2px rgba(28, 20, 50, 0.04), 0 8px 22px rgba(28, 20, 50, 0.05);
-  --c-shadow-pop: 0 10px 28px rgba(28, 20, 50, 0.14);
-  --c-shadow-modal: 0 30px 80px rgba(20, 14, 40, 0.3);
-  --c-shadow-purple: 0 6px 16px rgba(110, 65, 150, 0.25);
-  --c-overlay: rgba(20, 14, 30, 0.5);
-  --c-scrollbar: rgba(120, 90, 160, 0.28);
-  --c-scrollbar-hover: rgba(120, 90, 160, 0.45);
-  --c-beam-glow: rgba(139, 92, 246, 0.22);
+  /* sombras e véus — baixas e largas: o cartão flutua, não pesa */
+  --c-shadow-sm: 0 1px 2px rgba(20, 20, 22, 0.04);
+  --c-shadow-card: 0 1px 2px rgba(20, 20, 22, 0.03), 0 10px 30px -14px rgba(20, 20, 22, 0.10);
+  --c-shadow-pop: 0 14px 36px -8px rgba(20, 20, 22, 0.16);
+  --c-shadow-modal: 0 30px 80px rgba(20, 20, 22, 0.22);
+  --c-shadow-purple: 0 6px 16px -6px rgba(90, 58, 128, 0.35);
+  --c-overlay: rgba(20, 20, 22, 0.36);
+  --c-scrollbar: rgba(20, 20, 22, 0.14);
+  --c-scrollbar-hover: rgba(20, 20, 22, 0.28);
+  --c-beam-glow: rgba(20, 20, 22, 0.06);
 }
 
-/* No escuro a cromagem fica MAIS escura que o conteúdo
-   (#0a070d menu < #131017 fundo < #191320 card): a separação vem da camada,
-   não de borda. */
+/* No escuro: grafite neutro. Menu e topo seguem a página, como no claro. */
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --c-page: #131017;
-  --c-surface: #191320;
-  --c-raised: #241d2f;
-  --c-surface-alt: #1f1928;
-  --c-field: #221b2b;
-  --c-column: #1c1624;
-  --c-chat-bg: #100c16;
-  --c-featured: linear-gradient(155deg, #452f66, #2a1a3e);
-  --c-featured-border: rgba(196, 163, 234, 0.34);
-  --c-inverse: #efeaf5;
-  --c-on-inverse: #1d1726;
+  --c-void: #0f0f11;
+  --c-page: #0f0f11;
+  --c-surface: #17171a;
+  --c-raised: #212125;
+  --c-surface-alt: #1b1b1e;
+  --c-field: #1c1c1f;
+  --c-column: #141417;
+  --c-chat-bg: #0c0c0e;
+  --c-featured: linear-gradient(155deg, #7a52a0, #553578);
+  --c-inverse: #f2f2f3;
+  --c-on-inverse: #141416;
 
-  --c-ink: #efeaf5;
-  --c-sub: #b3a9c1;
-  --c-muted: #8f85a0;
-  --c-faint: #7d7389;
-  --c-strong: #ded6e8;
+  --c-ink: #f2f2f3;
+  --c-sub: #a4a4aa;
+  --c-muted: #85858c;
+  --c-faint: #75757c;
+  --c-strong: #d9d9dd;
+  --c-headline-dim: #66666d;
 
-  --c-line: #2b2436;
-  --c-line-soft: #251e30;
-  --c-line-hair: #241d2f;
-  --c-field-border: #332a41;
-  --c-divider: #2e2639;
+  --c-line: #26262a;
+  --c-line-soft: #222226;
+  --c-line-hair: #1f1f23;
+  --c-field-border: #2e2e33;
+  --c-divider: #2a2a2e;
 
-  /* Acento sobe de tom: #7a52a0 sobre #191320 não tem contraste de texto. */
+  --c-chrome-sidebar: #0f0f11;
+  --c-chrome-topbar: #0f0f11;
+  --c-chrome-ink: #f2f2f3;
+  --c-chrome-dim: #8b8b92;
+  --c-chrome-label: #66666d;
+  --c-chrome-hairline: #222226;
+  --c-chrome-fill: #17171a;
+  --c-chrome-border: #26262a;
+  --c-chrome-pop: #1b1b1e;
+  --c-chrome-hover: rgba(255, 255, 255, 0.05);
+  --c-chrome-sel: #8a63b3;
+  --c-chrome-sel-ink: #ffffff;
+
+  /* Acento sobe de tom: #7a52a0 sobre #17171a não tem contraste de texto. */
   --c-purple: #b18ad2;
   --c-purple-deep: #8a63b3;
   --c-purple-soft: #c4a3ea;
+  --c-purple-solid: #8a63b3;
   --c-green: #5fc9a6;
   --c-green-deep: #4fbf88;
   --c-amber: #d8a960;
@@ -188,27 +220,26 @@
   --c-rose-deep: #e07b9f;
   --c-blue: #8fb4dd;
 
-  /* 12% de roxo sobre #191320 é indistinguível do card: as tintas engordam. */
-  --c-tint-purple: rgba(177, 138, 210, 0.18);
-  --c-tint-purple-strong: rgba(177, 138, 210, 0.22);
-  --c-tint-purple-weak: rgba(177, 138, 210, 0.12);
-  --c-tint-green: rgba(95, 201, 166, 0.22);
-  --c-tint-amber: rgba(216, 169, 96, 0.24);
-  --c-tint-rose: rgba(217, 138, 171, 0.24);
-  --c-tint-blue: rgba(143, 180, 221, 0.22);
-  --c-tint-neutral: rgba(255, 255, 255, 0.09);
-  --c-sel: rgba(177, 138, 210, 0.18);
+  --c-tint-purple: rgba(177, 138, 210, 0.16);
+  --c-tint-purple-strong: rgba(177, 138, 210, 0.20);
+  --c-tint-purple-weak: rgba(177, 138, 210, 0.10);
+  --c-tint-green: rgba(95, 201, 166, 0.18);
+  --c-tint-amber: rgba(216, 169, 96, 0.20);
+  --c-tint-rose: rgba(221, 138, 169, 0.20);
+  --c-tint-blue: rgba(143, 180, 221, 0.18);
+  --c-tint-neutral: rgba(255, 255, 255, 0.08);
+  --c-sel: rgba(177, 138, 210, 0.16);
   --c-sel-border: rgba(177, 138, 210, 0.34);
 
-  --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --c-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.45);
-  --c-shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --c-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
+  --c-shadow-pop: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
   --c-shadow-modal: 0 30px 80px rgba(0, 0, 0, 0.72);
-  --c-shadow-purple: 0 6px 16px rgba(110, 65, 150, 0.45);
-  --c-overlay: rgba(6, 4, 10, 0.68);
-  --c-scrollbar: rgba(170, 140, 215, 0.32);
-  --c-scrollbar-hover: rgba(170, 140, 215, 0.5);
-  --c-beam-glow: rgba(177, 138, 210, 0.35);
+  --c-shadow-purple: 0 6px 16px -6px rgba(0, 0, 0, 0.6);
+  --c-overlay: rgba(0, 0, 0, 0.6);
+  --c-scrollbar: rgba(255, 255, 255, 0.14);
+  --c-scrollbar-hover: rgba(255, 255, 255, 0.26);
+  --c-beam-glow: rgba(255, 255, 255, 0.04);
 }
 
 /* Estilos globais — portados do <helmet>/<style> do protótipo (legacy/CRM Titãs.dc.html:16-27) */
@@ -219,6 +250,7 @@ body {
   background: var(--c-void);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--c-ink);
   overflow: hidden;
 }
@@ -237,7 +269,32 @@ body {
 }
 
 input, textarea, select, button { font-family: inherit; }
+
+/* Número de painel: mono, algarismos de mesma largura. */
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 input::placeholder, textarea::placeholder { color: var(--c-faint); }
+
+/* Balão com o nome do item no menu recolhido: pílula de tinta à direita do
+   ícone. Para não ser cortado, a lista recolhida não rola (ver Sidebar.tsx). */
+.nav-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translate(-4px, -50%);
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 40;
+}
+.nav-tip:hover::after, .nav-tip:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
 
 @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
@@ -306,15 +363,16 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
 }
 .beam-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--c-shadow-pop), 0 10px 32px var(--beam-glow, var(--c-beam-glow));
+  transform: translateY(-2px);
+  box-shadow: var(--c-shadow-pop);
 }
+/* O feixe não aparece em repouso: cartão parado é cartão limpo. */
 .beam-card .beam-layer {
-  opacity: 0.55;
+  opacity: 0;
   transition: opacity 0.35s ease;
 }
 .beam-card:hover .beam-layer {
-  opacity: 1;
+  opacity: 0.5;
 }
 
 /* ── Funil de leads em card estreito ───────────────────────────────────────
@@ -359,7 +417,7 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
 }
 .stat-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--c-shadow-pop);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -387,20 +445,20 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
     color-scheme: light !important;
     --c-page: #ffffff;
     --c-surface: #ffffff;
-    --c-raised: #f3f1f7;
-    --c-surface-alt: #faf9fc;
-    --c-field: #f7f5fa;
-    --c-inverse: #1d1726;
+    --c-raised: #f1f0ec;
+    --c-surface-alt: #fafaf8;
+    --c-field: #f7f6f3;
+    --c-inverse: #141416;
     --c-on-inverse: #ffffff;
-    --c-ink: #1d1726;
-    --c-sub: #6e6780;
-    --c-muted: #9c95a8;
-    --c-faint: #a39bb0;
-    --c-strong: #4a4458;
-    --c-line: #ececf3;
-    --c-line-soft: #eeebf3;
-    --c-line-hair: #f4f2f8;
-    --c-field-border: #e6e3ee;
+    --c-ink: #141416;
+    --c-sub: #6f6f75;
+    --c-muted: #9a9aa0;
+    --c-faint: #a9a9ae;
+    --c-strong: #3b3b40;
+    --c-line: #ebeae6;
+    --c-line-soft: #eeede9;
+    --c-line-hair: #f2f1ee;
+    --c-field-border: #e4e3de;
     --c-purple: #7a52a0;
     --c-purple-deep: #553578;
     --c-green: #2f9e6f;
@@ -459,12 +517,7 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
 .dash {
   position: relative;
   isolation: isolate;
-  background: #fbfafe;
-  --hud-line: rgba(122, 82, 160, 0.26);
-}
-:root[data-theme='dark'] .dash {
   background: var(--c-page);
-  --hud-line: rgba(196, 163, 234, 0.34);
 }
 
 /* ── Cabeçalho ──────────────────────────────────────────────────────────────
@@ -482,31 +535,8 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
 
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
-/* Cantos em colchete, desenhados com gradientes na própria camada, sem nenhum
-   elemento a mais no DOM. `inset:1px` para o colchete ficar POR DENTRO da borda
-   do card, e não em cima dela.
-
-   Só os cantos DE BAIXO. Em cima moram o título do card e o ladrilho do ícone,
-   a 10px das bordas: colchete ali encostava na primeira letra do rótulo e no
-   ícone. Embaixo a faixa está sempre livre — é a moldura sem a briga. */
-.dash .widget { position: relative; }
-.dash .widget::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: 17px;
-  pointer-events: none;
-  opacity: .5;
-  transition: opacity .35s ease;
-  background:
-    linear-gradient(var(--hud-line), var(--hud-line)) left 10px bottom 10px / 12px 1.5px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) left 10px bottom 10px / 1.5px 12px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right 10px bottom 10px / 12px 1.5px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right 10px bottom 10px / 1.5px 12px no-repeat;
-}
-/* Em repouso o colchete é discreto; no hover ele acende. É o que mantém o card
-   apertado (1×1 com gráfico) legível em vez de poluído. */
-.dash .widget:hover::after { opacity: 1; }
+/* Os cantos em colchete saíram: o cartão é branco, borda quase invisível e
+   sombra baixa, e nada em volta. */
 
 /* Entrada escalonada: os cards sobem em sequência quando o painel abre. A
    grade tem 18 células no máximo, então a lista de atrasos é finita. */
@@ -531,8 +561,7 @@ input::placeholder, textarea::placeholder { color: var(--c-faint); }
   border-radius: 10px;
   transition: border-color .2s ease, background .2s ease, color .2s ease, box-shadow .2s ease;
 }
-.hud-btn:hover { border-color: var(--c-sel-border); color: var(--c-purple); }
-.hud-btn[data-on='1'] { box-shadow: 0 0 0 1px var(--c-sel-border), 0 4px 14px var(--c-beam-glow); }
+.hud-btn:hover { color: var(--c-ink); }
 
 /* Movimento é tempero, não estrutura: quem pediu menos animação fica com o
    painel inteiro parado — e ainda assim completo. */

@@ -7,12 +7,12 @@ import MaterialIcon from '../common/MaterialIcon'
 
 export type Accent = 'purple' | 'green' | 'amber' | 'rose' | 'blue'
 
-const ACCENT: Record<Accent, { fg: string; tint: string }> = {
-  purple: { fg: C.purple, tint: C.tintPurpleStrong },
-  green: { fg: C.green, tint: C.tintGreen },
-  amber: { fg: C.amber, tint: C.tintAmber },
-  rose: { fg: C.rose, tint: C.tintRose },
-  blue: { fg: C.blue, tint: C.tintBlue },
+const ACCENT: Record<Accent, { fg: string }> = {
+  purple: { fg: C.purple },
+  green: { fg: C.green },
+  amber: { fg: C.amber },
+  rose: { fg: C.rose },
+  blue: { fg: C.blue },
 }
 
 export interface StatCardProps {
@@ -54,10 +54,9 @@ export default function StatCard({
 
   // No card em destaque o fundo é escuro nos DOIS temas, então texto e acento
   // são fixos e claros — não podem seguir os tokens de superfície.
-  const ink = featured ? '#f6f1fb' : C.ink
-  const dim = featured ? 'rgba(238,228,248,0.62)' : C.muted
-  const fg = featured ? '#d9bff2' : a.fg
-  const tint = featured ? 'rgba(255,255,255,0.09)' : a.tint
+  const ink = featured ? '#ffffff' : C.ink
+  const dim = featured ? 'rgba(255,255,255,0.7)' : C.muted
+  const fg = featured ? '#ffffff' : a.fg
 
   const shell: CSSProperties = {
     position: 'relative',
@@ -70,34 +69,19 @@ export default function StatCard({
     // fileira fica com cards de alturas diferentes.
     height: '100%',
     borderRadius: 18,
-    padding: '13px 15px 11px',
+    padding: '16px 18px 13px',
     overflow: 'hidden',
     background: featured ? C.featured : C.surface,
-    border: `1px solid ${featured ? C.featuredBorder : C.line}`,
-    // O hover do card (.stat-card em src/index.css) acende um halo na cor do
-    // acento; sem esta variável todos acenderiam roxo.
-    ['--beam-glow' as string]: featured ? 'rgba(150,110,200,0.35)' : tint,
+    border: `1px solid ${featured ? C.featuredBorder : C.lineHair}`,
   }
 
   return (
     <div className="stat-card widget" style={shell}>
-      {/* Brilho do acento no canto do ícone: camada em z-index -1, presa pelo
-          `isolation:isolate` do card. Fica ACIMA do fundo e ABAIXO de todo o
-          conteúdo — inclusive do que não é posicionado, como o texto de apoio e
-          o mini gráfico — e não recebe clique. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute', top: -46, right: -34, width: 150, height: 150,
-          borderRadius: '50%', pointerEvents: 'none', zIndex: -1,
-          background: `radial-gradient(circle, ${featured ? 'rgba(200,160,240,0.22)' : tint}, transparent 68%)`,
-        }}
-      />
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span
           title={label}
           style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '.09em', color: dim,
+            fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', color: dim,
             textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden',
             textOverflow: 'ellipsis', minWidth: 0,
             // Sem folga vertical o `overflow:hidden` come o acento das
@@ -114,16 +98,15 @@ export default function StatCard({
           size={16}
           color={fg}
           style={{
-            background: tint, width: 28, height: 28, borderRadius: 9,
-            border: `1px solid ${featured ? 'rgba(255,255,255,0.14)' : a.tint}`,
-            boxShadow: `0 0 0 3px ${featured ? 'rgba(255,255,255,0.05)' : 'var(--c-tint-purple-weak)'}`,
+            // Ícone solto, sem ladrilho nem anel: a cor do acento já basta.
+            width: 22, height: 22,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}
         />
       </div>
 
       <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: featured ? 25 : 22, fontWeight: 700, letterSpacing: '-.03em', color: ink, lineHeight: 1.05 }}>{value}</span>
+        <span className="num" style={{ fontSize: 'clamp(24px, 13cqw, 32px)', fontWeight: 500, letterSpacing: '-.04em', color: ink, lineHeight: 1.05 }}>{value}</span>
         {spark?.changePct !== null && spark?.changePct !== undefined && (
           <DeltaChip pct={spark.changePct} featured={featured} />
         )}
@@ -161,10 +144,10 @@ export default function StatCard({
             gap: 5,
             background: 'transparent',
             border: 'none',
-            borderTop: `1px solid ${featured ? 'rgba(255,255,255,0.09)' : C.lineHair}`,
-            color: fg,
+            borderTop: `1px solid ${featured ? 'rgba(255,255,255,0.16)' : C.lineHair}`,
+            color: featured ? '#ffffff' : C.sub,
             fontSize: 12,
-            fontWeight: 600,
+            fontWeight: 500,
             cursor: 'pointer',
             width: '100%',
           }}
@@ -186,12 +169,12 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
   // Variação nula é NEUTRA nos dois: pintar de verde um "não mudou" é a mesma
   // mentira que a seta para cima que este chip tinha antes.
   const cor = v.sentido === 'igual'
-    ? (featured ? 'rgba(238,228,248,0.72)' : C.muted)
+    ? (featured ? 'rgba(255,255,255,0.8)' : C.muted)
     : featured
-      ? (v.sentido === 'sobe' ? '#6fd7ae' : '#f0a0bd')
+      ? (v.sentido === 'sobe' ? '#b6f0d5' : '#ffc4d8')
       : v.sentido === 'sobe' ? C.green : C.rose
   const fundo = featured
-    ? 'rgba(255,255,255,0.1)'
+    ? 'rgba(255,255,255,0.15)'
     : v.sentido === 'igual' ? C.tintNeutral : v.sentido === 'sobe' ? C.tintGreen : C.tintRose
   return (
     <span
@@ -200,8 +183,9 @@ function DeltaChip({ pct, featured }: { pct: number; featured?: boolean }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 3,
-        fontSize: 11,
-        fontWeight: 700,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10.5,
+        fontWeight: 500,
         color: cor,
         background: fundo,
         borderRadius: 20,

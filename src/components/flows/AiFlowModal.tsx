@@ -51,7 +51,7 @@ export default function AiFlowModal({ onClose, onConfirm }: {
   return (
     <Modal width={preview ? 560 : 480} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--c-purple-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <MaterialIcon name="auto_awesome" size={21} color="#fff" />
         </div>
         <div>

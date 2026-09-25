@@ -68,7 +68,7 @@ const WA_DOT: Record<string, string> = {
  * otimista ainda em voo e a que falhou. Objeto de estilo criado inline em cada uma delas
  * é como as três saem do lugar sem ninguém notar.
  */
-const BOLHA_MINHA: CSSProperties = { maxWidth: '72%', background: 'linear-gradient(150deg,#7a52a0,#5a3a7e)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
+const BOLHA_MINHA: CSSProperties = { maxWidth: '72%', background: 'var(--c-purple-solid)', borderRadius: '15px 15px 4px 15px', padding: '10px 13px', boxShadow: '0 1px 2px rgba(28,20,50,0.12)' }
 const BOLHA_DELE: CSSProperties = { maxWidth: '72%', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '15px 15px 15px 4px', padding: '10px 13px', boxShadow: '0 1px 1px rgba(28,20,50,0.06)' }
 const RODAPE_BOLHA: CSSProperties = { fontSize: 10, textAlign: 'right', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }
 /**
@@ -1171,7 +1171,7 @@ function Atendimento() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Arquivos de {active.name}</div>
                   {!readOnly && (
-                    <RingButton radius={11} onClick={() => fileInput.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '9px 15px', color: '#f4eefa', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(110,65,150,0.22)' }}>
+                    <RingButton radius={11} onClick={() => fileInput.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--c-purple-solid)', border: '1px solid transparent', padding: '9px 15px', color: '#f4eefa', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(110,65,150,0.22)' }}>
                       <MaterialIcon name="upload_file" size={18} /> Adicionar arquivo
                     </RingButton>
                   )}

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
-// Tokens visuais reutilizáveis extraídos dos estilos inline do protótipo.
-// Cores-chave da identidade (roxo/escuro + painéis claros).
+// Tokens visuais reutilizáveis. Base neutra (off-white, branco, quase preto) e
+// o roxo da marca como único acento — ver o topo de src/index.css.
 
 /**
  * Hexes LITERAIS da marca.
@@ -18,15 +18,15 @@ import type { CSSProperties } from 'react'
  * Para pintar elemento na tela, o certo é `C`.
  */
 export const BRAND = {
-  ink: '#1d1726',
-  sub: '#6e6780',
-  muted: '#9c95a8',
-  faint: '#a39bb0',
-  line: '#ececf3',
-  lineSoft: '#eeebf3',
-  panel: '#f5f3f8',
-  field: '#f7f5fa',
-  fieldBorder: '#e6e3ee',
+  ink: '#141416',
+  sub: '#6f6f75',
+  muted: '#9a9aa0',
+  faint: '#a9a9ae',
+  line: '#ebeae6',
+  lineSoft: '#eeede9',
+  panel: '#f6f5f2',
+  field: '#f7f6f3',
+  fieldBorder: '#e4e3de',
   purple: '#7a52a0',
   purpleDeep: '#553578',
   purpleSoft: '#9a6fb8',
@@ -50,6 +50,8 @@ export const C = {
   muted: 'var(--c-muted)',
   faint: 'var(--c-faint)',
   strong: 'var(--c-strong)',
+  /** A segunda linha, cinza, dos títulos em dois tons. */
+  headlineDim: 'var(--c-headline-dim)',
   onAccent: 'var(--c-on-accent)',
   onInverse: 'var(--c-on-inverse)',
 
@@ -77,6 +79,8 @@ export const C = {
   purple: 'var(--c-purple)',
   purpleDeep: 'var(--c-purple-deep)',
   purpleSoft: 'var(--c-purple-soft)',
+  /** Roxo CHEIO para fundo com texto branco (botão, item selecionado). */
+  purpleSolid: 'var(--c-purple-solid)',
   green: 'var(--c-green)',
   greenDeep: 'var(--c-green-deep)',
   waGreen: 'var(--c-wa-green)',
@@ -99,7 +103,7 @@ export const C = {
   sel: 'var(--c-sel)',
   selBorder: 'var(--c-sel-border)',
 
-  // cromagem (menu lateral e topo) — escura nos dois temas
+  // cromagem (menu lateral e topo) — a própria página, nos dois temas
   darkA: 'var(--c-chrome-sidebar)',
   darkB: 'var(--c-chrome-topbar)',
   chromeInk: 'var(--c-chrome-ink)',
@@ -107,6 +111,7 @@ export const C = {
   chromeLabel: 'var(--c-chrome-label)',
   chromeHairline: 'var(--c-chrome-hairline)',
   chromeFill: 'var(--c-chrome-fill)',
+  chromeHover: 'var(--c-chrome-hover)',
   chromeBorder: 'var(--c-chrome-border)',
   chromePop: 'var(--c-chrome-pop)',
   chromeSel: 'var(--c-chrome-sel)',
@@ -117,14 +122,18 @@ export const C = {
 export const primaryGradient = 'var(--c-purple-grad)'
 export const purpleAvatar = 'var(--c-avatar-grad)'
 
-/** Pilha tipográfica do sistema (San Francisco na Apple, equivalente no resto). */
+/** Texto do app (Geist, com o sistema de reserva). */
 export const FONT_UI = 'var(--font-ui)'
-/** A serif da marca (Maharlika). Peso único 400 — ver `sx.serif` abaixo. */
+/** Títulos (Geist). Use com peso 500 e tracking negativo — ver `sx.serif`. */
 export const FONT_DISPLAY = 'var(--font-display)'
+/** Números de painel (Geist Mono, algarismos de mesma largura). */
+export const FONT_MONO = 'var(--font-mono)'
+/** A serif da logo (Maharlika) — SÓ para a palavra TITÃS e o monograma. Peso único 400. */
+export const FONT_BRAND = 'var(--font-brand)'
 
 const card: CSSProperties = {
   background: C.surface,
-  border: `1px solid ${C.line}`,
+  border: `1px solid ${C.lineHair}`,
   borderRadius: 18,
   boxShadow: 'var(--c-shadow-card)',
 }
@@ -133,14 +142,15 @@ const btnPrimary: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 7,
-  background: primaryGradient,
-  border: '1px solid rgba(200,160,230,0.3)',
+  // Roxo LISO, sem degradê: é o botão principal, e é o roxo que diz isso.
+  background: C.purpleSolid,
+  border: '1px solid transparent',
   borderRadius: 11,
   padding: '9px 16px',
   // Texto sobre roxo: claro nos DOIS temas, por isso não é C.ink invertido.
   color: C.onAccent,
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 500,
   cursor: 'pointer',
   boxShadow: 'var(--c-shadow-purple)',
 }
@@ -150,12 +160,12 @@ const btnGhost: CSSProperties = {
   alignItems: 'center',
   gap: 7,
   background: C.surface,
-  border: `1px solid ${C.fieldBorder}`,
+  border: `1px solid ${C.line}`,
   borderRadius: 11,
   padding: '9px 14px',
-  color: C.strong,
+  color: C.ink,
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 500,
   cursor: 'pointer',
   boxShadow: 'var(--c-shadow-sm)',
 }
@@ -164,7 +174,7 @@ const input: CSSProperties = {
   width: '100%',
   background: C.field,
   border: `1px solid ${C.fieldBorder}`,
-  borderRadius: 11,
+  borderRadius: 10,
   padding: '11px 13px',
   color: C.ink,
   fontSize: 13.5,
@@ -198,20 +208,36 @@ const modalBox: CSSProperties = {
 }
 
 /**
- * Estilo de título: a Maharlika, a serif da logo da Titãs.
+ * Estilo de título: Geist em peso 500 com tracking negativo.
  *
- * O peso 400 é obrigatório e não é enfeite — a família só tem esse peso, e um
- * 600 aqui viraria negrito sintético (ver o comentário do @font-face em
- * src/index.css). O tracking é zero pela mesma razão: o -0.02em de antes foi
- * calibrado para a San Francisco, e numa serif de display ele fecha a palavra.
- *
- * Quem espalha este objeto NÃO deve reescrever fontWeight nem letterSpacing
- * depois do spread; o tracking positivo da marca ('TITÃS') é a única exceção.
+ * O nome ficou `serif` por histórico — era a Maharlika. Trocar o nome mexeria
+ * em todo modal do app sem mudar nada na tela; a letra da marca agora é
+ * `FONT_BRAND`, usada só no logo.
  */
 const serif: CSSProperties = {
   fontFamily: FONT_DISPLAY,
-  fontWeight: 400,
-  letterSpacing: 0,
+  fontWeight: 500,
+  letterSpacing: '-0.025em',
 }
 
-export const sx = { card, btnPrimary, btnGhost, input, label, modalOverlay, modalBox, serif }
+/**
+ * Etiqueta em pílula acima de um título: data, contagem, estado. Caixa alta
+ * pequena, com tracking — contexto sem disputar com o título.
+ */
+const eyebrow: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  fontSize: 10.5,
+  fontWeight: 600,
+  letterSpacing: '.09em',
+  textTransform: 'uppercase',
+  color: C.muted,
+  background: C.surface,
+  border: `1px solid ${C.line}`,
+  borderRadius: 999,
+  padding: '4px 10px',
+  lineHeight: 1.4,
+}
+
+export const sx = { card, btnPrimary, btnGhost, input, label, modalOverlay, modalBox, serif, eyebrow }

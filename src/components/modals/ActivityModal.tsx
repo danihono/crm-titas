@@ -113,7 +113,7 @@ export default function ActivityModal({ types, contactOptions, contatoFixo, inic
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 11, padding: '10px 18px', color: C.strong, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('comum.cancelar')}</button>
-        <RingButton radius={11} onClick={handleSave} style={{ background: 'linear-gradient(140deg,#7a52a0,#553578)', border: '1px solid rgba(200,160,230,0.3)', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>{t('modal.criarAtividade')}</RingButton>
+        <RingButton radius={11} onClick={handleSave} style={{ background: 'var(--c-purple-solid)', border: '1px solid transparent', padding: '10px 20px', color: '#f4eefa', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>{t('modal.criarAtividade')}</RingButton>
       </div>
     </Modal>
   )

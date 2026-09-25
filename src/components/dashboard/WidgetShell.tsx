@@ -22,15 +22,15 @@ export function ChartCard({ title, sub, right, children, style }: {
     <div
       className="beam-card widget"
       style={{
-        background: C.surface, border: `1px solid ${C.line}`, borderRadius: 18,
-        padding: '16px 18px', overflow: 'hidden', minHeight: 0, height: '100%',
+        background: C.surface, border: `1px solid ${C.lineHair}`, borderRadius: 18,
+        padding: '18px 20px', overflow: 'hidden', minHeight: 0, height: '100%',
         display: 'flex', flexDirection: 'column', ...style,
       }}
     >
       {title && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             {sub && <div className="widget-sub" style={{ fontSize: 11.5, color: C.muted, marginTop: 1 }}>{sub}</div>}
           </div>
           {right}

@@ -10,9 +10,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ganhosPorMes, leadsDoMes } from '../../src/lib/dashboardData'
 import { saudacao, variacao } from '../../src/lib/format'
 import { useLocaleStore } from '../../src/store/localeStore'
-import { filaDeEspera } from '../../src/lib/reportData'
+import { filaDeEspera, clientesAtendidos, aguardandoResposta } from '../../src/lib/reportData'
+import { mediaMovel, curvaSuave } from '../../src/lib/sparkline'
+import { layoutPadrao, celulasUsadas, CELULAS, widgetDef, layoutFromDoc } from '../../src/lib/dashboardWidgets'
 import { useLocaleStore } from '../../src/store/localeStore'
-import type { Contact, ConvState, Deal, Idioma } from '../../src/types'
+import type { Contact, ConvState, ConversationRecord, Deal, Idioma } from '../../src/types'
 
 /**
  * As afirmações abaixo são sobre TEXTO ('Set', 'Dezembro de 2025', '22,2%'), e
@@ -254,5 +256,76 @@ describe('saudação do cabeçalho', () => {
     // chama decide o que desenhar, em vez de receber "Bom dia, ." montado.
     expect(saudacao('', em(9)).primeiro).toBe('')
     expect(saudacao('   ', em(9)).primeiro).toBe('')
+  })
+})
+
+describe('clientes atendidos', () => {
+  const conversa = (id: string, contactId: string): ConversationRecord => ({
+    id, contactId, contactName: '', assignedTo: '', assignedName: '', sectorId: '', tagIds: [],
+    openedAt: AGORA,
+  })
+
+  it('conta pessoas, não conversas', () => {
+    expect(clientesAtendidos([conversa('r1', 'a'), conversa('r2', 'a'), conversa('r3', 'b')])).toBe(2)
+  })
+
+  it('ignora conversa sem contato', () => {
+    expect(clientesAtendidos([conversa('r1', ''), conversa('r2', 'b')])).toBe(1)
+  })
+})
+
+describe('esperando a primeira resposta', () => {
+  it('conta só quem ninguém respondeu, e dá a espera mais antiga', () => {
+    const r = aguardandoResposta([
+      contato({ id: 'a', conv: { status: 'entrada', openedAt: new Date('2026-09-15T11:00:00') } }),
+      contato({ id: 'b', conv: { status: 'entrada', openedAt: new Date('2026-09-15T10:00:00'), firstResponseAt: new Date('2026-09-15T10:05:00') } }),
+      contato({ id: 'c', conv: { status: 'entrada', openedAt: new Date('2026-09-15T09:00:00') } }),
+    ])
+    expect(r.total).toBe(2)
+    expect(r.desde).toEqual(new Date('2026-09-15T09:00:00'))
+  })
+
+  it('não corta a contagem no limite da lista do painel', () => {
+    const muitos = Array.from({ length: 12 }, (_, i) =>
+      contato({ id: `c${i}`, conv: { status: 'entrada', openedAt: new Date(AGORA.getTime() - i * 60000) } }))
+    expect(aguardandoResposta(muitos).total).toBe(12)
+  })
+
+  it('devolve zero e nenhuma data com a fila vazia', () => {
+    expect(aguardandoResposta([])).toEqual({ total: 0, desde: null })
+  })
+})
+
+describe('média móvel', () => {
+  it('suaviza a semana sem inventar pico nas pontas', () => {
+    // Centrada: nas pontas a janela encolhe para o que existe.
+    expect(mediaMovel([10, 20, 30], 3)).toEqual([15, 20, 25])
+    // Um domingo zerado no meio de uma semana de 7 vira 6 — o buraco some.
+    expect(mediaMovel([7, 7, 7, 0, 7, 7, 7], 7)[3]).toBe(6)
+  })
+
+  it('curva suave vazia com menos de dois pontos', () => {
+    expect(curvaSuave([5], 100, 50)).toEqual({ line: '', area: '' })
+    expect(curvaSuave([1, 2], 100, 50).line.startsWith('M0.0')).toBe(true)
+  })
+})
+
+describe('painel de fábrica', () => {
+  it('ocupa as 18 células, sem buraco e sem estourar', () => {
+    expect(celulasUsadas(layoutPadrao().widgets)).toBe(CELULAS)
+  })
+
+  it('só usa blocos que existem no catálogo, no tamanho permitido', () => {
+    for (const w of layoutPadrao().widgets) {
+      const d = widgetDef(w.type)
+      expect(d, w.type).toBeDefined()
+      expect(w.cols).toBeGreaterThanOrEqual(d!.minCols)
+      expect(w.rows).toBeGreaterThanOrEqual(d!.minRows)
+    }
+  })
+
+  it('o funil de uma faixa sobrevive à leitura do Firestore', () => {
+    const lido = layoutFromDoc({ widgets: [{ id: 'funil', type: 'funil', cols: 4, rows: 1 }] })
+    expect(lido?.widgets[0]).toMatchObject({ cols: 4, rows: 1 })
   })
 })

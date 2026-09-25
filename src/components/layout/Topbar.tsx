@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { saveSelfPrefs, useSelfProfile } from '../../hooks/useProfile'
@@ -8,9 +8,9 @@ import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
 import { useInvoices } from '../../hooks/useInvoices'
 import { useThemeStore } from '../../store/themeStore'
-import { settingsNav } from '../../lib/theme'
+import { navDefs, settingsNav } from '../../lib/theme'
 import { t } from '../../i18n'
-import { C } from '../../styles/sx'
+import { C, FONT_MONO } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
 import { useTenantStore, canManage } from '../../store/tenantStore'
 import { fmtMoney, initialsOf } from '../../lib/format'
@@ -26,7 +26,8 @@ interface SearchResult {
 }
 
 /**
- * Topo enxuto: busca à esquerda; claro/escuro, configurações e perfil à direita.
+ * Topo enxuto: onde se está (conta / tela) à esquerda; busca, claro/escuro e
+ * perfil à direita. Tem a cor da página — não é uma faixa, é o alto da tela.
  *
  * Saíram daqui o sino (o contador de não lidas foi para o item Contatos do menu,
  * junto com o pedido de permissão de notificação) e o botão "Titã IA", que era
@@ -63,7 +64,19 @@ export default function Topbar() {
     saveSelfPrefs({ theme: m }).catch(() => {})
   }
 
+  const { pathname } = useLocation()
+  const client = useTenantStore((s) => s.client)
+  // A tela atual, pelo menu: o item cujo caminho é o mais longo que casa com a URL.
+  const tela = useMemo(() => {
+    if (pathname.startsWith(settingsNav.path)) return t(settingsNav.label)
+    const d = [...navDefs]
+      .sort((a, b) => b.path.length - a.path.length)
+      .find((x) => (x.path === '/' ? pathname === '/' : pathname.startsWith(x.path)))
+    return d ? t(d.label) : ''
+  }, [pathname])
+
   const [query, setQuery] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const [focused, setFocused] = useState(false)
   const [menu, setMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -82,6 +95,19 @@ export default function Topbar() {
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [menu])
+
+  // ⌘K / Ctrl+K leva à busca de qualquer tela.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const atalho = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
 
   const results = useMemo<SearchResult[]>(() => {
     const q = query.trim().toLowerCase()
@@ -120,107 +146,98 @@ export default function Topbar() {
   return (
     <header
       style={{
-        height: 66,
+        height: 60,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: '0 24px',
+        padding: '0 28px',
         background: C.darkB,
-        boxShadow: `0 1px 0 ${C.chromeHairline}, 0 6px 22px rgba(8,5,12,0.25)`,
         zIndex: 3,
       }}
     >
-      <div style={{ position: 'relative', width: 420, maxWidth: '46%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: '9px 14px' }}>
-          <MaterialIcon name="search" size={19} color={C.chromeDim} />
+      <nav aria-label={t('topo.ondeEstou')} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.muted, whiteSpace: 'nowrap', minWidth: 0 }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{client?.name ?? 'Titãs'}</span>
+        {tela && <span aria-hidden>/</span>}
+        {tela && <span style={{ color: C.ink, fontWeight: 500 }}>{tela}</span>}
+      </nav>
+
+      <div style={{ flex: 1 }} />
+
+      <div style={{ position: 'relative', width: 380, maxWidth: '42%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 999, padding: '7px 8px 7px 14px' }}>
+          <MaterialIcon name="search" size={18} color={C.muted} />
           <input
+            ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder={t('topo.buscarPlaceholder')}
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: '#e8e2ee', fontSize: 13, width: '100%' }}
+            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.ink, fontSize: 13, width: '100%', minWidth: 0 }}
           />
+          <span style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.muted, border: `1px solid ${C.line}`, borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>{atalho}</span>
         </div>
         {showResults && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, maxHeight: 340, overflowY: 'auto', background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
+          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, maxHeight: 340, overflowY: 'auto', background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 14, boxShadow: 'var(--c-shadow-pop)', padding: 6, zIndex: 30 }}>
             {results.map((r) => (
               <button
                 key={r.key}
                 // onMouseDown para disparar antes do blur do input fechar o dropdown
                 onMouseDown={(e) => { e.preventDefault(); r.go(); setQuery(''); setFocused(false) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 9, padding: '9px 10px', cursor: 'pointer' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(176,148,210,0.1)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 10, padding: '9px 10px', cursor: 'pointer' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-chrome-hover)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
               >
-                <MaterialIcon name={r.icon} size={18} color="#b096d4" />
+                <MaterialIcon name={r.icon} size={18} color={C.purple} />
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#ece6f4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</span>
-                  <span style={{ display: 'block', fontSize: 11, color: '#8a7d97', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</span>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</span>
+                  <span style={{ display: 'block', fontSize: 11, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</span>
                 </span>
               </button>
             ))}
             {results.length === 0 && (
-              <div style={{ padding: '12px 10px', fontSize: 12.5, color: '#8a7d97', textAlign: 'center' }}>{t('topo.nadaEncontrado', { termo: query.trim() })}</div>
+              <div style={{ padding: '12px 10px', fontSize: 12.5, color: C.muted, textAlign: 'center' }}>{t('topo.nadaEncontrado', { termo: query.trim() })}</div>
             )}
           </div>
         )}
       </div>
 
-      <div style={{ flex: 1 }} />
-
       {/* Claro / escuro. Dois botões em vez de um alternador porque o estado fica
           visível: dá para ver em qual tema se está sem precisar deduzir do ícone. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 11, padding: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: C.chromeFill, border: `1px solid ${C.chromeBorder}`, borderRadius: 999, padding: 3 }}>
         <ThemeBtn icon="light_mode" label={t('topo.temaClaro')} on={resolved === 'light'} onClick={() => trocarTema('light')} />
         <ThemeBtn icon="dark_mode" label={t('topo.temaEscuro')} on={resolved === 'dark'} onClick={() => trocarTema('dark')} />
       </div>
 
-      <button onClick={() => navigate(settingsNav.path)} title={t('nav.configuracoes')} style={chromeBtn}>
-        <MaterialIcon name="settings" size={20} />
-      </button>
-
       <div ref={menuRef} style={{ position: 'relative' }}>
         <button
           onClick={() => setMenu((v) => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', borderRadius: 11, padding: '4px 6px 4px 10px', cursor: 'pointer' }}
+          title={name}
+          aria-label={name}
+          aria-expanded={menu}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', borderRadius: 999, padding: 2, cursor: 'pointer' }}
         >
-          <span style={{ textAlign: 'right', minWidth: 0, maxWidth: 170 }}>
-            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: C.chromeInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
-            {profile.role && (
-              <span style={{ display: 'block', fontSize: 11, color: C.chromeDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.role}</span>
-            )}
-          </span>
-          <Avatar photoUrl={profile.photoUrl || undefined} initials={initialsOf(name) || '?'} size={34} bg="#6f4d92" fontSize={12.5} />
-          <MaterialIcon name={menu ? 'expand_less' : 'expand_more'} size={18} color={C.chromeDim} />
+          <Avatar photoUrl={profile.photoUrl || undefined} initials={initialsOf(name) || '?'} size={34} bg={C.purpleSolid} fontSize={12.5} />
+          <MaterialIcon name={menu ? 'expand_less' : 'expand_more'} size={18} color={C.muted} />
         </button>
 
         {menu && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 208, background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 13, boxShadow: '0 14px 34px rgba(8,5,12,0.55)', padding: 6, zIndex: 30 }}>
+          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 220, background: C.chromePop, border: `1px solid ${C.chromeBorder}`, borderRadius: 14, boxShadow: 'var(--c-shadow-pop)', padding: 6, zIndex: 30 }}>
+            <div style={{ padding: '8px 10px 10px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+              {profile.role && <div style={{ fontSize: 11.5, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.role}</div>}
+            </div>
+            <div style={{ height: 1, background: C.line, margin: '0 4px 5px' }} />
             <MenuItem icon="person" label={t('topo.meuPerfil')} onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
             <MenuItem icon="settings" label={t('nav.configuracoes')} onClick={() => { setMenu(false); navigate(settingsNav.path) }} />
-            <div style={{ height: 1, background: C.chromeBorder, margin: '5px 4px' }} />
+            <div style={{ height: 1, background: C.line, margin: '5px 4px' }} />
             <MenuItem icon="logout" label={t('topo.sair')} danger onClick={() => { setMenu(false); void logout() }} />
           </div>
         )}
       </div>
     </header>
   )
-}
-
-const chromeBtn: React.CSSProperties = {
-  width: 40,
-  height: 40,
-  flexShrink: 0,
-  borderRadius: 11,
-  background: C.chromeFill,
-  border: `1px solid ${C.chromeBorder}`,
-  color: '#b9aec6',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
 }
 
 function ThemeBtn({ icon, label, on, onClick }: { icon: string; label: string; on: boolean; onClick: () => void }) {
@@ -230,21 +247,21 @@ function ThemeBtn({ icon, label, on, onClick }: { icon: string; label: string; o
       title={label}
       aria-pressed={on}
       style={{
-        width: 32,
-        height: 32,
-        borderRadius: 9,
+        width: 30,
+        height: 30,
+        borderRadius: '50%',
         border: 'none',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        // Mesmo padrão de "selecionado" do menu: pílula roxa clara.
+        // Mesmo padrão de "selecionado" do menu: pílula roxa cheia.
         background: on ? 'var(--c-chrome-sel)' : 'transparent',
-        color: on ? 'var(--c-chrome-sel-ink)' : '#8a7d97',
+        color: on ? 'var(--c-chrome-sel-ink)' : 'var(--c-chrome-dim)',
         transition: 'background .16s ease, color .16s ease',
       }}
     >
-      <MaterialIcon name={icon} size={18} />
+      <MaterialIcon name={icon} size={17} />
     </button>
   )
 }
@@ -255,13 +272,13 @@ function MenuItem({ icon, label, onClick, danger }: { icon: string; label: strin
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-        background: 'transparent', border: 'none', borderRadius: 9, padding: '9px 10px',
-        cursor: 'pointer', fontSize: 13, fontWeight: 500, color: danger ? '#e59ab5' : '#ece6f4',
+        background: 'transparent', border: 'none', borderRadius: 10, padding: '9px 10px',
+        cursor: 'pointer', fontSize: 13, fontWeight: 500, color: danger ? C.rose : C.ink,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(176,148,210,0.1)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-chrome-hover)' }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
     >
-      <MaterialIcon name={icon} size={18} color={danger ? '#e59ab5' : '#b096d4'} /> {label}
+      <MaterialIcon name={icon} size={18} color={danger ? C.rose : C.sub} /> {label}
     </button>
   )
 }

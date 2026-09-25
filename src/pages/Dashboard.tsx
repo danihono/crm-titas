@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { C, FONT_DISPLAY } from '../styles/sx'
+import { C, FONT_DISPLAY, sx } from '../styles/sx'
 import { plural, t } from '../i18n'
 import { useAuth } from '../contexts/AuthContext'
 import { useSelfProfile, saveSelfPrefs } from '../hooks/useProfile'
@@ -9,6 +9,7 @@ import {
   COLUNAS, FAIXAS, cabe, fontesDoLayout, layoutPadrao, widgetDef,
 } from '../lib/dashboardWidgets'
 import { saudacao } from '../lib/format'
+import { dataPorExtenso, num } from '../i18n/formato'
 import WidgetShell from '../components/dashboard/WidgetShell'
 import WidgetContent from '../components/dashboard/WidgetContent'
 import DashboardEditor from '../components/dashboard/DashboardEditor'
@@ -29,7 +30,9 @@ export default function Dashboard() {
   const readOnly = useTenantStore((s) => s.readOnly)
   const now = useMemo(() => new Date(), [])
 
-  const [dias, setDias] = useState(90)
+  // 30 dias abre o painel: é o recorte de "como está o atendimento agora", e é o
+  // que o título lê.
+  const [dias, setDias] = useState(30)
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState<DashboardWidget[] | null>(null)
   const [selecionado, setSelecionado] = useState<string | null>(null)
@@ -102,13 +105,34 @@ export default function Dashboard() {
 
   const quem = saudacao(profile.displayName || user?.displayName || user?.email || '', now)
 
+  // O título do painel é o estado do atendimento, em duas linhas: quantas pessoas
+  // foram atendidas (tinta) e quantas esperam agora (cinza). Sem nenhum bloco de
+  // conversas na tela o número não existe — aí o título volta a ser a saudação,
+  // em vez de afirmar um zero que não foi medido.
+  const periodo = dias === 365 ? t('painel.nosUltimos12Meses') : t('painel.nosUltimosDias', { n: dias })
+  // Zero atendidos também volta à saudação: conta nova, ou período sem conversa,
+  // não merece uma manchete que abre com "0".
+  const temAtendidos = !!dados.relatorio && dados.clientesAtendidos > 0
+  const linha1 = temAtendidos
+    ? plural(dados.clientesAtendidos, 'painel.heroAtendidos_1', 'painel.heroAtendidos_n', { n: num(dados.clientesAtendidos), periodo })
+    : quem.primeiro ? `${quem.parte}, ${quem.primeiro}.` : t('painel.tituloSemNome')
+  const linha2 = editando
+    ? t('painel.arrasteDica')
+    : dados.aguardando.total > 0
+      ? plural(dados.aguardando.total, 'painel.heroEsperando_1', 'painel.heroEsperando_n')
+      : temAtendidos
+        ? t('painel.heroNinguem')
+        : dados.pendencias > 0
+          ? plural(dados.pendencias, 'painel.compromisso_1', 'painel.compromisso_n')
+          : t('painel.nadaHoje')
+
   return (
     // O painel cabe numa tela só: altura fixa, cabeçalho e uma GRADE EXPLÍCITA de
     // 6 × 3. As trilhas são `1fr`, e não `auto`, de propósito — com linhas
     // implícitas elas passariam a ser dimensionadas pelo conteúdo, os cards
     // perderiam altura definida e o "rola por dentro do card" deixaria de valer
     // em silêncio. `minHeight` é a válvula para janela baixa demais.
-    <div className="dash" style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 26px 20px' }}>
+    <div className="dash" style={{ height: '100%', minHeight: 600, display: 'flex', flexDirection: 'column', gap: 16, padding: '18px 26px 22px' }}>
       {/* O TOPO SEM SEPARAÇÃO — nem card, nem linha: a saudação é a própria
           página. A margem negativa cancela o padding do painel, então o bloco
           sangra até a borda de cima (encostando na Topbar) e a da direita sem
@@ -119,8 +143,7 @@ export default function Dashboard() {
           position: 'relative',
           flexShrink: 0,
           margin: '-18px -26px 0',
-          padding: '18px 26px 14px',
-          minHeight: 132,
+          padding: '20px 26px 10px',
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'space-between',
@@ -128,54 +151,52 @@ export default function Dashboard() {
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: C.muted }}>
-            {quem.parte},
-          </div>
-          {/* Peso 400 obrigatório: a Maharlika tem um único peso, e negrito
-              sintético numa serif de contraste alto borra os filetes finos que
-              dão o ar da marca (ver o topo de src/index.css). O `clamp` em `cqw`
-              encolhe o nome na janela estreita em vez de quebrar linha. */}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <span style={sx.eyebrow}>
+            {dataPorExtenso(now)}{quem.primeiro && temAtendidos ? ` · ${quem.parte}, ${quem.primeiro}` : ''}
+          </span>
+          {/* O `clamp` em `cqw` mede a largura do CABEÇALHO, não da janela: com o
+              menu recolhido ou aberto a janela é a mesma e o espaço do texto não. */}
           <h1 style={{
-            fontFamily: FONT_DISPLAY, fontWeight: 400, color: C.ink, margin: '2px 0 0',
-            fontSize: 'clamp(34px, 5cqw, 52px)', lineHeight: 1.06, letterSpacing: '-.01em',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {quem.primeiro ? `${quem.primeiro}.` : t('painel.tituloSemNome')}
+            fontFamily: FONT_DISPLAY, fontWeight: 500, color: C.ink, margin: '12px 0 0',
+            fontSize: 'clamp(26px, 3.6cqw, 42px)', lineHeight: 1.08, letterSpacing: '-.04em',
+            textWrap: 'balance',
+          } as React.CSSProperties}>
+            {linha1}
+            <span style={{ display: 'block', color: C.headlineDim, fontSize: editando ? '0.55em' : undefined, letterSpacing: editando ? '-.02em' : undefined, marginTop: editando ? 6 : 0 }}>
+              {linha2}
+            </span>
           </h1>
-          <div style={{ fontSize: 12.5, color: C.sub, marginTop: 6 }}>
-            {editando
-              ? t('painel.arrasteDica')
-              : dados.pendencias > 0
-                ? plural(dados.pendencias, 'painel.compromisso_1', 'painel.compromisso_n')
-                : t('painel.nadaHoje')}
-          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-          {usaPeriodo && [30, 90, 365].map((d) => (
-            <button
-              key={d}
-              className="hud-btn"
-              data-on={dias === d ? '1' : '0'}
-              onClick={() => setDias(d)}
-              style={{
-                border: '1px solid ' + (dias === d ? C.selBorder : C.fieldBorder),
-                background: dias === d ? C.sel : C.surface,
-                color: dias === d ? C.purple : C.sub,
-                padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              {d === 365 ? t('painel.dozeMeses') : t('painel.dias', { n: d })}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {usaPeriodo && (
+            <div role="group" style={{ display: 'flex', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 999, padding: 3 }}>
+              {[30, 90, 365].map((d) => (
+                <button
+                  key={d}
+                  aria-pressed={dias === d}
+                  onClick={() => setDias(d)}
+                  style={{
+                    border: 'none', borderRadius: 999,
+                    background: dias === d ? C.purpleSolid : 'transparent',
+                    color: dias === d ? C.onAccent : C.sub,
+                    padding: '5px 12px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    transition: 'background .15s ease, color .15s ease',
+                  }}
+                >
+                  {d === 365 ? t('painel.dozeMeses') : t('painel.dias', { n: d })}
+                </button>
+              ))}
+            </div>
+          )}
           {!editando && !readOnly && (
             <button
               onClick={abrirEdicao}
               className="hud-btn"
               title={t('painel.montarMeuJeito')}
               style={{
-                width: 34, height: 34, background: C.surface,
-                border: `1px solid ${C.fieldBorder}`, color: C.sub, cursor: 'pointer',
+                width: 36, height: 36, borderRadius: '50%', background: C.surface,
+                border: `1px solid ${C.line}`, color: C.sub, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -211,7 +232,7 @@ export default function Dashboard() {
           gridTemplateColumns: `repeat(${COLUNAS},1fr)`,
           gridTemplateRows: `repeat(${FAIXAS},1fr)`,
           gridAutoFlow: 'dense',
-          gap: 13,
+          gap: 16,
         }}
       >
         {widgets.map((w) => {

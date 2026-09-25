@@ -202,6 +202,29 @@ export function filaDeEspera(contacts: Contact[], limite = 8): EmEspera[] {
   return linhas.sort((a, b) => a.desde.getTime() - b.desde.getTime()).slice(0, limite)
 }
 
+/**
+ * Quantas PESSOAS foram atendidas no período — não quantas conversas.
+ *
+ * Um cliente que voltou três vezes no mês é um cliente atendido, com três
+ * conversas. É por isso que o painel mostra os dois números lado a lado: o
+ * primeiro é a manchete, o segundo explica o volume de trabalho.
+ */
+export function clientesAtendidos(conversations: ConversationRecord[]): number {
+  return new Set(conversations.map((c) => c.contactId).filter(Boolean)).size
+}
+
+/**
+ * Quem está esperando a PRIMEIRA resposta agora — o caso grave da fila — e desde
+ * quando espera o mais antigo deles.
+ *
+ * Sai da mesma `filaDeEspera` do bloco da fila, sem o corte de tamanho: o número do
+ * card e a lista ao lado não podem discordar sobre quem está esperando.
+ */
+export function aguardandoResposta(contacts: Contact[]): { total: number; desde: Date | null } {
+  const lista = filaDeEspera(contacts, Number.POSITIVE_INFINITY).filter((e) => e.semResposta)
+  return { total: lista.length, desde: lista[0]?.desde ?? null }
+}
+
 export function buildReport(args: {
   conversations: ConversationRecord[]
   contacts: Contact[]

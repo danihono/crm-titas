@@ -14,7 +14,10 @@ import {
   ganhosPorMes, leadsDoMes,
   type LeadFunnel as Funil, type Heatmap, type MesGanho, type LeadsDoMes,
 } from '../lib/dashboardData'
-import { buildReport, filaAgora, filaDeEspera, type ReportModel, type EmEspera } from '../lib/reportData'
+import {
+  buildReport, filaAgora, filaDeEspera, clientesAtendidos, aguardandoResposta,
+  type ReportModel, type EmEspera,
+} from '../lib/reportData'
 import { semanas, porSemana } from '../lib/sparkline'
 import { dateKeyOf } from '../lib/format'
 import { srcMap } from '../lib/theme'
@@ -60,6 +63,10 @@ export interface DadosPainel {
   // conversas
   heat: Heatmap
   relatorio: ReportModel | null
+  /** Pessoas diferentes atendidas no período (não conversas). */
+  clientesAtendidos: number
+  /** Quem espera a primeira resposta agora, e desde quando o mais antigo. */
+  aguardando: { total: number; desde: Date | null }
   // notas
   aReceber: number
   serieAReceber: number[]
@@ -236,6 +243,8 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   // na tela têm de vir da mesma função, senão divergem no primeiro ajuste.
   const fila = useMemo(() => filaAgora(contacts), [contacts])
   const espera = useMemo(() => filaDeEspera(contacts), [contacts])
+  const aguardando = useMemo(() => aguardandoResposta(contacts), [contacts])
+  const atendidos = useMemo(() => clientesAtendidos(conversations), [conversations])
 
   return {
     deals, pipelineTotal, ticket, leadsNovos, leadsTotal: leadCards.length,
@@ -243,7 +252,7 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
     serieNovoPipeline, serieNegocios, serieLeads, serieTarefas,
     typeMap, feed: activities.slice(0, 8), pendentes, pendingToday, nextPending: pendentes[0],
     todayEvents, proximosEventos,
-    heat, relatorio,
+    heat, relatorio, clientesAtendidos: atendidos, aguardando,
     aReceber, serieAReceber, vencidas: vencidasList.length,
     vencidoSum: vencidasList.reduce((s, iv) => s + iv.value, 0), serieVencidas, receita,
     fila, espera,

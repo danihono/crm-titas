@@ -8,6 +8,7 @@ import { useTenantStore } from '../../store/tenantStore'
 import { useMemberships } from '../../hooks/useTeam'
 import { useAuth } from '../../contexts/AuthContext'
 import { t, type Chave } from '../../i18n'
+import { dataPorExtenso } from '../../i18n/formato'
 
 /**
  * Cabeçalho por rota. Só entra onde a tela não tem um próprio:
@@ -83,7 +84,13 @@ export default function Layout() {
         )}
         <Topbar />
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: C.panel }}>
-          {header && <PageHeader title={t(header.title)} subtitle={t(header.subtitle)} />}
+          {header && (
+            <PageHeader
+              title={t(header.title)}
+              subtitle={t(header.subtitle)}
+              eyebrow={pathname === '/agenda' ? dataPorExtenso(new Date()) : undefined}
+            />
+          )}
           <Outlet />
         </div>
       </main>

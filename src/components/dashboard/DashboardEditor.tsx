@@ -128,9 +128,9 @@ export default function DashboardEditor({
           onClick={onSalvar}
           disabled={salvando}
           style={{
-            display: 'flex', alignItems: 'center', gap: 7, background: 'var(--c-purple-grad)',
-            border: '1px solid rgba(200,160,230,0.3)', borderRadius: 11, padding: '8px 16px',
-            color: C.onAccent, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: salvando ? 0.6 : 1,
+            display: 'flex', alignItems: 'center', gap: 7, background: C.purpleSolid,
+            border: '1px solid transparent', borderRadius: 11, padding: '8px 16px',
+            color: C.onAccent, fontSize: 13, fontWeight: 500, cursor: 'pointer', opacity: salvando ? 0.6 : 1,
           }}
         >
           <MaterialIcon name="check" size={17} /> {t(salvando ? 'comum.salvando' : 'editor.salvar')}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import { t } from '../../i18n'
-import { FONT_DISPLAY } from '../../styles/sx'
+import { FONT_BRAND } from '../../styles/sx'
 
 /** Moldura comum das telas SUPER TITAN — fundo escuro + header com logo e logout. */
 export default function SuperShell({ title, back, children }: { title?: string; back?: boolean; children: ReactNode }) {
@@ -28,12 +28,12 @@ export default function SuperShell({ title, back, children }: { title?: string; 
         )}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-[11px] grid place-items-center" style={{ background: 'linear-gradient(150deg,#9a6fb8,#5a3a7e)', boxShadow: '0 6px 18px rgba(120,70,160,0.4)' }}>
-            <span style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 400, color: '#fff', lineHeight: 1, transform: 'translateY(2px)' }}>T</span>
+            <span style={{ fontFamily: FONT_BRAND, fontSize: 24, fontWeight: 400, color: '#fff', lineHeight: 1, transform: 'translateY(2px)' }}>T</span>
           </div>
           <div className="leading-none">
             {/* lineHeight folgado: o til do Ã não cabe num lineHeight: 1 (o pai é
                 .leading-none). */}
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, fontWeight: 400, letterSpacing: '.16em', color: '#f3eef6', lineHeight: 1.25 }}>TITÃS</div>
+            <div style={{ fontFamily: FONT_BRAND, fontSize: 20, fontWeight: 400, letterSpacing: '.16em', color: '#f3eef6', lineHeight: 1.25 }}>TITÃS</div>
             <div className="text-[9px] tracking-[.34em] text-[#9a6fb8] font-bold mt-[3px]">S U P E R&nbsp;&nbsp;T I T A N</div>
           </div>
         </div>

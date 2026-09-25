@@ -59,7 +59,7 @@ export default function Agenda() {
               >
                 <div style={{
                   fontSize: 13, fontWeight: 700, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
-                  ...(c.isToday ? { background: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)', color: '#fff' } : { color: c.inMonth ? C.ink : C.faint }),
+                  ...(c.isToday ? { background: 'var(--c-purple-solid)', color: '#fff' } : { color: c.inMonth ? C.ink : C.faint }),
                 }}>{c.day}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
                   {evs.map((e) => (

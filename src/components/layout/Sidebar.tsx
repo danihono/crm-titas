@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { navDefs, navSoGestor, settingsNav } from '../../lib/theme'
 import { t } from '../../i18n'
 import { useTenantStore, canManage } from '../../store/tenantStore'
-import { C, FONT_DISPLAY } from '../../styles/sx'
+import { C, FONT_BRAND } from '../../styles/sx'
 import { useUIStore } from '../../store/uiStore'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSelfProfile } from '../../hooks/useProfile'
@@ -41,30 +41,31 @@ export default function Sidebar() {
   return (
     <aside
       style={{
-        width: collapsed ? 76 : 248,
+        width: collapsed ? 72 : 232,
         flexShrink: 0,
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        // A mesma cor da página: o menu não é uma faixa, é a margem da tela.
         background: C.darkA,
         borderRight: `1px solid ${C.chromeHairline}`,
-        padding: '20px 14px 18px',
+        padding: '18px 14px 16px',
         transition: 'width .22s ease',
       }}
     >
       {/* Marca + recolher. O botão de recolher morava no topo da tela; aqui ele fica
           junto do que recolhe, que é onde a interface de referência o coloca. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 2px 22px', justifyContent: collapsed ? 'center' : undefined }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '2px 2px 20px', justifyContent: collapsed ? 'center' : undefined }}>
+        {/* Monograma num círculo de tinta: a marca, sem brilho nem degradê. */}
         <div
           style={{
             width: 38,
             height: 38,
-            borderRadius: 11,
-            background: 'linear-gradient(150deg,#9a6fb8,#5a3a7e)',
+            borderRadius: '50%',
+            background: C.inverse,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 6px 18px rgba(120,70,160,0.4)',
             flexShrink: 0,
           }}
         >
@@ -72,15 +73,15 @@ export default function Sidebar() {
               lineHeight: 1 a caixa reserva a descida (que o T não usa), então a
               letra sobe ~9% do corpo dentro do quadrado. O translateY devolve
               essa diferença — medida, não chutada: 0.09 × fontSize. */}
-          <span style={{ fontFamily: FONT_DISPLAY, fontSize: 25, fontWeight: 400, color: '#fff', lineHeight: 1, transform: 'translateY(3px)' }}>T</span>
+          <span style={{ fontFamily: FONT_BRAND, fontSize: 23, fontWeight: 400, color: C.onInverse, lineHeight: 1, transform: 'translateY(2px)' }}>T</span>
         </div>
         {expanded && (
           <>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* lineHeight folgado porque o til do Ã sobe acima da capitular na
                   Maharlika e um lineHeight: 1 o cortaria. */}
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 400, fontSize: 21, letterSpacing: '.12em', lineHeight: 1.25, color: C.chromeInk }}>TITÃS</div>
-              <div style={{ fontSize: 9, letterSpacing: '.42em', color: C.chromeLabel, marginTop: 3, fontWeight: 600 }}>C R M</div>
+              <div style={{ fontFamily: FONT_BRAND, fontWeight: 400, fontSize: 19, letterSpacing: '.12em', lineHeight: 1.25, color: C.chromeInk }}>TITÃS</div>
+              <div style={{ fontSize: 8.5, letterSpacing: '.42em', color: C.chromeLabel, marginTop: 2, fontWeight: 600 }}>C R M</div>
             </div>
             <button onClick={toggleSidebar} title={t('sidebar.recolher')} style={iconBtn}>
               <MaterialIcon name="left_panel_close" size={19} />
@@ -94,18 +95,21 @@ export default function Sidebar() {
         </button>
       )}
 
-      <nav style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Recolhido, a lista NÃO rola: overflow diferente de visible cortaria o balão
+          com o nome do item, que sai para fora do menu. Onze ícones cabem em
+          qualquer altura de tela de trabalho. */}
+      <nav style={{ flex: 1, minHeight: 0, overflowY: collapsed ? 'visible' : 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
         {itens.map((d, i) => {
           const abreGrupo = d.group && d.group !== itens[i - 1]?.group
           return (
             <div key={d.id}>
               {abreGrupo && expanded && (
-                <div style={{ fontSize: 9.5, letterSpacing: '.16em', color: C.chromeLabel, fontWeight: 700, padding: '14px 12px 7px' }}>
+                <div style={{ fontSize: 10, letterSpacing: '.12em', color: C.chromeLabel, fontWeight: 600, padding: '16px 13px 6px', textTransform: 'uppercase' }}>
                   {t(d.group)}
                 </div>
               )}
               {abreGrupo && collapsed && (
-                <div style={{ height: 1, background: C.chromeHairline, margin: '9px 8px' }} />
+                <div style={{ height: 1, background: C.chromeHairline, margin: '9px 14px' }} />
               )}
               <NavLink to={d.path} end={d.path === '/'} style={{ textDecoration: 'none', display: 'block' }}>
                 {({ isActive }) => (
@@ -148,7 +152,7 @@ export default function Sidebar() {
           photoUrl={profile.photoUrl || undefined}
           initials={initialsOf(name) || '?'}
           size={34}
-          bg="#6f4d92"
+          bg={C.purpleSolid}
           fontSize={12.5}
         />
         {expanded && (
@@ -168,7 +172,7 @@ const iconBtn: React.CSSProperties = {
   width: 30,
   height: 30,
   flexShrink: 0,
-  borderRadius: 9,
+  borderRadius: '50%',
   background: 'transparent',
   border: 'none',
   color: C.chromeDim,
@@ -179,9 +183,9 @@ const iconBtn: React.CSSProperties = {
 }
 
 /**
- * Item do menu. Selecionado = pílula roxa clara com barra à esquerda — o mesmo
- * padrão de "selecionado" que vale no sistema inteiro. Antes era um anel roxo
- * giratório que deslizava atrás do item.
+ * Item do menu. Selecionado = pílula roxa cheia com ícone e texto brancos.
+ * Recolhido, o nome aparece num balão ao passar o mouse (.nav-tip em
+ * src/index.css) em vez do `title` do navegador, que demora e é cinza.
  */
 function NavItem({ icon, label, active, collapsed, badge, onClick }: {
   icon: string
@@ -194,35 +198,36 @@ function NavItem({ icon, label, active, collapsed, badge, onClick }: {
   return (
     <button
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      className={collapsed ? 'nav-tip' : undefined}
+      data-tip={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
       style={{
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        gap: collapsed ? 0 : 12,
+        gap: collapsed ? 0 : 11,
         justifyContent: collapsed ? 'center' : undefined,
-        width: '100%',
-        padding: collapsed ? '11px 0' : '10px 13px',
+        width: collapsed ? 42 : '100%',
+        height: collapsed ? 42 : undefined,
+        margin: collapsed ? '0 auto' : undefined,
+        padding: collapsed ? 0 : '9px 13px',
         border: 'none',
-        borderRadius: 12,
+        borderRadius: 999,
         cursor: 'pointer',
         fontSize: 13.5,
-        fontWeight: active ? 600 : 500,
+        fontWeight: 500,
         color: active ? C.chromeSelInk : C.chromeDim,
         background: active ? C.chromeSel : 'transparent',
         transition: 'background .16s ease, color .16s ease',
       }}
       onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+        if (!active) { e.currentTarget.style.background = 'var(--c-chrome-hover)'; e.currentTarget.style.color = 'var(--c-chrome-ink)' }
       }}
       onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = 'transparent'
+        if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--c-chrome-dim)' }
       }}
     >
-      {active && (
-        <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 18, borderRadius: 3, background: C.chromeSelBar }} />
-      )}
-      <MaterialIcon name={icon} size={20} style={{ fontVariationSettings: "'wght' 300" } as React.CSSProperties} />
+      <MaterialIcon name={icon} size={20} style={{ fontVariationSettings: active ? "'wght' 400" : "'wght' 300" } as React.CSSProperties} />
       {!collapsed && <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>}
       {badge > 0 && (
         <span
@@ -231,14 +236,14 @@ function NavItem({ icon, label, active, collapsed, badge, onClick }: {
             height: 18,
             padding: '0 5px',
             borderRadius: 999,
-            background: 'var(--c-wa-green)',
-            color: '#08210f',
+            background: active ? 'rgba(255,255,255,0.22)' : 'var(--c-wa-green)',
+            color: active ? '#fff' : '#08210f',
             fontSize: 10.5,
             fontWeight: 800,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            ...(collapsed ? { position: 'absolute', top: 4, right: 10 } : null),
+            ...(collapsed ? { position: 'absolute', top: -2, right: -4, border: '2px solid var(--c-page)' } : null),
           }}
         >
           {badge > 99 ? '99+' : badge}
