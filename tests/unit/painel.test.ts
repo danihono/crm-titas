@@ -324,6 +324,11 @@ describe('painel de fábrica', () => {
     }
   })
 
+  it('o funil do padrão fica em pé: duas faixas ou mais', () => {
+    const funil = layoutPadrao().widgets.find((w) => w.type === 'funil')
+    expect(funil?.rows).toBeGreaterThanOrEqual(2)
+  })
+
   it('o funil de uma faixa sobrevive à leitura do Firestore', () => {
     const lido = layoutFromDoc({ widgets: [{ id: 'funil', type: 'funil', cols: 4, rows: 1 }] })
     expect(lido?.widgets[0]).toMatchObject({ cols: 4, rows: 1 })

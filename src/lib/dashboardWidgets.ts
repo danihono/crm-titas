@@ -97,10 +97,12 @@ export function widgetDef(type: string): WidgetDef | undefined {
  *
  * O CRM é sobre o cliente, então o painel abre pelo atendimento, e com POUCOS
  * blocos grandes. A ordem é o que o `grid-auto-flow: dense` empacota:
- *   faixas 1–2 · clientes atendidos (2×2, o card roxo)
- *   faixa 1     · esperando resposta 2 + tempo de 1ª resposta 2
- *   faixa 2     · quem atender primeiro 4
- *   faixa 3     · funil deitado 4 + próximos compromissos 2
+ *   faixas 1–2 · clientes atendidos (2×2, o card roxo) · esperando resposta e
+ *                 tempo de 1ª resposta empilhados (1×1 cada) · funil em pé (3×2)
+ *   faixa 3     · quem atender primeiro 4 + próximos compromissos 2
+ *
+ * O funil é o maior bloco da tela de propósito: com duas faixas de altura ele
+ * fica em pé, e é o único gráfico que mostra o caminho inteiro do cliente.
  *
  * Os blocos de negócio e de faturamento continuam no catálogo, a um clique em
  * "Adicionar bloco". Quem já tinha personalizado o painel não é afetado: este
@@ -114,10 +116,10 @@ export function layoutPadrao(): DashboardLayout {
   return {
     widgets: [
       w('atendidos'),
-      w('aguardando', { accent: 'rose' }),
-      w('primeiraResposta', { accent: 'green' }),
+      w('aguardando', { accent: 'rose', cols: 1 }),
+      w('funil', { cols: 3, rows: 2 }),
+      w('primeiraResposta', { accent: 'green', cols: 1 }),
       w('filaEspera', { cols: 4 }),
-      w('funil', { cols: 4, rows: 1 }),
       w('proximosCompromissos'),
     ],
   }

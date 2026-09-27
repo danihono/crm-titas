@@ -77,13 +77,15 @@ export default function StatCard({
 
   return (
     <div className="stat-card widget" style={shell}>
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
         <span
           title={label}
           style={{
             fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', color: dim,
-            textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden',
-            textOverflow: 'ellipsis', minWidth: 0,
+            // Quebra em até duas linhas em vez de cortar: no card de uma coluna
+            // "ESPERANDO RESPOSTA" não cabe numa linha só.
+            textTransform: 'uppercase', overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minWidth: 0,
             // Sem folga vertical o `overflow:hidden` come o acento das
             // maiúsculas — "NEGÓCIOS" virava "NEGOCIOS".
             lineHeight: 1.6,
@@ -113,7 +115,7 @@ export default function StatCard({
       </div>
 
       {sub && (
-        <div style={{ fontSize: 11, color: dim, marginTop: 4, lineHeight: 1.35, minHeight: 30, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sub}</div>
+        <div style={{ fontSize: 11, color: dim, marginTop: 4, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sub}</div>
       )}
 
       {extra}
@@ -136,7 +138,7 @@ export default function StatCard({
         <button
           onClick={onLink}
           style={{
-            marginTop: mostraGrafico ? 6 : 'auto',
+            marginTop: 'auto',
             paddingTop: 8,
             display: 'flex',
             alignItems: 'center',

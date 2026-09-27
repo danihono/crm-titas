@@ -102,6 +102,13 @@ export default function LeadFunnel({ dados, deitado }: {
             const wNext = i < stages.length - 1 ? largura(stages[i + 1].count) : w * 0.7
             const on = hover === i
             const cor = corDaEtapa(i, stages.length, dark)
+            // Silhueta de fundo: o funil inteiro, fixo, num tom quase apagado. Não é
+            // dado — é o molde. Sem ela, um funil com etapas vazias vira um triângulo
+            // solto no topo do card e parece gráfico quebrado; com ela, a etapa vazia
+            // continua lá, visivelmente sem ninguém.
+            const molde = (k: number) => 100 - (k / Math.max(1, stages.length)) * 64
+            const m1 = molde(i)
+            const m2 = molde(i + 1)
             // "Avançaram" é a conversão de QUEM CHEGOU à etapa anterior — por isso a
             // linha mostra a conversão da etapa de cima, e a primeira não mostra nada.
             const veio = i > 0 ? stages[i - 1].conv : null
@@ -110,11 +117,11 @@ export default function LeadFunnel({ dados, deitado }: {
                 key={s.id}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
-                style={{ position: 'relative', flex: 1, minHeight: 22, maxHeight: 48, display: 'flex', alignItems: 'center', cursor: 'default' }}
+                style={{ position: 'relative', flex: 1, minHeight: 22, maxHeight: 72, display: 'flex', alignItems: 'center', cursor: 'default' }}
               >
                 {/* O rótulo fica FORA da fatia: no fim do funil ela é estreita demais para texto. */}
                 <div className="funil-etapa" style={{ width: 132, flexShrink: 0, paddingRight: 14, textAlign: 'right' }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? C.ink : C.sub, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: on ? C.ink : C.sub, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {tituloEtapaLeads(s.id, s.label)}
                   </div>
                 </div>
@@ -132,6 +139,10 @@ export default function LeadFunnel({ dados, deitado }: {
                     }}
                   >
                     <polygon
+                      points={`${50 - m1 / 2},0 ${50 + m1 / 2},0 ${50 + m2 / 2},10 ${50 - m2 / 2},10`}
+                      fill="var(--c-tint-purple-weak)"
+                    />
+                    <polygon
                       points={`${50 - w / 2},0 ${50 + w / 2},0 ${50 + wNext / 2},10 ${50 - wNext / 2},10`}
                       fill={cor}
                     />
@@ -139,11 +150,11 @@ export default function LeadFunnel({ dados, deitado }: {
                 </div>
 
                 <div className="funil-num" style={{ width: 104, flexShrink: 0, paddingLeft: 14 }}>
-                  <div className="num" style={{ fontSize: 15, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>
+                  <div className="num" style={{ fontSize: 20, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>
                     {s.count}
                   </div>
                   {veio !== null && (
-                    <div className="funil-tempo" style={{ fontSize: 10.5, color: C.muted, whiteSpace: 'nowrap', marginTop: 1 }}>
+                    <div className="funil-tempo" style={{ fontSize: 11, color: C.muted, whiteSpace: 'nowrap', marginTop: 2 }}>
                       {t('funil.avancaram', { p: veio.toFixed(veio > 0 && veio < 10 ? 1 : 0) })}
                     </div>
                   )}
