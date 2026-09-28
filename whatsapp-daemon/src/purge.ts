@@ -2,7 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
-import { evictContactCache } from './messages.js'
+import { evictContactCache, groupPurgeKey } from './messages.js'
 import { purgeConversationData } from './conversation.js'
 import { setPurgeMarker } from './purgeMarkers.js'
 
@@ -100,7 +100,9 @@ export async function purgeContact(uid: string, contactId: string, keepContact: 
   // WhatsApp vinculado não tem o que marcar — o expurgo segue só para dados locais.
   const digits = String(snap.get('whatsappDigits') ?? '').replace(/\D/g, '')
   const waJid = typeof snap.get('waJid') === 'string' ? (snap.get('waJid') as string) : ''
-  const digitsKey = digits || (waJid.endsWith('@lid') ? `lid:${waJid.split('@')[0]}` : '')
+  const digitsKey =
+    digits ||
+    (waJid.endsWith('@lid') ? `lid:${waJid.split('@')[0]}` : waJid.endsWith('@g.us') ? groupPurgeKey(waJid) : '')
   if (digitsKey) await setPurgeMarker(uid, digitsKey, contactId)
   evictContactCache(uid, contactId)
   // O atendimento (estado + historico de ciclos) some junto: quem atendeu, quando e com

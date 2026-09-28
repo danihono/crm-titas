@@ -19,7 +19,7 @@ export type WidgetVariant = 'surface' | 'featured'
 export type ActivityStatus = 'pendente' | 'atrasada' | 'concluida'
 export type InvoiceStatus = 'Paga' | 'Pendente' | 'Vencida'
 export type AgentRole = 'agent' | 'user'
-export type ContactNameSource = 'phone' | 'profile' | 'agenda' | 'manual'
+export type ContactNameSource = 'phone' | 'profile' | 'agenda' | 'manual' | 'group'
 export type HistoryImportStatus = 'loading' | 'done' | 'error'
 /** Origem da foto do contato: migrada do WhatsApp, enviada à mão, ou removida pelo usuário. */
 export type PhotoSource = 'whatsapp' | 'manual' | 'removed'
@@ -286,6 +286,8 @@ export interface Contact {
   source?: string
   /** Origem do nome exibido no contato. */
   nameSource?: ContactNameSource
+  /** true quando o "contato" é um grupo do WhatsApp (sem telefone; envio vai para o grupo). */
+  isGroup?: boolean
   /** URL da foto do contato (migrada do WhatsApp ou enviada à mão). Vazio = usa iniciais. */
   photoUrl?: string
   /** Caminho da foto no Storage (para remover/substituir). */
@@ -313,6 +315,8 @@ export interface Message {
   fromMe: boolean
   text: string
   sentAt: Date
+  /** Em grupo: nome de quem mandou a mensagem recebida. */
+  senderName?: string
   mediaType?: 'image' | 'video' | 'audio' | 'document' | 'sticker'
   mediaUrl?: string
   mediaPath?: string

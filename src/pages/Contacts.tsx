@@ -312,6 +312,9 @@ function Atendimento() {
           )}
           <div style={{ display: 'flex', justifyContent: m.fromMe ? 'flex-end' : 'flex-start' }}>
             <div style={m.fromMe ? BOLHA_MINHA : BOLHA_DELE}>
+              {!m.fromMe && m.senderName && (
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: C.purple, marginBottom: 2 }}>{m.senderName}</div>
+              )}
               <MessageBody message={m} />
               <div style={{ ...RODAPE_BOLHA, color: m.fromMe ? 'rgba(240,230,250,0.7)' : C.faint }}>
                 {timeHHMM(m.sentAt)}{m.fromMe && <MaterialIcon name="done_all" size={14} color="#cdb6e6" />}
@@ -849,6 +852,7 @@ function Atendimento() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                        {c.isGroup && <MaterialIcon name="groups" size={15} color={C.sub} />}
                         <span style={{ fontSize: 13.5, fontWeight: unread ? 800 : 600, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
                         {scheduled && (
                           <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 800, color: C.amberDeep, background: C.tintAmber, border: '1px solid rgba(216,169,96,0.28)', borderRadius: 999, padding: '2px 6px' }}>
@@ -910,6 +914,7 @@ function Atendimento() {
               <Avatar photoUrl={active.photoUrl} initials={active.initials} size={40} bg={avPalette[activeIdx % avPalette.length]} fontSize={13} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {active.isGroup && <MaterialIcon name="groups" size={17} color={C.sub} />}
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{active.name}</div>
                   {activeSchedule && (
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(216,169,96,0.16)', border: '1px solid rgba(216,169,96,0.32)', borderRadius: 999, padding: '3px 5px 3px 9px' }}>
@@ -929,7 +934,7 @@ function Atendimento() {
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: 11.5, color: C.muted }}>{active.role} · {active.company}</div>
+                <div style={{ fontSize: 11.5, color: C.muted }}>{active.isGroup ? t('contatos.grupoWhatsapp') : `${active.role} · ${active.company}`}</div>
               </div>
             </div>
 
@@ -976,7 +981,7 @@ function Atendimento() {
                     style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ alignSelf: 'center', fontSize: 10.5, color: C.sub, background: C.tintNeutral, borderRadius: 20, padding: '4px 12px', marginBottom: 4 }}>{t('contatos.conversa')}</div>
-                    {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                    {waEnabled && wa.status === 'connected' && (active.whatsapp || active.isGroup) && (
                       <HistoryBar
                         status={active.historyImport?.status}
                         imported={active.historyImport?.imported}
@@ -1102,7 +1107,7 @@ function Atendimento() {
                         <div style={{ display: 'flex', gap: 5 }}>
                           <PhotoAction icon="photo_camera" title={t(active.photoUrl ? 'perfil.trocarFoto' : 'perfil.adicionarFoto')} onClick={() => photoInput.current?.click()} disabled={photoBusy} />
                           {active.photoUrl && <PhotoAction icon="delete" title={t('perfil.removerFoto')} onClick={handleRemovePhoto} disabled={photoBusy} rose />}
-                          {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                          {waEnabled && wa.status === 'connected' && (active.whatsapp || active.isGroup) && (
                             <PhotoAction icon="sync" title={t('contatos.puxarFotoWa')} onClick={handleRefreshPhoto} disabled={photoBusy} busy={photoBusy} green />
                           )}
                         </div>
@@ -1111,7 +1116,7 @@ function Atendimento() {
                     </div>
                     <div style={{ flex: 1, marginTop: 4 }}>
                       <div style={{ fontSize: 19, fontWeight: 800, color: C.ink }}>{active.name}</div>
-                      <div style={{ fontSize: 13, color: C.sub }}>{active.role} · {active.company}</div>
+                      <div style={{ fontSize: 13, color: C.sub }}>{active.isGroup ? t('contatos.grupoWhatsapp') : `${active.role} · ${active.company}`}</div>
                     </div>
                     {!readOnly && (
                       <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start' }}>
@@ -1133,12 +1138,18 @@ function Atendimento() {
                       </div>
                     )}
                   </div>
-                  <InfoRow icon="mail" color={C.purple} bg="rgba(150,110,200,0.12)" label={t('comum.email')} value={active.email} />
-                  <InfoRow icon="call" color={C.blue} bg="rgba(111,155,207,0.16)" label={t('comum.telefone')} value={active.phone} />
-                  <InfoRow icon="chat" color={C.greenDeep} bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
-                  <InfoRow icon="business" color={C.amber} bg="rgba(216,169,96,0.18)" label={t('comum.empresa')} value={active.company} />
+                  {active.isGroup ? (
+                    <InfoRow icon="groups" color={C.greenDeep} bg="rgba(52,199,89,0.14)" label="WhatsApp" value={t('contatos.grupoWhatsapp')} />
+                  ) : (
+                    <>
+                      <InfoRow icon="mail" color={C.purple} bg="rgba(150,110,200,0.12)" label={t('comum.email')} value={active.email} />
+                      <InfoRow icon="call" color={C.blue} bg="rgba(111,155,207,0.16)" label={t('comum.telefone')} value={active.phone} />
+                      <InfoRow icon="chat" color={C.greenDeep} bg="rgba(52,199,89,0.14)" label="WhatsApp" value={active.whatsapp} />
+                      <InfoRow icon="business" color={C.amber} bg="rgba(216,169,96,0.18)" label={t('comum.empresa')} value={active.company} />
+                    </>
+                  )}
                   <CustomFieldsCard contact={active} fields={customFields} canEdit={!readOnly} />
-                  {waEnabled && wa.status === 'connected' && active.whatsapp && (
+                  {waEnabled && wa.status === 'connected' && (active.whatsapp || active.isGroup) && (
                     <div style={{ marginTop: 18 }}>
                       <HistoryBar
                         status={active.historyImport?.status}

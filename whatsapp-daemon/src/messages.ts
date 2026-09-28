@@ -39,6 +39,8 @@ export type MediaDownloadContext = {
   fetchProfilePhoto?: ProfilePhotoFetcher
   /** Traduz `@lid` → JID de telefone. Sem ele, conversa migrada para LID vira contato novo. */
   resolveLidToPhone?: LidResolver
+  /** Assunto (nome) de um grupo `@g.us`. Sem ele, o grupo nasce com o nome genérico. */
+  fetchGroupSubject?: (groupJid: string) => Promise<string | null>
 }
 
 type MediaMessageKey = 'imageMessage' | 'videoMessage' | 'audioMessage' | 'documentMessage' | 'stickerMessage'
@@ -270,18 +272,21 @@ interface Peer {
    * LID↔telefone não estiver disponível numa reconexão futura.
    */
   lid: string | null
+  /** true quando a conversa é um grupo (`@g.us`): `jid` é o do grupo, sem telefone. */
+  group: boolean
 }
 
 /**
- * Resolve o interlocutor a partir da key. Filtra grupos/broadcast/newsletter/status
- * (DM-only no v1). Atenção ao LID do v7: o número pode estar em `remoteJidAlt`,
- * não em `remoteJid`.
+ * Resolve o interlocutor a partir da key. Filtra broadcast/newsletter/status. Grupo vira
+ * um "contato" próprio (o JID do grupo); quem mandou cada mensagem fica na própria
+ * mensagem. Atenção ao LID do v7: o número pode estar em `remoteJidAlt`, não em `remoteJid`.
  */
 function resolvePeer(key: WAMessageKey): Peer | null {
   const remote = key.remoteJid ?? ''
   if (!remote) return null
-  if (isJidGroup(remote) || isJidBroadcast(remote) || isJidNewsletter(remote)) return null
+  if (isJidBroadcast(remote) || isJidNewsletter(remote)) return null
   if (remote === 'status@broadcast') return null
+  if (isJidGroup(remote)) return { jid: remote, phone: null, lid: null, group: true }
 
   const remoteAlt = (key as { remoteJidAlt?: string }).remoteJidAlt
   const candidates = [remote, remoteAlt].filter(Boolean) as string[]
@@ -289,12 +294,28 @@ function resolvePeer(key: WAMessageKey): Peer | null {
   const jid = jidNormalizedUser(pnJid ?? remote)
   const phone = pnJid ? jid.split('@')[0].replace(/\D/g, '') : null
   const lid = candidates.find((j) => j.endsWith('@lid')) ?? null
-  return { jid, phone, lid }
+  return { jid, phone, lid, group: false }
 }
 
 /** Chave do marcador de expurgo derivada de um JID `@lid`. */
 function lidPurgeKey(lidJid: string): string {
   return `lid:${lidJid.split('@')[0]}`
+}
+
+/** Chave de cache/expurgo de um grupo — mesmo esquema de `lid:`, com prefixo próprio. */
+export function groupPurgeKey(groupJid: string): string {
+  return `grp:${groupJid.split('@')[0]}`
+}
+
+/** Id determinístico do contato de um grupo (`grp_<id>`), no molde de `wa_`/`lid_`. */
+export function groupContactId(groupJid: string): string {
+  return `grp_${sanitizeId(groupJid.split('@')[0])}`
+}
+
+/** Chave principal do interlocutor: dígitos, `grp:<id>` ou `lid:<id>`. */
+function peerKey(peer: Peer): string {
+  if (peer.group) return groupPurgeKey(peer.jid)
+  return peer.phone ?? lidPurgeKey(peer.jid)
 }
 
 /**
@@ -303,7 +324,7 @@ function lidPurgeKey(lidJid: string): string {
  * precisam ser consultadas enquanto houver conversas de antes da migração.
  */
 function purgeKeysOf(peer: Peer): string[] {
-  const keys = [peer.phone ?? lidPurgeKey(peer.jid)]
+  const keys = [peerKey(peer)]
   if (peer.phone && peer.lid) keys.push(lidPurgeKey(peer.lid))
   return keys
 }
@@ -349,7 +370,7 @@ async function enrichPeerWithLid(peer: Peer, ctx?: MediaDownloadContext): Promis
     lidMisses.delete(peer.lid)
     logger.debug({ lid: peer.lid, resolved: true }, 'LID resolvido para telefone')
   }
-  return { jid, phone, lid: peer.lid }
+  return { jid, phone, lid: peer.lid, group: false }
 }
 
 interface Extracted {
@@ -504,6 +525,107 @@ async function healGhostContact(
   logger.info({ contactId: snap.id }, 'contato fantasma curado (sem createdAt)')
 }
 
+const GROUP_FALLBACK_NAME = 'Grupo WhatsApp'
+
+/** Campos de um grupo auto-criado — o molde de `autoContactDefaults`, sem telefone. */
+function groupContactDefaults(peer: Peer, subject?: string | null): Record<string, unknown> {
+  const name = subject?.trim() || GROUP_FALLBACK_NAME
+  return {
+    name,
+    company: '—',
+    initials: initialsOf(name) || '?',
+    online: false,
+    role: '—',
+    email: '',
+    phone: '',
+    whatsapp: '',
+    whatsappDigits: '',
+    waJid: peer.jid,
+    isGroup: true,
+    status: 'Grupo',
+    nameSource: 'group',
+    source: 'whatsapp', // expurgo LGPD em uma operação, como os demais auto-criados
+    lastMessage: '',
+    createdAt: FieldValue.serverTimestamp(),
+  }
+}
+
+/**
+ * Resolve (ou auto-cria) o contato de um grupo. Grupo não tem telefone nem agenda: a única
+ * identidade é o JID `@g.us`, então basta o `waJid` e o id determinístico `grp_<id>`.
+ */
+async function resolveGroupContact(uid: string, peer: Peer, ctx?: MediaDownloadContext): Promise<string> {
+  const contactsCol = db.collection('users').doc(uid).collection('contacts')
+  const cacheKey = `${uid}:${groupPurgeKey(peer.jid)}`
+  const detId = groupContactId(peer.jid)
+
+  const cached = contactCache.get(cacheKey)
+  if (cached) {
+    const snap = await contactsCol.doc(cached).get()
+    if (snap.exists) return cached
+    contactCache.delete(cacheKey)
+  }
+
+  const byJid = await contactsCol.where('waJid', '==', peer.jid).limit(1).get()
+  const existing = byJid.docs[0] ?? (await contactsCol.doc(detId).get())
+  if (existing.exists) {
+    if (existing.get('createdAt') === undefined) {
+      // Doc fantasma (merge parcial sem createdAt) sumiria da lista — completa os campos.
+      const defaults = groupContactDefaults(peer, await ctx?.fetchGroupSubject?.(peer.jid).catch(() => null))
+      const patch: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(defaults)) if (existing.get(k) === undefined) patch[k] = v
+      await contactsCol.doc(existing.id).set(patch, { merge: true })
+    }
+    contactCache.set(cacheKey, existing.id)
+    return existing.id
+  }
+
+  const subject = await ctx?.fetchGroupSubject?.(peer.jid).catch(() => null)
+  await contactsCol.doc(detId).set(groupContactDefaults(peer, subject), { merge: true })
+  contactCache.set(cacheKey, detId)
+  if (ctx?.fetchProfilePhoto) {
+    void fetchAndStoreContactPhoto(uid, detId, peer.jid, ctx.fetchProfilePhoto).catch(() => {})
+  }
+  return detId
+}
+
+/** Atualiza o nome do contato de um grupo renomeado (evento `groups.update`). */
+export async function renameGroupContact(uid: string, groupJid: string, subject: string): Promise<void> {
+  const name = subject.trim()
+  if (!name) return
+  const ref = db.collection('users').doc(uid).collection('contacts').doc(groupContactId(groupJid))
+  const snap = await ref.get()
+  if (!snap.exists || snap.get('isGroup') !== true) return
+  if (snap.get('name') === name) return
+  await ref.set({ name, initials: initialsOf(name) || '?' }, { merge: true })
+}
+
+/**
+ * Nome de quem mandou uma mensagem no grupo: nome de perfil, senão o da agenda do
+ * usuário, senão o número. Vazio quando nem o participante é conhecido.
+ */
+async function groupSenderName(uid: string, m: WAMessage, ctx?: MediaDownloadContext): Promise<string> {
+  const pushName = m.pushName?.trim()
+  if (pushName) return pushName
+  const key = m.key as WAMessageKey & { participantAlt?: string }
+  const candidates = [key.participant, key.participantAlt].filter(Boolean) as string[]
+  let pnJid = candidates.find((j) => j.endsWith('@s.whatsapp.net'))
+  const lid = candidates.find((j) => j.endsWith('@lid'))
+  if (!pnJid && lid && ctx?.resolveLidToPhone) {
+    const resolved = await ctx.resolveLidToPhone(lid).catch(() => null)
+    if (resolved?.endsWith('@s.whatsapp.net')) pnJid = resolved
+  }
+  if (!pnJid) return ''
+  const phone = jidNormalizedUser(pnJid).split('@')[0].replace(/\D/g, '')
+  if (!phone) return ''
+  return (await agendaNameFor(uid, phone)) || `+${phone}`
+}
+
+/** Preview da lista para mensagem recebida em grupo: "Fulano: texto". */
+export function groupPreview(senderName: string, text: string): string {
+  return senderName ? `${senderName}: ${text}` : text
+}
+
 /**
  * Resolve (ou auto-cria) o contato do interlocutor sob users/{uid}/contacts.
  * - match por whatsapp==phone em contato existente (cadastrado à mão);
@@ -519,7 +641,7 @@ async function resolveContact(
 ): Promise<string> {
   const contactsCol = db.collection('users').doc(uid).collection('contacts')
 
-  const digitsKey = peer.phone ?? lidPurgeKey(peer.jid)
+  const digitsKey = peerKey(peer)
   const cacheKey = `${uid}:${digitsKey}`
   const detId = peer.phone ? `wa_${peer.phone}` : `lid_${peer.jid.split('@')[0]}`
   const cached = contactCache.get(cacheKey)
@@ -807,7 +929,12 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     }
   }
 
-  const contactId = await resolveContact(uid, peer, m.pushName, !!m.key.fromMe, mediaCtx?.fetchProfilePhoto)
+  const contactId = peer.group
+    ? await resolveGroupContact(uid, peer, mediaCtx)
+    : await resolveContact(uid, peer, m.pushName, !!m.key.fromMe, mediaCtx?.fetchProfilePhoto)
+  // Em grupo, quem mandou fica na mensagem — o "contato" é o grupo inteiro.
+  const senderName = peer.group && !m.key.fromMe ? await groupSenderName(uid, m, mediaCtx) : ''
+  const previewText = peer.group && !m.key.fromMe ? groupPreview(senderName, content.text) : content.text
   // Recolhe a duplicata que a conversa tenha deixado enquanto o LID não resolvia. Antes de
   // gravar a mensagem, para o preview do contato já sair correto logo abaixo.
   await mergeLegacyLidContact(uid, peer, contactId)
@@ -834,6 +961,8 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
       channel: 'whatsapp', // marca origem → permite expurgo seletivo mesmo em contato manual
       waMessageId: m.key.id, // id cru da WA (o doc-id é sanitizado) → âncora exata p/ histórico on-demand
       ...(opts?.importedFromHistory ? { importedFromHistory: true } : {}),
+      ...(senderName ? { senderName } : {}),
+      ...(peer.group && m.key.participant ? { waParticipant: m.key.participant } : {}),
       ...(content.pending ? { pending: true } : { pending: false }),
       ...(content.media
         ? {
@@ -854,7 +983,7 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
     {
       // Fluxo ao vivo: a mensagem que chegou É a mais recente → preview direto.
       // Histórico chega fora de ordem → o chamador recomputa via refreshContactPreview.
-      ...(opts?.importedFromHistory ? {} : { lastMessage: content.text, lastMessageAt: sentAt }),
+      ...(opts?.importedFromHistory ? {} : { lastMessage: previewText, lastMessageAt: sentAt }),
       // Não lidas: só o que CHEGOU conta. Mensagem enviada pelo próprio usuário (inclusive
       // pelo celular) volta por aqui como fromMe, e marcá-la faria o badge subir sozinho.
       // Histórico também fica de fora — é mensagem velha, já vista.
@@ -868,10 +997,12 @@ async function ingestOne(uid: string, m: WAMessage, mediaCtx?: MediaDownloadCont
   // Mensagem NOVA do cliente reabre o atendimento (e tira da aba "Esperando"). Histórico
   // não conta: é conversa velha sendo importada, não alguém batendo à porta agora.
   if (!m.key.fromMe && !opts?.importedFromHistory) {
-    await reopenConversationOnIncoming(uid, contactRef, m.pushName ?? '', sentAt, batch)
+    // Em grupo o pushName é de quem falou, não do grupo — o nome fica o do contato.
+    await reopenConversationOnIncoming(uid, contactRef, peer.group ? '' : (m.pushName ?? ''), sentAt, batch)
     // "SAIR"/"PARE" tem de valer na hora: o descadastro é promessa feita ao cliente na
     // própria campanha, e adiar até alguém abrir o CRM mandaria mais uma mensagem.
-    if (isOptOutText(content.text)) batch.set(contactRef, { optOut: true }, { merge: true })
+    // Grupo fica de fora: um participante escrevendo "sair" não descadastra o grupo.
+    if (!peer.group && isOptOutText(content.text)) batch.set(contactRef, { optOut: true }, { merge: true })
   }
 
   await batch.commit()
@@ -1033,7 +1164,9 @@ export async function refreshContactPreview(uid: string, contactId: string): Pro
   if (!doc) return
   const sentAt = doc.get('sentAt')
   if (!(sentAt instanceof Timestamp)) return
-  await contactRef.set({ lastMessage: String(doc.get('text') ?? ''), lastMessageAt: sentAt }, { merge: true })
+  const text = String(doc.get('text') ?? '')
+  const senderName = doc.get('fromMe') ? '' : String(doc.get('senderName') ?? '')
+  await contactRef.set({ lastMessage: groupPreview(senderName, text), lastMessageAt: sentAt }, { merge: true })
 }
 
 export interface HistoryAnchor {
@@ -1070,8 +1203,10 @@ export async function oldestStoredAnchor(uid: string, contactId: string): Promis
   // WA ids raramente contêm '/'), preservando a compatibilidade.
   const id = (typeof doc.get('waMessageId') === 'string' && doc.get('waMessageId')) || doc.id
   const fromMe = !!doc.get('fromMe')
+  // Em grupo a key de uma mensagem recebida inclui quem mandou.
+  const participant = typeof doc.get('waParticipant') === 'string' ? (doc.get('waParticipant') as string) : ''
 
-  return { key: { remoteJid, id, fromMe }, tsMs }
+  return { key: { remoteJid, id, fromMe, ...(participant ? { participant } : {}) }, tsMs }
 }
 
 /**

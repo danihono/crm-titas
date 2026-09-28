@@ -2,7 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { bucket, db } from './firebase.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
-import { sendTextToPhone, sendMediaToPhone, startSession, stopSession, fetchProfilePhotoSmart, hasSession } from './sessionManager.js'
+import { sendTextToPhone, sendMediaToPhone, sendTextToJid, sendMediaToJid, startSession, stopSession, fetchProfilePhotoSmart, hasSession } from './sessionManager.js'
 import { writeStatus } from './status.js'
 import { purgeConnection, purgeContact } from './purge.js'
 import { saveOutgoingTextMessage, saveOutgoingMediaMessage } from './messages.js'
@@ -187,6 +187,15 @@ function maxDaysArg(args: Args): number | undefined {
 }
 
 /** Resolve o contato e o número, ou lança o erro de negócio correspondente. */
+/** Traduz a falha de envio para grupo no erro que a UI mostra. */
+function groupSendError(err: unknown, uid: string, contactId: string): CommandError {
+  if (err instanceof Error && err.message === 'whatsapp_not_connected') {
+    return new CommandError('whatsapp_not_connected', 'WhatsApp não está conectado.')
+  }
+  logger.warn({ err, uid, contactId }, 'envio para grupo do WhatsApp falhou')
+  return new CommandError('send_failed', 'Falha ao enviar para o grupo. Confira se você ainda participa dele.')
+}
+
 async function requireContact(uid: string, contactId: string) {
   const ref = db.collection('users').doc(uid).collection('contacts').doc(contactId)
   const snap = await ref.get()
@@ -196,7 +205,8 @@ async function requireContact(uid: string, contactId: string) {
     phoneDigits(snap.get('whatsapp')) ||
     phoneDigits(snap.get('phone'))
   const storedJid = typeof snap.get('waJid') === 'string' ? (snap.get('waJid') as string) : ''
-  return { ref, snap, digits, storedJid }
+  const isGroup = snap.get('isGroup') === true || storedJid.endsWith('@g.us')
+  return { ref, snap, digits, storedJid, isGroup }
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +267,26 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
   'message.send': async (uid, args) => {
     const contactId = contactIdArg(args)
     const text = textArg(args)
-    const { ref: contactRef, digits } = await requireContact(uid, contactId)
+    const { ref: contactRef, digits, storedJid, isGroup } = await requireContact(uid, contactId)
+
+    // Grupo: o endereço é o JID do grupo, sem telefone nem `onWhatsApp`.
+    if (isGroup) {
+      try {
+        const sent = await sendTextToJid(uid, storedJid, text)
+        await saveOutgoingTextMessage(
+          uid,
+          contactId,
+          sent.key.id!,
+          text,
+          storedJid,
+          Number(sent.messageTimestamp ?? 0) || undefined,
+        )
+        return { id: sent.key.id, remoteJid: storedJid }
+      } catch (err) {
+        throw groupSendError(err, uid, contactId)
+      }
+    }
+
     if (digits.length < 8) {
       throw new CommandError('invalid_phone', 'Este contato não tem um número de WhatsApp válido.')
     }
@@ -307,8 +336,8 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
     const mimeType = shortTextArg(args.mimeType, 200)
     const fileName = shortTextArg(args.fileName, 200)
 
-    const { ref: contactRef, digits } = await requireContact(uid, contactId)
-    if (digits.length < 8) {
+    const { ref: contactRef, digits, storedJid, isGroup } = await requireContact(uid, contactId)
+    if (!isGroup && digits.length < 8) {
       throw new CommandError('invalid_phone', 'Este contato não tem um número de WhatsApp válido.')
     }
     // Antes de baixar: sem sessão o envio falharia de qualquer jeito, e o download seria
@@ -333,6 +362,25 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
       throw new CommandError('media_not_found', 'Não foi possível ler o arquivo enviado. Tente de novo.')
     }
 
+    const outgoing = { mediaType, mediaPath, mediaUrl, mimeType, fileName, caption, sizeBytes: buffer.byteLength }
+
+    if (isGroup) {
+      try {
+        const sent = await sendMediaToJid(uid, storedJid, { mediaType, buffer, mimeType, fileName, caption })
+        await saveOutgoingMediaMessage(
+          uid,
+          contactId,
+          sent.key.id!,
+          outgoing,
+          storedJid,
+          Number(sent.messageTimestamp ?? 0) || undefined,
+        )
+        return { id: sent.key.id, remoteJid: storedJid }
+      } catch (err) {
+        throw groupSendError(err, uid, contactId)
+      }
+    }
+
     await contactRef.set({ whatsappDigits: digits, waJid: `${digits}@s.whatsapp.net` }, { merge: true })
 
     try {
@@ -343,7 +391,7 @@ export const actions: Record<WaCommandType, (uid: string, args: Args) => Promise
         uid,
         contactId,
         sent.key.id!,
-        { mediaType, mediaPath, mediaUrl, mimeType, fileName, caption, sizeBytes: buffer.byteLength },
+        outgoing,
         remoteJid,
         Number(sent.messageTimestamp ?? 0) || undefined,
       )

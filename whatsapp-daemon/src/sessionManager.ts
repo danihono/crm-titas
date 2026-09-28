@@ -7,6 +7,7 @@ import makeWASocket, {
   S_WHATSAPP_NET,
   type AnyMessageContent,
   type ConnectionState,
+  type GroupMetadata,
   type WAMessage,
   type WAMessageKey,
   type WASocket,
@@ -20,7 +21,7 @@ import { config } from './config.js'
 import { logger, waLogger } from './logger.js'
 import { useFirestoreAuthState } from './authState.js'
 import { writeStatus } from './status.js'
-import { ingestMessages, type MediaDownloadContext } from './messages.js'
+import { ingestMessages, renameGroupContact, type MediaDownloadContext } from './messages.js'
 import { onHistorySet, type GapFillState } from './history.js'
 import { onAgendaContacts } from './agenda.js'
 import { touchMirrorWatermark, readMirrorWatermarkMs } from './watermark.js'
@@ -90,6 +91,14 @@ export async function sendTextToPhone(uid: string, phoneDigits: string, text: st
   if (!s) throw new Error('whatsapp_not_connected')
 
   const jid = await resolveSendJid(s, phoneDigits)
+  return sendTextToJid(uid, jid, text)
+}
+
+/** Envia para um JID já conhecido — o caminho dos grupos, que não passam por `onWhatsApp`. */
+export async function sendTextToJid(uid: string, jid: string, text: string) {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+
   const sent = await s.sock.sendMessage(jid, { text })
   if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
   return sent
@@ -136,6 +145,13 @@ export async function sendMediaToPhone(uid: string, phoneDigits: string, media: 
   if (!s) throw new Error('whatsapp_not_connected')
 
   const jid = await resolveSendJid(s, phoneDigits)
+  return sendMediaToJid(uid, jid, media)
+}
+
+export async function sendMediaToJid(uid: string, jid: string, media: OutgoingMediaPayload) {
+  const s = sessions.get(uid)
+  if (!s) throw new Error('whatsapp_not_connected')
+
   const sent = await s.sock.sendMessage(jid, mediaContent(media))
   if (!sent?.key?.id) throw new Error('whatsapp_send_failed')
   return sent
@@ -328,8 +344,13 @@ async function openSession(uid: string): Promise<void> {
     logger.warn({ err, uid }, 'fetchLatestBaileysVersion falhou; usando versão embutida')
   }
 
+  // Metadados dos grupos desta sessão. O Baileys consulta isto a cada envio para grupo
+  // (sem cache, é uma query ao servidor por mensagem) e o espelho usa o assunto como nome.
+  const groupCache = new Map<string, GroupMetadata>()
+
   const sock = makeWASocket({
     version,
+    cachedGroupMetadata: async (jid) => groupCache.get(jid),
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, waLogger),
@@ -370,7 +391,30 @@ async function openSession(uid: string): Promise<void> {
     }
   }
 
+  /** Assunto do grupo, com teto de tempo: sem resposta, o grupo nasce com o nome genérico. */
+  const fetchGroupSubject = async (jid: string): Promise<string | null> => {
+    const cached = groupCache.get(jid)
+    if (cached) return cached.subject || null
+    let timer: NodeJS.Timeout | undefined
+    try {
+      const meta = await Promise.race([
+        sock.groupMetadata(jid),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('group_metadata_timeout')), 8000)
+        }),
+      ])
+      groupCache.set(jid, meta)
+      return meta.subject || null
+    } catch (err) {
+      logger.debug({ err, uid }, 'assunto do grupo indisponível')
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   const mediaCtx: MediaDownloadContext = {
+    fetchGroupSubject,
     reuploadRequest,
     fetchProfilePhoto: (jid: string) => sock.profilePictureUrl(jid, 'image'),
     resolveLidToPhone,
@@ -418,6 +462,22 @@ async function openSession(uid: string): Promise<void> {
     onHistorySet(uid, ev, mediaCtx, session.gapFill).catch((err) =>
       logger.error({ err, uid }, 'handler messaging-history.set falhou'),
     )
+  })
+  // Grupos: novos (entrou/criou) e renomeados. Mantém o cache e o nome do contato do grupo.
+  sock.ev.on('groups.upsert', (groups) => {
+    for (const g of groups) groupCache.set(g.id, g)
+  })
+  sock.ev.on('groups.update', (updates) => {
+    for (const u of updates) {
+      if (!u.id) continue
+      const prev = groupCache.get(u.id)
+      if (prev) groupCache.set(u.id, { ...prev, ...u } as GroupMetadata)
+      if (typeof u.subject === 'string') {
+        renameGroupContact(uid, u.id, u.subject).catch((err) =>
+          logger.warn({ err, uid }, 'renomear contato do grupo falhou'),
+        )
+      }
+    }
   })
   // Nomes da agenda do celular editados/recebidos com a sessão ativa.
   sock.ev.on('contacts.upsert', (contacts) => {

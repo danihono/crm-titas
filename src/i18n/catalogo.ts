@@ -551,6 +551,7 @@ export const CATALOGO = {
   'contatos.abaAgenda': ['Agenda', 'Agenda', 'Calendar'],
   'contatos.abaArquivos': ['Arquivos', 'Archivos', 'Files'],
   'contatos.conversa': ['Conversa', 'Conversación', 'Conversation'],
+  'contatos.grupoWhatsapp': ['Grupo do WhatsApp', 'Grupo de WhatsApp', 'WhatsApp group'],
   'contatos.naoLida_1': ['{n} mensagem não lida', '{n} mensaje sin leer', '{n} unread message'],
   'contatos.naoLida_n': ['{n} mensagens não lidas', '{n} mensajes sin leer', '{n} unread messages'],
   'contatos.irParaFinal': ['Ir para o final da conversa', 'Ir al final de la conversación', 'Jump to the end of the conversation'],

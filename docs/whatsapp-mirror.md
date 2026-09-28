@@ -212,6 +212,25 @@ Quando a sessão não está conectada — ou o daemon está fora do ar (`daemon_
 mantém o comportamento local: texto por `sendMessage` e anexo por `sendLocalMediaMessage`,
 que grava a mensagem apontando para o arquivo já enviado ao Storage.
 
+## Grupos
+
+Grupos (`@g.us`) são espelhados como um "contato" próprio em `users/{uid}/contacts`, lado a
+lado com as conversas individuais e no mesmo fluxo de atendimento (Entrada/Esperando/Finalizados).
+Broadcast, newsletter e status continuam fora.
+
+- **Id determinístico** `grp_<id do grupo>`, com `isGroup: true`, `waJid: <jid @g.us>`,
+  `source: 'whatsapp'` (entra no expurgo LGPD) e sem telefone (`phone`/`whatsapp` vazios —
+  por isso grupos ficam fora das campanhas).
+- **Nome** = assunto do grupo (`sock.groupMetadata`, cacheado por sessão e também servido ao
+  Baileys via `cachedGroupMetadata`). Renomear o grupo no celular atualiza o contato
+  (`groups.update`).
+- **Quem mandou**: cada mensagem recebida guarda `senderName` (nome de perfil → agenda →
+  `+número`) e `waParticipant`. O preview da lista fica `"Fulano: texto"`.
+- **Envio**: `message.send`/`message.sendMedia` mandam direto para o `waJid` do grupo, sem
+  `onWhatsApp`.
+- **Opt-out**: "SAIR"/"PARE" escrito por um participante **não** marca o grupo.
+- Marcador de expurgo sob a chave `grp:<id>`. A Assistente continua ignorando grupos.
+
 ## Gap-fill (mensagens do período desconectado)
 
 Quando o usuário **desvincula** o dispositivo (botão "Desconectar" / remoção pelo celular) e

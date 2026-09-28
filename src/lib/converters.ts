@@ -18,7 +18,7 @@ function toDate(v: unknown): Date | undefined {
 }
 
 function toContactNameSource(v: unknown): ContactNameSource | undefined {
-  return v === 'phone' || v === 'profile' || v === 'agenda' || v === 'manual' ? v : undefined
+  return v === 'phone' || v === 'profile' || v === 'agenda' || v === 'manual' || v === 'group' ? v : undefined
 }
 
 function toPhotoSource(v: unknown): PhotoSource | undefined {
@@ -416,6 +416,7 @@ export function contactFromDoc(id: string, d: DocumentData): Contact {
     status: d.status ?? '',
     source: d.source ?? '',
     nameSource: toContactNameSource(d.nameSource),
+    isGroup: d.isGroup === true,
     photoUrl: d.photoUrl ?? '',
     photoPath: d.photoPath ?? '',
     photoSource: toPhotoSource(d.photoSource),
@@ -437,6 +438,7 @@ export function messageFromDoc(id: string, d: DocumentData): Message {
     fromMe: !!d.fromMe,
     text: d.text ?? '',
     sentAt: toDate(d.sentAt) ?? new Date(0),
+    senderName: typeof d.senderName === 'string' ? d.senderName : '',
     mediaType: d.mediaType,
     mediaUrl: d.mediaUrl ?? '',
     mediaPath: d.mediaPath ?? '',
