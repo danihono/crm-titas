@@ -351,6 +351,38 @@ describe('M5 — o dono do sistema não enxerga o conteúdo do cliente', () => {
   })
 })
 
+// "Meu Ambiente": o dono do sistema usa o PRÓPRIO ambiente de trabalho por ter sido
+// convidado como `dono` dele. O acesso vem do vínculo, não da allowlist — e só vale ali.
+describe('Meu Ambiente — dono do sistema convidado como dono', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(`users/${TENANT_A}/members/${UID_DONO_SISTEMA}`).set({
+        name: 'Dono do Sistema', email: EMAIL_DONO_SISTEMA, role: 'dono',
+        sectorIds: [], active: true, tenantName: 'Empresa A',
+      })
+    })
+  })
+
+  it('lê e cria contatos no ambiente', async () => {
+    await assertSucceeds(getDocs(collection(donoSistema(), `users/${TENANT_A}/contacts`)))
+    await assertSucceeds(addDoc(collection(donoSistema(), `users/${TENANT_A}/contacts`), {
+      name: 'Novo Contato', phone: '11988887777', status: 'contato novo', createdAt: serverTimestamp(),
+    }))
+  })
+  it('altera a configuração do ambiente', async () => {
+    await assertSucceeds(updateDoc(doc(donoSistema(), `users/${TENANT_A}`), { agent: { tom: 'direto' } }))
+  })
+  it('conecta o WhatsApp do ambiente', async () => {
+    await assertSucceeds(addDoc(collection(donoSistema(), `waCommands/${TENANT_A}/queue`), {
+      type: 'session.connect', args: {}, by: UID_DONO_SISTEMA, status: 'pending', attempts: 0,
+      createdAt: serverTimestamp(), expireAt: new Date(Date.now() + 3600e3),
+    }))
+  })
+  it('continua fora dos clientes que não o convidaram', async () => {
+    await assertFails(getDocs(collection(donoSistema(), `users/${TENANT_B}/contacts`)))
+  })
+})
+
 describe('configurações do tenant', () => {
   it('gestor NÃO altera setores', async () => {
     await assertFails(setDoc(doc(gestor(), `users/${TENANT_A}/sectors/s2`), { name: 'Novo' }))

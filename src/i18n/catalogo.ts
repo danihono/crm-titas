@@ -1373,7 +1373,11 @@ export const CATALOGO = {
   'super.verTodos': ['Ver todos', 'Ver todos', 'See all'],
   'super.semClientes': ['Nenhum cliente com dados ainda.', 'Todavía ningún cliente con datos.', 'No client has data yet.'],
   'super.negociosMin': ['negócios', 'negocios', 'deals'],
-  'super.homeDica': ['Como dono do sistema, você pode olhar o panorama geral de todos os clientes ou entrar no CRM de um deles.', 'Como dueño del sistema, puedes ver el panorama general de todos los clientes o entrar en el CRM de uno de ellos.', 'As the system owner, you can look at the overview across every client or step into one client\'s CRM.'],
+  'super.homeDica': ['Como dono do sistema, você pode olhar o panorama geral dos clientes, cuidar das fichas deles ou abrir o seu próprio ambiente de trabalho.', 'Como dueño del sistema, puedes ver el panorama general de los clientes, cuidar sus fichas o abrir tu propio entorno de trabajo.', 'As the system owner, you can look at the overview across your clients, manage their records or open your own workspace.'],
+  'super.meuAmbiente': ['Meu Ambiente', 'Mi Entorno', 'My Workspace'],
+  'super.meuAmbienteSub': ['O seu CRM de trabalho — {nome}: conversas, pipeline, agenda e WhatsApp.', 'Tu CRM de trabajo — {nome}: conversaciones, pipeline, agenda y WhatsApp.', 'Your own working CRM — {nome}: conversations, pipeline, calendar and WhatsApp.'],
+  'super.meuAmbienteSemVinculo': ['Nenhum ambiente vinculado. Na conta que tem os seus dados, vá em Configurações › Atendentes e convide este e-mail como Dono.', 'Ningún entorno vinculado. En la cuenta que tiene tus datos, ve a Configuración › Agentes e invita este correo como Dueño.', 'No workspace linked yet. In the account that holds your data, go to Settings › Agents and invite this e-mail as Owner.'],
+  'super.voltarPainel': ['Voltar ao SUPER TITAN', 'Volver a SUPER TITAN', 'Back to SUPER TITAN'],
 
   // ── Assistente · modo offline ─────────────────────────────────────────
   'ia.cotaEsgotada': ['cota da API do Gemini esgotada.', 'cuota de la API de Gemini agotada.', 'the Gemini API quota is exhausted.'],

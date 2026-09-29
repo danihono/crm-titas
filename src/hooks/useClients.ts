@@ -8,6 +8,7 @@ import { db, functions, storage } from '../lib/firebase'
 import { validarImagem } from '../lib/upload'
 import { isOwnerEmail } from '../lib/owners'
 import { clientColor } from '../lib/clientBrand'
+import { useOwnerEnvironment } from './useTeam'
 
 export interface Client {
   uid: string
@@ -23,10 +24,18 @@ export interface Client {
   logoPath?: string
 }
 
-/** Lista todos os tenants (clientes) — apenas donos têm permissão de ler. */
+/**
+ * Lista todos os tenants (clientes) — apenas donos têm permissão de ler.
+ *
+ * O ambiente do PRÓPRIO dono do sistema (em que ele é membro `dono`, ver
+ * useOwnerEnvironment) não é cliente: fica fora da lista, dos números e, principalmente,
+ * do botão de excluir.
+ */
 export function useClients() {
-  const [clients, setClients] = useState<Client[]>([])
+  const [all, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const { ownerTenantUids, loading: loadingEnv } = useOwnerEnvironment()
+  const clients = all.filter((c) => !ownerTenantUids.includes(c.uid))
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -59,7 +68,7 @@ export function useClients() {
     return unsub
   }, [])
 
-  return { clients, loading }
+  return { clients, loading: loading || loadingEnv }
 }
 
 // ---------------------------------------------------------------------------

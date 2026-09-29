@@ -4,6 +4,8 @@ import SuperShell from './SuperShell'
 import { t } from '../../i18n'
 import { useClients } from '../../hooks/useClients'
 import { useAuth } from '../../contexts/AuthContext'
+import { useOwnerEnvironment } from '../../hooks/useTeam'
+import { useTenantStore } from '../../store/tenantStore'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import { FONT_DISPLAY } from '../../styles/sx'
 
@@ -11,29 +13,58 @@ export default function SuperHome() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { clients } = useClients()
+  const { environment, loading: loadingEnv } = useOwnerEnvironment()
+  const enterOwnerEnv = useTenantStore((s) => s.enterOwnerEnv)
   const first = (user?.displayName || '').split(' ')[0]
 
-  const cards = [
+  const cards: {
+    key: string
+    icon: string
+    title: string
+    desc: string
+    accent: string
+    onClick?: () => void
+  }[] = [
     {
-      to: '/super/geral',
+      key: '/super/geral',
+      onClick: () => navigate('/super/geral'),
       icon: 'insights',
       title: t('super.visaoGeralSistema'),
       desc: t('super.visaoGeralSub'),
       accent: 'linear-gradient(140deg,#7a52a0,#553578)',
     },
     {
-      to: '/super/clientes',
+      key: '/super/clientes',
+      onClick: () => navigate('/super/clientes'),
       icon: 'groups',
       title: t('super.clientes'),
       desc: t('super.clientesSub') + (clients.length ? t('super.clientesContagem', { n: clients.length }) : '') + '.',
       accent: 'linear-gradient(140deg,#4f7fc0,#2e4f86)',
     },
     {
-      to: '/super/assistente',
+      key: '/super/assistente',
+      onClick: () => navigate('/super/assistente'),
       icon: 'auto_awesome',
       title: t('assistente.titulo'),
       desc: t('super.assistenteSub'),
       accent: 'linear-gradient(140deg,#9a6fb8,#5a3a7e)',
+    },
+    {
+      key: 'meu-ambiente',
+      icon: 'home_work',
+      title: t('super.meuAmbiente'),
+      desc: environment
+        ? t('super.meuAmbienteSub', { nome: environment.tenantName })
+        : loadingEnv ? '' : t('super.meuAmbienteSemVinculo'),
+      accent: 'linear-gradient(140deg,#c08a4f,#86562e)',
+      // Sem vínculo `dono` em nenhum ambiente, não há o que abrir: o card explica o
+      // convite que falta em vez de levar a um CRM vazio.
+      onClick: environment
+        ? () => {
+            enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
+            navigate('/')
+          }
+        : undefined,
     },
   ]
 
@@ -50,13 +81,14 @@ export default function SuperHome() {
       <div className="grid sm:grid-cols-2 gap-5 mt-8">
         {cards.map((c, i) => (
           <motion.button
-            key={c.to}
-            onClick={() => navigate(c.to)}
+            key={c.key}
+            onClick={c.onClick}
+            disabled={!c.onClick}
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.1, duration: 0.5 }}
-            whileHover={{ y: -4 }}
-            className="text-left rounded-3xl p-7 border border-[rgba(176,148,210,0.14)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+            whileHover={c.onClick ? { y: -4 } : undefined}
+            className="text-left rounded-3xl p-7 border border-[rgba(176,148,210,0.14)] bg-[rgba(255,255,255,0.03)] enabled:hover:bg-[rgba(255,255,255,0.05)] disabled:opacity-60 disabled:cursor-default transition-colors"
             style={{ boxShadow: '0 20px 60px rgba(8,5,12,0.45)' }}
           >
             <div className="w-14 h-14 rounded-2xl grid place-items-center mb-5" style={{ background: c.accent, boxShadow: '0 10px 28px rgba(110,65,150,0.4)' }}>
@@ -64,9 +96,11 @@ export default function SuperHome() {
             </div>
             <div className="text-[19px] font-bold text-[#f1ecf5]">{c.title}</div>
             <div className="text-[13.5px] text-[#9a8fa8] mt-2 leading-relaxed">{c.desc}</div>
-            <div className="mt-5 inline-flex items-center gap-1 text-[#c9a6e0] text-[13px] font-semibold">
-              Abrir <MaterialIcon name="arrow_forward" size={17} />
-            </div>
+            {c.onClick && (
+              <div className="mt-5 inline-flex items-center gap-1 text-[#c9a6e0] text-[13px] font-semibold">
+                Abrir <MaterialIcon name="arrow_forward" size={17} />
+              </div>
+            )}
           </motion.button>
         ))}
       </div>

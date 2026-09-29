@@ -3,7 +3,7 @@ import { msg, normalizarIdioma } from './idioma'
 import { defineSecret } from 'firebase-functions/params'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import {
   montarFluxo, perguntar, sugerirTarefa, RespostaVazia,
@@ -236,6 +236,24 @@ const OWNER_EMAILS = [
   // 'dono3@exemplo.com',
 ].map((e) => e.toLowerCase())
 
+/**
+ * Ambientes de trabalho DO PRÓPRIO dono do sistema: tenants em que ele foi convidado como
+ * `dono` (o card "Meu Ambiente" do SUPER TITAN abre um deles). Não são clientes — ficam
+ * fora das métricas e não podem ser excluídos pelo painel.
+ *
+ * O papel é filtrado aqui, e não no where(): a consulta por e-mail já tem índice de
+ * collectionGroup (firestore.indexes.json); somar `role` exigiria um índice composto novo.
+ */
+async function ambientesDoDono(db: Firestore): Promise<Set<string>> {
+  const snap = await db.collectionGroup('members').where('email', 'in', OWNER_EMAILS).get()
+  const out = new Set<string>()
+  for (const d of snap.docs) {
+    const tenantUid = d.ref.parent.parent?.id
+    if (tenantUid && d.get('role') === 'dono' && d.get('active') !== false) out.add(tenantUid)
+  }
+  return out
+}
+
 /** Roda o passo e só registra a falha: um erro no Storage não pode abortar o resto. */
 async function step(label: string, fn: () => Promise<unknown>): Promise<void> {
   try {
@@ -294,6 +312,9 @@ export const excluirCliente = onCall(
     }
     if (targetEmail && OWNER_EMAILS.includes(targetEmail)) {
       throw new HttpsError('failed-precondition', msg('naoExcluiDono', idioma))
+    }
+    if ((await ambientesDoDono(db)).has(uid)) {
+      throw new HttpsError('failed-precondition', msg('naoExcluiAmbienteDono', idioma))
     }
 
     await step('storage', async () => {
@@ -379,7 +400,10 @@ export const estatisticasClientes = onCall(
 
     // Teto de segurança: o painel é de dezenas de clientes, não de milhares. Sem limite,
     // um crescimento inesperado viraria timeout e conta alta sem ninguém perceber.
-    const clientes = await db.collection('users').limit(500).get()
+    const [clientes, proprios] = await Promise.all([
+      db.collection('users').limit(500).get(),
+      ambientesDoDono(db),
+    ])
 
     let pipelineTotal = 0
     let dealCount = 0
@@ -395,6 +419,8 @@ export const estatisticasClientes = onCall(
         const email = String(cliente.get('email') || '').toLowerCase()
         // Contas de dono do sistema não são clientes — não entram nos números.
         if (email && OWNER_EMAILS.includes(email)) return
+        // Nem o ambiente de trabalho do próprio dono ("Meu Ambiente").
+        if (proprios.has(cliente.id)) return
 
         const [deals, invoices, contatos, atividades] = await Promise.all([
           cliente.ref.collection('deals').get(),

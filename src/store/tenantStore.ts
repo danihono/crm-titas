@@ -15,8 +15,13 @@ export interface ClientRef {
  *
  * O DONO DO SISTEMA (SUPER TITAN) NÃO entra em tenant de cliente: os dados de
  * atendimento são confidenciais. Ele administra a ficha do cliente (nome, cor, logo)
- * e vê métricas agregadas em /super — nada mais. Por isso não existe mais um
- * `enterClient()` aqui, e o `CrmRoute` devolve todo dono para /super.
+ * e vê métricas agregadas em /super — nada mais. Por isso não existe um
+ * `enterClient()` aqui.
+ *
+ * A única porta dele para o CRM é o card "Meu Ambiente": o PRÓPRIO ambiente de
+ * trabalho, um tenant em que ele foi convidado como `dono` (`enterOwnerEnv`). O
+ * `CrmRoute` só o deixa passar com `ownerEnv` ligado, e as regras do Firestore
+ * conferem o vínculo em members — cliente que não o convidou continua fechado.
  */
 interface TenantState {
   tenantUid: string | null
@@ -29,8 +34,37 @@ interface TenantState {
   client: ClientRef | null
   /** Papel no tenant ativo. null = está na própria conta (manda em tudo). */
   role: MemberRole | null
+  /** Dono do sistema dentro do próprio ambiente (card "Meu Ambiente" do SUPER TITAN). */
+  ownerEnv: boolean
   enterMembership: (c: ClientRef, role: MemberRole) => void
+  enterOwnerEnv: (c: ClientRef) => void
   exitClient: () => void
+}
+
+/**
+ * Lembra, na aba, que o dono do sistema escolheu o próprio ambiente. Sem isto um F5
+ * dentro do CRM zera o store e o `CrmRoute` o devolve para /super.
+ *
+ * sessionStorage pode não existir ou lançar (aba anônima, site data bloqueado) — aí
+ * o pior caso é voltar ao painel no F5, nunca quebrar.
+ */
+const OWNER_ENV_KEY = 'titas.meuAmbiente'
+
+export function lembrarOwnerEnv(): boolean {
+  try {
+    return sessionStorage.getItem(OWNER_ENV_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function gravarOwnerEnv(on: boolean): void {
+  try {
+    if (on) sessionStorage.setItem(OWNER_ENV_KEY, '1')
+    else sessionStorage.removeItem(OWNER_ENV_KEY)
+  } catch {
+    // sem storage: só perde o "continuar no ambiente" depois do F5
+  }
 }
 
 export const useTenantStore = create<TenantState>((set) => ({
@@ -38,8 +72,16 @@ export const useTenantStore = create<TenantState>((set) => ({
   readOnly: false,
   client: null,
   role: null,
-  enterMembership: (c, role) => set({ tenantUid: c.uid, readOnly: false, client: c, role }),
-  exitClient: () => set({ tenantUid: null, readOnly: false, client: null, role: null }),
+  ownerEnv: false,
+  enterMembership: (c, role) => set({ tenantUid: c.uid, readOnly: false, client: c, role, ownerEnv: false }),
+  enterOwnerEnv: (c) => {
+    gravarOwnerEnv(true)
+    set({ tenantUid: c.uid, readOnly: false, client: c, role: 'dono', ownerEnv: true })
+  },
+  exitClient: () => {
+    gravarOwnerEnv(false)
+    set({ tenantUid: null, readOnly: false, client: null, role: null, ownerEnv: false })
+  },
 }))
 
 /**

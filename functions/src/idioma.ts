@@ -142,6 +142,11 @@ const MENSAGENS = {
     es: 'No puedes eliminar tu propia cuenta por aquí.',
     en: "You can't delete your own account from here.",
   },
+  naoExcluiAmbienteDono: {
+    pt: 'Este é o seu próprio ambiente de trabalho (Meu Ambiente) e não pode ser excluído por aqui.',
+    es: 'Este es tu propio entorno de trabajo (Mi Entorno) y no se puede eliminar por aquí.',
+    en: "This is your own workspace (My Workspace) and can't be deleted from here.",
+  },
   naoExcluiDono: {
     pt: 'Contas de dono do sistema não podem ser excluídas por aqui.',
     es: 'Las cuentas de dueño del sistema no se pueden eliminar por aquí.',

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { useTenantStore } from '../../store/tenantStore'
-import { useMemberships } from '../../hooks/useTeam'
+import { lembrarOwnerEnv, useTenantStore } from '../../store/tenantStore'
+import { useMemberships, useOwnerEnvironment } from '../../hooks/useTeam'
+import { Splash } from './ProtectedRoute'
 
 /** Rotas /super — só donos do sistema. */
 export function OwnerRoute() {
@@ -11,15 +12,39 @@ export function OwnerRoute() {
 }
 
 /**
- * Rotas do CRM (Layout). O DONO DO SISTEMA não entra aqui de jeito nenhum — nem
- * digitando a rota na barra de endereços: os dados de atendimento dos clientes são
+ * Rotas do CRM (Layout). O DONO DO SISTEMA não entra no CRM de cliente de jeito nenhum —
+ * nem digitando a rota na barra de endereços: os dados de atendimento dos clientes são
  * confidenciais. Ele fica no painel SUPER TITAN.
+ *
+ * A exceção é o PRÓPRIO ambiente dele, aberto pelo card "Meu Ambiente" (`ownerEnv`).
  */
 export function CrmRoute() {
   const { isOwner } = useAuth()
+  const ownerEnv = useTenantStore((s) => s.ownerEnv)
   useAutoEnterMembership()
-  if (isOwner) return <Navigate to="/super" replace />
+  if (isOwner && !ownerEnv) return <OwnerEnvReentry />
   return <Outlet />
+}
+
+/**
+ * Dono do sistema chegando ao CRM sem estar no próprio ambiente. Se a aba lembra que ele
+ * tinha escolhido "Meu Ambiente" (F5, link aberto na mesma aba), reentra no vínculo `dono`
+ * e segue para a rota pedida. Em qualquer outro caso, volta para /super.
+ */
+function OwnerEnvReentry() {
+  const { environment, loading } = useOwnerEnvironment()
+  const enterOwnerEnv = useTenantStore((s) => s.enterOwnerEnv)
+  const lembrou = lembrarOwnerEnv()
+
+  useEffect(() => {
+    if (lembrou && environment) {
+      enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
+    }
+  }, [lembrou, environment, enterOwnerEnv])
+
+  if (!lembrou) return <Navigate to="/super" replace />
+  if (loading || environment) return <Splash />
+  return <Navigate to="/super" replace />
 }
 
 /**

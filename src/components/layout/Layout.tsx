@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import PageHeader from './PageHeader'
@@ -27,6 +27,7 @@ const HEADERS: Record<string, { title: Chave; subtitle: Chave }> = {
 
 export default function Layout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const header = HEADERS[pathname]
   const readOnly = useTenantStore((s) => s.readOnly)
   const client = useTenantStore((s) => s.client)
@@ -34,6 +35,7 @@ export default function Layout() {
   const role = useTenantStore((s) => s.role)
   const exitClient = useTenantStore((s) => s.exitClient)
   const enterMembership = useTenantStore((s) => s.enterMembership)
+  const ownerEnv = useTenantStore((s) => s.ownerEnv)
   const { memberships } = useMemberships()
   const { conviteAguardandoVerificacao, reenviarVerificacao } = useAuth()
 
@@ -57,8 +59,30 @@ export default function Layout() {
           </div>
         )}
 
+        {/* Dono do sistema no próprio ambiente: a conta dele não é um ambiente, então no
+            lugar do seletor de equipe vai a volta para o painel SUPER TITAN. */}
+        {ownerEnv && (
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', height: 38, background: C.tintPurple, borderBottom: `1px solid ${C.selBorder}`, color: C.purple, fontSize: 12.5 }}>
+            <MaterialIcon name="home_work" size={17} />
+            <span>
+              {t('super.meuAmbiente')} · <b>{client?.name}</b>
+            </span>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => {
+                exitClient()
+                navigate('/super')
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.surface, border: `1px solid ${C.fieldBorder}`, borderRadius: 9, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: C.purple, fontFamily: FONT_UI, cursor: 'pointer' }}
+            >
+              <MaterialIcon name="arrow_back" size={15} />
+              {t('super.voltarPainel')}
+            </button>
+          </div>
+        )}
+
         {/* Atendente convidado: mostra em que equipe está e deixa voltar à conta dele. */}
-        {!readOnly && memberships.length > 0 && (
+        {!ownerEnv && !readOnly && memberships.length > 0 && (
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', height: 38, background: C.tintPurple, borderBottom: `1px solid ${C.selBorder}`, color: C.purple, fontSize: 12.5 }}>
             <MaterialIcon name="groups" size={17} />
             <span>
