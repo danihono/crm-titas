@@ -3,12 +3,15 @@ import {
   collection, query, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
   writeBatch, doc as fsDoc, deleteField,
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, storage } from '../lib/firebase'
 import { col, ref, uid } from '../lib/paths'
 import { invoiceFromDoc } from '../lib/converters'
+import { extToType } from '../lib/format'
+import { safeFileName, validarAnexo } from '../lib/upload'
 import { parseDateTime } from './useEvents'
 import { useCollection } from './useCollection'
-import type { Invoice, InvoiceStatus, PaymentMethod } from '../types'
+import type { Invoice, InvoiceAttachment, InvoiceStatus, PaymentMethod } from '../types'
 
 /** Número da nota como inteiro, para ordenar. '#1049' -> 1049. */
 function numOf(iv: Invoice): number {
@@ -55,6 +58,57 @@ export interface InvoiceForm {
   desc: string
   paymentMethod?: PaymentMethod
   notes: string
+  attachments: InvoiceAttachment[]
+}
+
+/** Teto de anexos por nota — é registro de cobrança, não pasta de arquivos. */
+export const MAX_INVOICE_ATTACHMENTS = 10
+
+/**
+ * Sobe um anexo de nota ao Storage e devolve os metadados a gravar no doc.
+ *
+ * Pasta plana por tenant, não por nota: na emissão a nota ainda não tem id, e numa série
+ * parcelada/mensal o MESMO arquivo é referenciado pelas N notas — sobe uma vez só.
+ */
+export async function uploadInvoiceAttachment(file: File): Promise<InvoiceAttachment> {
+  const contentType = validarAnexo(file)
+  const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+  const path = `users/${uid()}/invoices/${stamp}_${safeFileName(file.name)}`
+  const sref = storageRef(storage, path)
+  await uploadBytes(sref, file, { contentType })
+  return {
+    name: file.name,
+    type: extToType(file.name),
+    sizeBytes: file.size,
+    storagePath: path,
+    downloadURL: await getDownloadURL(sref),
+    uploadedAt: new Date(),
+  }
+}
+
+/** Apaga do Storage, sem derrubar o fluxo se falhar — o registro já foi salvo. */
+export async function deleteInvoiceFiles(paths: string[]): Promise<void> {
+  await Promise.all(paths.map((p) => deleteObject(storageRef(storage, p)).catch((err) => {
+    console.warn('[useInvoices] anexo não apagado do Storage', p, err)
+  })))
+}
+
+/**
+ * Apaga só o arquivo que NENHUMA outra nota ainda usa. Numa série todas as parcelas apontam
+ * para o mesmo objeto: tirar o anexo de uma parcela não pode sumir com ele das outras.
+ */
+async function removeOrphanFiles(paths: string[], invoices: Invoice[], ignoreIds: string[]): Promise<void> {
+  const ignore = new Set(ignoreIds)
+  const inUse = new Set(
+    invoices
+      .filter((iv) => !ignore.has(iv.id))
+      .flatMap((iv) => (iv.attachments ?? []).map((a) => a.storagePath)),
+  )
+  await deleteInvoiceFiles(paths.filter((p) => !inUse.has(p)))
+}
+
+function pathsOf(list: Invoice[]): string[] {
+  return [...new Set(list.flatMap((iv) => (iv.attachments ?? []).map((a) => a.storagePath)))]
 }
 
 /** Próximo número da sequência. Base 1049 para continuar de onde o seed parou. */
@@ -119,6 +173,14 @@ function baseFields(form: InvoiceForm) {
     desc: form.desc.trim(),
     paymentMethod: form.paymentMethod ?? '',
     notes: form.notes.trim(),
+    attachments: form.attachments.map((a) => ({
+      name: a.name,
+      type: a.type,
+      sizeBytes: a.sizeBytes,
+      storagePath: a.storagePath,
+      downloadURL: a.downloadURL,
+      uploadedAt: Timestamp.fromDate(a.uploadedAt ?? new Date()),
+    })),
   }
 }
 
@@ -165,16 +227,22 @@ export async function saveInvoice(form: InvoiceForm, invoices: Invoice[], billin
 }
 
 /** Edita os dados da nota. Número, série e baixa não se mexem por aqui. */
-export async function updateInvoice(id: string, form: InvoiceForm): Promise<void> {
+export async function updateInvoice(id: string, form: InvoiceForm, invoices: Invoice[] = []): Promise<void> {
   await updateDoc(ref(`invoices/${id}`), {
     ...baseFields(form),
     value: form.value,
     dueAt: Timestamp.fromDate(parseDateTime(form.due, DUE_TIME)),
   })
+  const before = invoices.find((iv) => iv.id === id)
+  if (before) {
+    const kept = new Set(form.attachments.map((a) => a.storagePath))
+    await removeOrphanFiles(pathsOf([before]).filter((p) => !kept.has(p)), invoices, [id])
+  }
 }
 
-export async function deleteInvoice(id: string): Promise<void> {
+export async function deleteInvoice(id: string, invoices: Invoice[] = []): Promise<void> {
   await deleteDoc(ref(`invoices/${id}`))
+  await removeOrphanFiles(pathsOf(invoices.filter((iv) => iv.id === id)), invoices, [id])
 }
 
 /** Apaga a série inteira (a assinatura que foi cancelada, por exemplo). */
@@ -186,6 +254,7 @@ export async function deleteInvoiceSeries(seriesId: string, invoices: Invoice[])
     ids.slice(i, i + 400).forEach((id) => batch.delete(fsDoc(db, `${base}/${id}`)))
     await batch.commit()
   }
+  await removeOrphanFiles(pathsOf(invoices.filter((iv) => iv.seriesId === seriesId)), invoices, ids)
 }
 
 /**

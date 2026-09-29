@@ -747,6 +747,10 @@ export const CATALOGO = {
   'fatura.ordVencimento': ['vencimento', 'vencimiento', 'due date'],
   'fatura.ordStatus': ['status', 'estado', 'status'],
   'fatura.pagoEm': ['pago {data}', 'pagado {data}', 'paid {data}'],
+  'fatura.anexos': ['{n} anexo(s) — abrir a nota', '{n} adjunto(s) — abrir la factura', '{n} attachment(s) — open the invoice'],
+  'fatura.agruparMes': ['Agrupar por mês', 'Agrupar por mes', 'Group by month'],
+  'fatura.grupoMes': ['{mes} de {ano}', '{mes} de {ano}', '{mes} {ano}'],
+  'fatura.grupoResumo': ['{n} nota(s) · {valor}', '{n} factura(s) · {valor}', '{n} invoice(s) · {valor}'],
 
   // ── Campanhas ─────────────────────────────────────────────────────────
   'campanhas.rascunho': ['Rascunho', 'Borrador', 'Draft'],
@@ -1052,6 +1056,16 @@ export const CATALOGO = {
   'nota.excluirSerie': ['Excluir a série', 'Eliminar la serie', 'Delete the series'],
   'nota.emitirNota': ['Emitir nota', 'Emitir factura', 'Issue invoice'],
   'nota.emitirVarias': ['Emitir {n} notas', 'Emitir {n} facturas', 'Issue {n} invoices'],
+  'nota.anexos': ['Anexos', 'Adjuntos', 'Attachments'],
+  'nota.anexarArquivo': ['Anexar arquivo', 'Adjuntar archivo', 'Attach file'],
+  'nota.semAnexos': ['Nenhum arquivo anexado — contrato, comprovante, boleto…', 'Ningún archivo adjunto — contrato, comprobante, boleto…', 'No files attached — contract, receipt, payment slip…'],
+  'nota.anexosSerie': ['Os anexos vão para todas as {n} notas da série.', 'Los adjuntos van a las {n} facturas de la serie.', 'The attachments go to all {n} invoices in the series.'],
+  'nota.limiteAnexos': ['Cada nota aceita até {n} anexos.', 'Cada factura acepta hasta {n} adjuntos.', 'Each invoice takes up to {n} attachments.'],
+  'nota.falhaAnexo': ['Não foi possível anexar este arquivo.', 'No se pudo adjuntar este archivo.', 'This file couldn\'t be attached.'],
+  'nota.anexoNovo': ['sobe ao salvar', 'se sube al guardar', 'uploads on save'],
+  'nota.enviandoAnexos': ['Enviando anexos…', 'Subiendo adjuntos…', 'Uploading attachments…'],
+  'nota.baixarAnexo': ['Baixar', 'Descargar', 'Download'],
+  'nota.removerAnexo': ['Remover anexo', 'Quitar adjunto', 'Remove attachment'],
 
   // ── Pipeline · quadros, etapas e cards ────────────────────────────────
   'quadro.editar': ['Editar quadro', 'Editar tablero', 'Edit board'],

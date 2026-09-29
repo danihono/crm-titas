@@ -410,6 +410,17 @@ export interface Invoice {
   installment?: { n: number; of: number }
   /** 'mensal' quando a série veio de uma cobrança recorrente. */
   recurrence?: 'mensal'
+  /** Arquivos anexados (contrato, comprovante, boleto…). Numa série, todas as notas apontam para os mesmos. */
+  attachments?: InvoiceAttachment[]
+}
+
+export interface InvoiceAttachment {
+  name: string
+  type: FileType
+  sizeBytes: number
+  storagePath: string
+  downloadURL: string
+  uploadedAt?: Date
 }
 
 export interface EventDoc {

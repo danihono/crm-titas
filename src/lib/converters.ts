@@ -2,7 +2,7 @@ import { Timestamp, type DocumentData } from 'firebase/firestore'
 import { layoutFromDoc } from './dashboardWidgets'
 import type {
   Board, Deal, Contact, Message, FileMeta, Activity, ActType,
-  Invoice, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
+  Invoice, InvoiceAttachment, EventDoc, Lead, AgentConfig, AgentMessage, UserProfile, FileType, InvoiceStatus,
   ScheduledMessage, ScheduledMessageStatus, ContactNameSource, HistoryImport, HistoryImportStatus, PhotoSource,
   MediaRecovery, Flow, FlowNode, FlowEdge, FlowNodeKind,
   Member, MemberRole, Invite, Sector, Tag, QuickReply, CustomField, CustomFieldType,
@@ -511,7 +511,24 @@ export function invoiceFromDoc(id: string, d: DocumentData): Invoice {
       ? { n: inst.n, of: inst.of }
       : undefined,
     recurrence: d.recurrence === 'mensal' ? 'mensal' : undefined,
+    attachments: toInvoiceAttachments(d.attachments),
   }
+}
+
+/** Anexos da nota. Item sem caminho no Storage é descartado: não haveria o que baixar nem apagar. */
+function toInvoiceAttachments(v: unknown): InvoiceAttachment[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out = v
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object' && typeof (a as Record<string, unknown>).storagePath === 'string')
+    .map((a) => ({
+      name: typeof a.name === 'string' ? a.name : 'arquivo',
+      type: (typeof a.type === 'string' ? a.type : 'doc') as FileType,
+      sizeBytes: typeof a.sizeBytes === 'number' ? a.sizeBytes : 0,
+      storagePath: a.storagePath as string,
+      downloadURL: typeof a.downloadURL === 'string' ? a.downloadURL : '',
+      uploadedAt: toDate(a.uploadedAt),
+    }))
+  return out.length ? out : undefined
 }
 
 export function eventFromDoc(id: string, d: DocumentData): EventDoc {

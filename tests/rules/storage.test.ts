@@ -25,6 +25,7 @@ beforeEach(async () => {
   await semearArquivo(env, `users/${TENANT_A}/contacts/c1/whatsapp/m1_foto.jpg`, 'image/jpeg')
   await semearArquivo(env, `users/${TENANT_A}/brand/logo.png`, 'image/png')
   await semearArquivo(env, `users/${TENANT_B}/contacts/c1/whatsapp/m1_foto.jpg`, 'image/jpeg')
+  await semearArquivo(env, ANEXO_NOTA, 'application/pdf')
 })
 
 const dono = () => comoUsuario(env, TENANT_A, EMAIL_DONO_A).storage()
@@ -37,6 +38,7 @@ const visitante = () => comoVisitante(env).storage()
 
 const MIDIA = `users/${TENANT_A}/contacts/c1/whatsapp/m1_foto.jpg`
 const MIDIA_B = `users/${TENANT_B}/contacts/c1/whatsapp/m1_foto.jpg`
+const ANEXO_NOTA = `users/${TENANT_A}/invoices/k1_contrato.pdf`
 
 describe('acesso sem autenticação', () => {
   it('não baixa mídia de conversa', async () => {
@@ -107,6 +109,31 @@ describe('M10 — validação do upload', () => {
     const p = `users/${TENANT_A}/contacts/c1/profile/foto`
     await assertSucceeds(uploadBytes(ref(atendente(), p), PNG, { contentType: 'image/jpeg' }))
     await assertFails(uploadBytes(ref(atendente(), `${p}2`), PNG, { contentType: 'application/pdf' }))
+  })
+})
+
+describe('anexos das notas de faturamento', () => {
+  const alvo = (n: string) => `users/${TENANT_A}/invoices/${n}`
+
+  it('dono e gestor anexam PDF', async () => {
+    await assertSucceeds(uploadBytes(ref(dono(), alvo('a.pdf')), PNG, { contentType: 'application/pdf' }))
+    await assertSucceeds(uploadBytes(ref(gestor(), alvo('b.pdf')), PNG, { contentType: 'application/pdf' }))
+  })
+  it('gestor baixa e apaga anexo', async () => {
+    await assertSucceeds(getBytes(ref(gestor(), ANEXO_NOTA)))
+    await assertSucceeds(deleteObject(ref(gestor(), ANEXO_NOTA)))
+  })
+  it('atendente não lê, não sobe e não apaga (faturamento é de gestor para cima)', async () => {
+    await assertFails(getBytes(ref(atendente(), ANEXO_NOTA)))
+    await assertFails(uploadBytes(ref(atendente(), alvo('c.pdf')), PNG, { contentType: 'application/pdf' }))
+    await assertFails(deleteObject(ref(atendente(), ANEXO_NOTA)))
+  })
+  it('recusa HTML disfarçado', async () => {
+    await assertFails(uploadBytes(ref(dono(), alvo('pagina.html')), PNG, { contentType: 'text/html' }))
+  })
+  it('membro desativado e outro tenant não alcançam', async () => {
+    await assertFails(getBytes(ref(bloqueado(), ANEXO_NOTA)))
+    await assertFails(getBytes(ref(estranho(), ANEXO_NOTA)))
   })
 })
 

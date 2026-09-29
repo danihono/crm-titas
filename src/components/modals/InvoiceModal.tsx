@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Modal from './Modal'
 import MaterialIcon from '../common/MaterialIcon'
 import RingButton from '../common/RingButton'
@@ -8,11 +8,14 @@ import { dataCurta } from '../../i18n/formato'
 import { rotuloPagamento } from '../../i18n/sistema'
 import {
   saveInvoice, updateInvoice, deleteInvoice, deleteInvoiceSeries, billingPreview,
+  uploadInvoiceAttachment, deleteInvoiceFiles, MAX_INVOICE_ATTACHMENTS,
   PAYMENT_METHODS, type Billing, type InvoiceForm,
 } from '../../hooks/useInvoices'
-import { parseValueBR, fmtBRL, fmtMoney, dateKeyOf } from '../../lib/format'
+import { parseValueBR, fmtBRL, fmtMoney, fmtSize, dateKeyOf, extToType } from '../../lib/format'
+import { validarAnexo } from '../../lib/upload'
+import { fileTypeMap } from '../../lib/theme'
 import ClientCombo, { type ClientOption } from '../common/ClientCombo'
-import type { Invoice, PaymentMethod } from '../../types'
+import type { Invoice, InvoiceAttachment, PaymentMethod } from '../../types'
 
 export type { ClientOption }
 
@@ -43,6 +46,11 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState<'nota' | 'serie' | null>(null)
+  // Anexos já gravados que continuam na nota, e os escolhidos agora — estes só sobem no salvar.
+  const [kept, setKept] = useState<InvoiceAttachment[]>(invoice?.attachments ?? [])
+  const [pending, setPending] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   const parsedValue = parseValueBR(value)
   const billing: Billing =
@@ -53,7 +61,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
     ? billingPreview({ value: parsedValue, due }, billing)
     : []
 
-  function form(): InvoiceForm {
+  function form(attachments: InvoiceAttachment[]): InvoiceForm {
     // O vínculo vem de quem foi escolhido na lista; se o nome foi digitado à mão e bate
     // com uma opção, aproveita o id dela do mesmo jeito.
     const opt = clientOptions.find((o) => o.label.toLowerCase() === client.trim().toLowerCase())
@@ -65,6 +73,47 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
       desc,
       paymentMethod: method || undefined,
       notes,
+      attachments,
+    }
+  }
+
+  /** Valida na escolha, para o erro aparecer já — e não só depois de clicar em salvar. */
+  function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!picked.length) return
+    setError('')
+    if (kept.length + pending.length + picked.length > MAX_INVOICE_ATTACHMENTS) {
+      setError(t('nota.limiteAnexos', { n: MAX_INVOICE_ATTACHMENTS }))
+      return
+    }
+    try {
+      picked.forEach((f) => validarAnexo(f))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('nota.falhaAnexo'))
+      return
+    }
+    setPending((p) => [...p, ...picked])
+  }
+
+  /**
+   * Sobe os anexos novos e grava a nota. Se a gravação falhar depois do upload, o que acabou
+   * de subir é apagado — senão ficaria no Storage um arquivo que nenhuma nota referencia.
+   */
+  async function persist(): Promise<void> {
+    const uploaded: InvoiceAttachment[] = []
+    try {
+      if (pending.length) {
+        setUploading(true)
+        for (const f of pending) uploaded.push(await uploadInvoiceAttachment(f))
+        setUploading(false)
+      }
+      const data = form([...kept, ...uploaded])
+      await (editing ? updateInvoice(invoice.id, data, invoices) : saveInvoice(data, invoices, billing))
+    } catch (err) {
+      setUploading(false)
+      await deleteInvoiceFiles(uploaded.map((a) => a.storagePath))
+      throw err
     }
   }
 
@@ -88,10 +137,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
     if (!due) { setError(t('nota.escolhaVencimento')); return }
     if (kind === 'parcelada' && (parcels < 2 || parcels > 60)) { setError(t('nota.parcelamentoFaixa')); return }
     if (kind === 'mensal' && (months < 2 || months > 60)) { setError(t('nota.recorrenciaFaixa')); return }
-    void run(
-      () => (editing ? updateInvoice(invoice.id, form()) : saveInvoice(form(), invoices, billing)),
-      t(editing ? 'nota.falhaSalvar' : 'nota.falhaEmitir'),
-    )
+    void run(persist, t(editing ? 'nota.falhaSalvar' : 'nota.falhaEmitir'))
   }
 
   const kinds: { id: Billing['kind']; label: Chave }[] = [
@@ -207,7 +253,52 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
       </div>
 
       <label style={sx.label}>{t('comum.observacoes')}</label>
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('nota.observacoesExemplo')} style={{ ...sx.input, margin: '6px 0 18px', resize: 'vertical', fontFamily: 'inherit' }} />
+      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('nota.observacoesExemplo')} style={{ ...sx.input, margin: '6px 0 14px', resize: 'vertical', fontFamily: 'inherit' }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={sx.label}>{t('nota.anexos')}</label>
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          disabled={busy || kept.length + pending.length >= MAX_INVOICE_ATTACHMENTS}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', color: C.purple, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '2px 0' }}
+        >
+          <MaterialIcon name="attach_file" size={17} /> {t('nota.anexarArquivo')}
+        </button>
+        <input ref={fileInput} type="file" multiple hidden onChange={onPickFiles} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, margin: '7px 0 18px' }}>
+        {kept.map((a) => (
+          <AttachmentRow
+            key={a.storagePath}
+            name={a.name}
+            type={a.type}
+            size={a.sizeBytes}
+            href={a.downloadURL}
+            disabled={busy}
+            onRemove={() => setKept((k) => k.filter((x) => x.storagePath !== a.storagePath))}
+          />
+        ))}
+        {pending.map((f, i) => (
+          <AttachmentRow
+            key={i + ':' + f.name}
+            name={f.name}
+            type={extToType(f.name)}
+            size={f.size}
+            hint={t('nota.anexoNovo')}
+            disabled={busy}
+            onRemove={() => setPending((p) => p.filter((_, j) => j !== i))}
+          />
+        ))}
+        {kept.length + pending.length === 0 && (
+          <div style={{ fontSize: 12, color: C.faint, border: '1px dashed ' + C.fieldBorder, borderRadius: 10, padding: '10px 12px' }}>
+            {t('nota.semAnexos')}
+          </div>
+        )}
+        {!editing && preview.length > 1 && kept.length + pending.length > 0 && (
+          <div style={{ fontSize: 11.5, color: C.faint, lineHeight: 1.5 }}>{t('nota.anexosSerie', { n: preview.length })}</div>
+        )}
+      </div>
 
       {error && (
         <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
@@ -227,7 +318,7 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
               onClick={() => void run(
                 () => (confirming === 'serie' && invoice.seriesId
                   ? deleteInvoiceSeries(invoice.seriesId, invoices)
-                  : deleteInvoice(invoice.id)),
+                  : deleteInvoice(invoice.id, invoices)),
                 t('nota.falhaExcluir'),
               )}
               disabled={busy}
@@ -271,9 +362,47 @@ export default function InvoiceModal({ invoice, invoices, clientOptions, onClose
           style={{ ...sx.btnPrimary }}
         >
           <MaterialIcon name="check" size={18} />
-          {busy ? t('comum.salvando') : editing ? t('comum.salvar') : preview.length > 1 ? t('nota.emitirVarias', { n: preview.length }) : t('nota.emitirNota')}
+          {uploading ? t('nota.enviandoAnexos') : busy ? t('comum.salvando') : editing ? t('comum.salvar') : preview.length > 1 ? t('nota.emitirVarias', { n: preview.length }) : t('nota.emitirNota')}
         </RingButton>
       </div>
     </Modal>
+  )
+}
+
+/** Uma linha da lista de anexos: salvo (com link para baixar) ou recém-escolhido. */
+function AttachmentRow({ name, type, size, href, hint, disabled, onRemove }: {
+  name: string
+  type: string
+  size: number
+  href?: string
+  hint?: string
+  disabled: boolean
+  onRemove: () => void
+}) {
+  const [icon, color, bg] = fileTypeMap[type] || fileTypeMap.doc
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.field, border: '1px solid ' + C.fieldBorder, borderRadius: 10, padding: '7px 10px' }}>
+      <MaterialIcon name={icon} size={18} color={color} style={{ background: bg, width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {href
+          ? <a href={href} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'none' }}>{name}</a>
+          : <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>}
+        <div style={{ fontSize: 11, color: C.muted }}>{fmtSize(size)}{hint ? ' · ' + hint : ''}</div>
+      </div>
+      {href && (
+        <a href={href} target="_blank" rel="noreferrer" title={t('nota.baixarAnexo')} style={{ display: 'flex' }}>
+          <MaterialIcon name="download" size={18} color={C.purple} />
+        </a>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        title={t('nota.removerAnexo')}
+        style={{ display: 'flex', border: 'none', background: 'transparent', padding: 2, cursor: disabled ? 'wait' : 'pointer' }}
+      >
+        <MaterialIcon name="close" size={17} color={C.muted} />
+      </button>
+    </div>
   )
 }

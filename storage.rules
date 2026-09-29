@@ -157,6 +157,19 @@ service firebase.storage {
       allow delete: if podeGerir(uid);
     }
 
+    // =================================================================
+    // Anexos das notas de faturamento (contrato, comprovante, boleto…).
+    //
+    // Mesmo nível do Firestore de `invoices`: faturamento é de gestor para cima, então o
+    // atendente não lê nem sobe. Pasta plana — numa série, as N notas apontam para o mesmo
+    // arquivo, que sobe uma vez só antes de a nota existir.
+    // =================================================================
+    match /users/{uid}/invoices/{file} {
+      allow read: if podeGerir(uid);
+      allow create, update: if podeGerir(uid) && anexo() && mb(10);
+      allow delete: if podeGerir(uid);
+    }
+
     // Qualquer outro caminho: negado. Só o Admin SDK (daemon, Cloud Functions) alcança.
     match /{allPaths=**} {
       allow read, write: if false;

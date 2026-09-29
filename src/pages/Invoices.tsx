@@ -5,7 +5,7 @@ import { useSelfProfile } from '../hooks/useProfile'
 import { useInvoices, invoiceStatus, markPaid, markUnpaid } from '../hooks/useInvoices'
 import { invoiceStatusMap } from '../lib/theme'
 import { exportInvoicesXlsx } from '../lib/invoicesXlsx'
-import { fmtMoney } from '../lib/format'
+import { fmtBRL, fmtMoney } from '../lib/format'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import InvoiceModal, { type ClientOption } from '../components/modals/InvoiceModal'
@@ -13,7 +13,7 @@ import { contactOptions, withLegacyNames } from '../components/common/ClientComb
 import InvoicesDocument from '../components/invoices/InvoicesDocument'
 import { sx, C } from '../styles/sx'
 import { t, type Chave } from '../i18n'
-import { compararTexto, dataCurta } from '../i18n/formato'
+import { compararTexto, dataCurta, mesPorExtenso } from '../i18n/formato'
 import { rotuloPagamento, rotuloStatusNota } from '../i18n/sistema'
 import type { Invoice, InvoiceStatus } from '../types'
 
@@ -44,6 +44,7 @@ export default function Invoices() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [byMonth, setByMonth] = useState(true)
   const [error, setError] = useState('')
 
   // Sugestões de cliente: os contatos cadastrados + quem já apareceu em notas antigas.
@@ -91,6 +92,29 @@ export default function Invoices() {
       }
     })
   }, [withStatus, q, status, from, to, sortKey, sortDir])
+
+  /**
+   * Blocos por mês do VENCIMENTO — a data que se escolhe ao emitir —, não de `createdAt`:
+   * uma série mensal nasce inteira no mesmo dia, e agrupar pela criação jogaria as 12
+   * parcelas no mesmo mês. Dentro do bloco vale a ordenação escolhida; os blocos seguem
+   * do mês mais recente para o mais antigo, ou o contrário quando a lista é por vencimento ↑.
+   */
+  const groups = useMemo(() => {
+    if (!byMonth) return [{ key: 'all', label: '', rows: visible }]
+    const map = new Map<string, { key: string; year: number; month: number; rows: typeof visible }>()
+    for (const x of visible) {
+      const y = x.iv.dueAt.getFullYear()
+      const m = x.iv.dueAt.getMonth()
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`
+      let g = map.get(key)
+      if (!g) { g = { key, year: y, month: m, rows: [] }; map.set(key, g) }
+      g.rows.push(x)
+    }
+    const asc = sortKey === 'dueAt' && sortDir === 'asc'
+    return [...map.values()]
+      .sort((a, b) => (asc ? 1 : -1) * a.key.localeCompare(b.key))
+      .map((g) => ({ key: g.key, label: t('fatura.grupoMes', { mes: mesPorExtenso(g.month), ano: g.year }), rows: g.rows }))
+  }, [visible, byMonth, sortKey, sortDir])
 
   /** Clique no cabeçalho: ordena por ela, ou inverte se já era a coluna ativa. */
   function toggleSort(k: SortKey) {
@@ -170,6 +194,12 @@ export default function Invoices() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <button
+              onClick={() => setByMonth((v) => !v)}
+              style={{ ...sx.btnGhost, ...(byMonth ? { color: C.purple, border: '1px solid ' + C.purple, background: C.tintPurple } : null) }}
+            >
+              <MaterialIcon name="calendar_month" size={18} /> {t('fatura.agruparMes')}
+            </button>
             <button onClick={() => void handleExport()} disabled={exporting} style={{ ...sx.btnGhost, opacity: exporting ? 0.6 : 1 }}>
               <MaterialIcon name="download" size={18} /> {t(exporting ? 'fatura.gerando' : 'fatura.exportarXlsx')}
             </button>
@@ -240,61 +270,84 @@ export default function Invoices() {
           <span style={{ textAlign: 'right' }}>{t('fatura.colAcoes')}</span>
         </div>
 
-        {visible.map(({ iv, status: st }) => {
-          const [color, bg] = invoiceStatusMap[st]
-          const isPaid = st === 'Paga'
-          const busy = busyId === iv.id
-          return (
-            <div
-              key={iv.id}
-              style={{
-                display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '13px 22px',
-                alignItems: 'center', borderBottom: `1px solid ${C.lineHair}`,
-                // Vencida ganha um filete à esquerda: no meio de uma lista longa o selo
-                // sozinho passa batido.
-                boxShadow: st === 'Vencida' ? `inset 3px 0 0 ${C.rose}` : undefined,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 13, color: C.purple, fontWeight: 700 }}>{iv.num}</div>
-                {iv.installment && (
-                  <div style={{ fontSize: 10.5, color: C.faint, fontWeight: 700 }}>
-                    {iv.installment.n}/{iv.installment.of}{iv.recurrence === 'mensal' ? t('fatura.mensal') : ''}
+        {groups.map((g) => (
+          <div key={g.key}>
+            {byMonth && (
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, padding: '10px 22px', background: C.field, borderBottom: `1px solid ${C.lineHair}` }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{g.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>
+                  {t('fatura.grupoResumo', { n: g.rows.length, valor: fmtBRL(g.rows.reduce((a, x) => a + x.iv.value, 0)) })}
+                </span>
+              </div>
+            )}
+            {g.rows.map(({ iv, status: st }) => {
+              const [color, bg] = invoiceStatusMap[st]
+              const isPaid = st === 'Paga'
+              const busy = busyId === iv.id
+              return (
+                <div
+                  key={iv.id}
+                  style={{
+                    display: 'grid', gridTemplateColumns: GRID, gap: 14, padding: '13px 22px',
+                    alignItems: 'center', borderBottom: `1px solid ${C.lineHair}`,
+                    // Vencida ganha um filete à esquerda: no meio de uma lista longa o selo
+                    // sozinho passa batido.
+                    boxShadow: st === 'Vencida' ? `inset 3px 0 0 ${C.rose}` : undefined,
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: C.purple, fontWeight: 700 }}>
+                      {iv.num}
+                      {!!iv.attachments?.length && (
+                        <span
+                          title={t('fatura.anexos', { n: iv.attachments.length })}
+                          onClick={readOnly ? undefined : () => setModal(iv)}
+                          style={{ display: 'inline-flex', alignItems: 'center', color: C.muted, fontSize: 10.5, cursor: readOnly ? 'default' : 'pointer' }}
+                        >
+                          <MaterialIcon name="attach_file" size={14} />{iv.attachments.length > 1 ? iv.attachments.length : ''}
+                        </span>
+                      )}
+                    </div>
+                    {iv.installment && (
+                      <div style={{ fontSize: 10.5, color: C.faint, fontWeight: 700 }}>
+                        {iv.installment.n}/{iv.installment.of}{iv.recurrence === 'mensal' ? t('fatura.mensal') : ''}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.client}</div>
-                {iv.desc && (
-                  <div style={{ fontSize: 11.5, color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.desc}</div>
-                )}
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700 }}>R$ {fmtMoney(iv.value)}</div>
-                {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{rotuloPagamento(iv.paymentMethod)}</div>}
-              </div>
-              <div>
-                <div style={{ fontSize: 12.5, color: C.sub }}>{dataCurta(iv.dueAt)}</div>
-                {iv.paidAt && <div style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{t('fatura.pagoEm', { data: dataCurta(iv.paidAt) })}</div>}
-              </div>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color, background: bg, borderRadius: 20, padding: '4px 11px', textAlign: 'center', justifySelf: 'start' }}>{rotuloStatusNota(st)}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                {!readOnly && (
-                  <>
-                    <RowAction
-                      icon={isPaid ? 'undo' : 'task_alt'}
-                      title={t(isPaid ? 'fatura.desfazerBaixa' : 'fatura.darBaixa')}
-                      color={isPaid ? C.muted : C.green}
-                      busy={busy}
-                      onClick={() => void togglePaid(iv, isPaid)}
-                    />
-                    <RowAction icon="edit" title={t('fatura.editarNota')} color={C.sub} onClick={() => setModal(iv)} />
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        })}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.client}</div>
+                    {iv.desc && (
+                      <div style={{ fontSize: 11.5, color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.desc}</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 700 }}>R$ {fmtMoney(iv.value)}</div>
+                    {iv.paymentMethod && <div style={{ fontSize: 11, color: C.faint }}>{rotuloPagamento(iv.paymentMethod)}</div>}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12.5, color: C.sub }}>{dataCurta(iv.dueAt)}</div>
+                    {iv.paidAt && <div style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{t('fatura.pagoEm', { data: dataCurta(iv.paidAt) })}</div>}
+                  </div>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color, background: bg, borderRadius: 20, padding: '4px 11px', textAlign: 'center', justifySelf: 'start' }}>{rotuloStatusNota(st)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                    {!readOnly && (
+                      <>
+                        <RowAction
+                          icon={isPaid ? 'undo' : 'task_alt'}
+                          title={t(isPaid ? 'fatura.desfazerBaixa' : 'fatura.darBaixa')}
+                          color={isPaid ? C.muted : C.green}
+                          busy={busy}
+                          onClick={() => void togglePaid(iv, isPaid)}
+                        />
+                        <RowAction icon="edit" title={t('fatura.editarNota')} color={C.sub} onClick={() => setModal(iv)} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
 
         {visible.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13 }}>
