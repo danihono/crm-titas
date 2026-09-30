@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { collection, collectionGroup, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import { collection, collectionGroup, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 import { inviteFromDoc, memberFromDoc } from '../lib/converters'
-import type { Membership } from '../lib/team'
+import { emailKey, type Membership } from '../lib/team'
 import { useCollection } from './useCollection'
 import type { Invite, Member } from '../types'
 
@@ -87,12 +87,48 @@ export function usePendingInvites(tenantUid: string | null): Invite[] {
  * já existia (o da conta antiga dele), e o vínculo `dono` é o que dá acesso sem mover
  * nada. Se houver mais de um, vale o primeiro.
  */
-export function useOwnerEnvironment(): { environment: Membership | null; ownerTenantUids: string[]; loading: boolean } {
+export function useOwnerEnvironment(): {
+  environment: Membership | null
+  ownerTenantUids: string[]
+  /** Vínculos ativos com OUTRO papel — o convite saiu como atendente/gestor. */
+  outros: Membership[]
+  loading: boolean
+} {
   const { memberships, loading } = useMemberships()
   const donos = memberships.filter((m) => m.role === 'dono')
   return {
     environment: donos[0] ?? null,
     ownerTenantUids: donos.map((m) => m.tenantUid),
+    outros: memberships.filter((m) => m.role !== 'dono'),
     loading,
   }
+}
+
+/**
+ * Convite ainda não aceito endereçado ao e-mail do usuário logado.
+ *
+ * O aceite normal acontece no login (settleSession). Isto existe para o que ele não
+ * alcança: convite criado com a sessão já aberta, ou parado esperando a confirmação do
+ * e-mail — o aviso disso mora no Layout do CRM, onde o dono do sistema não entra.
+ */
+export function useMyPendingInvite(): Invite | null {
+  const [invite, setInvite] = useState<Invite | null>(null)
+  const email = auth.currentUser?.email ?? null
+
+  useEffect(() => {
+    if (!email) {
+      setInvite(null)
+      return
+    }
+    return onSnapshot(
+      doc(db, 'invites', emailKey(email)),
+      (snap) => setInvite(snap.exists() ? inviteFromDoc(snap.id, snap.data()) : null),
+      (err) => {
+        console.error('[useMyPendingInvite]', err)
+        setInvite(null)
+      },
+    )
+  }, [email])
+
+  return invite
 }

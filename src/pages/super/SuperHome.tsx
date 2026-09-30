@@ -1,20 +1,81 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SuperShell from './SuperShell'
 import { t } from '../../i18n'
 import { useClients } from '../../hooks/useClients'
 import { useAuth } from '../../contexts/AuthContext'
-import { useOwnerEnvironment } from '../../hooks/useTeam'
+import { useMyPendingInvite, useOwnerEnvironment } from '../../hooks/useTeam'
+import { acceptPendingInvite } from '../../lib/team'
+import { auth } from '../../lib/firebase'
 import { useTenantStore } from '../../store/tenantStore'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import { FONT_DISPLAY } from '../../styles/sx'
+import type { MemberRole } from '../../types'
+
+const PAPEL = { dono: 'equipe.dono', gestor: 'equipe.gestor', atendente: 'equipe.atendente' } as const
+const papel = (r: MemberRole) => t(PAPEL[r]).toLowerCase()
 
 export default function SuperHome() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, reenviarVerificacao } = useAuth()
   const { clients } = useClients()
-  const { environment, loading: loadingEnv } = useOwnerEnvironment()
+  const { environment, outros, loading: loadingEnv } = useOwnerEnvironment()
+  const convite = useMyPendingInvite()
   const enterOwnerEnv = useTenantStore((s) => s.enterOwnerEnv)
+  const [aceitando, setAceitando] = useState(false)
+  const [aviso, setAviso] = useState('')
+
+  /**
+   * Aceita aqui o convite que o login não aceitou (sessão já aberta, ou e-mail que acabou
+   * de ser confirmado). O reload + token novo é o que faz a regra de `members` enxergar
+   * `email_verified` — o token da sessão ainda carrega o valor de quando foi emitido.
+   */
+  async function aceitarConvite() {
+    const u = auth.currentUser
+    if (!u || aceitando) return
+    setAceitando(true)
+    setAviso('')
+    try {
+      await u.reload()
+      await u.getIdToken(true)
+      const r = await acceptPendingInvite(u.uid, u.displayName || u.email || '', u.email ?? '', u.emailVerified)
+      if (r === 'precisa-verificar') {
+        await reenviarVerificacao().catch(() => {})
+        setAviso(t('super.meuAmbienteVerificar'))
+      } else if (r) {
+        enterOwnerEnv({ uid: r.tenantUid, name: r.tenantName })
+        navigate('/')
+      }
+    } catch (err) {
+      setAviso(t('super.meuAmbienteFalha', { erro: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      setAceitando(false)
+    }
+  }
+
+  // O que o card diz e faz quando ainda não há vínculo `dono`. Cada caso aponta o passo
+  // que falta — "nenhum ambiente vinculado" sozinho não dizia se o convite nem existia,
+  // se esperava aceite ou se tinha saído com o papel errado.
+  let meuDesc = ''
+  let meuClick: (() => void) | undefined
+  if (environment) {
+    meuDesc = t('super.meuAmbienteSub', { nome: environment.tenantName })
+    meuClick = () => {
+      enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
+      navigate('/')
+    }
+  } else if (convite && convite.role === 'dono') {
+    meuDesc = t('super.meuAmbienteConvite', { nome: convite.tenantName })
+    meuClick = () => { void aceitarConvite() }
+  } else if (convite) {
+    meuDesc = t('super.meuAmbienteConviteOutroPapel', { nome: convite.tenantName, papel: papel(convite.role) })
+  } else if (outros[0]) {
+    meuDesc = t('super.meuAmbientePapelErrado', { nome: outros[0].tenantName, papel: papel(outros[0].role) })
+  } else if (!loadingEnv) {
+    meuDesc = t('super.meuAmbienteSemVinculo')
+  }
+  if (aviso) meuDesc = aviso
   const first = (user?.displayName || '').split(' ')[0]
 
   const cards: {
@@ -53,18 +114,9 @@ export default function SuperHome() {
       key: 'meu-ambiente',
       icon: 'home_work',
       title: t('super.meuAmbiente'),
-      desc: environment
-        ? t('super.meuAmbienteSub', { nome: environment.tenantName })
-        : loadingEnv ? '' : t('super.meuAmbienteSemVinculo'),
+      desc: meuDesc,
       accent: 'linear-gradient(140deg,#c08a4f,#86562e)',
-      // Sem vínculo `dono` em nenhum ambiente, não há o que abrir: o card explica o
-      // convite que falta em vez de levar a um CRM vazio.
-      onClick: environment
-        ? () => {
-            enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
-            navigate('/')
-          }
-        : undefined,
+      onClick: aceitando ? undefined : meuClick,
     },
   ]
 

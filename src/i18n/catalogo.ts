@@ -1377,6 +1377,11 @@ export const CATALOGO = {
   'super.meuAmbiente': ['Meu Ambiente', 'Mi Entorno', 'My Workspace'],
   'super.meuAmbienteSub': ['O seu CRM de trabalho — {nome}: conversas, pipeline, agenda e WhatsApp.', 'Tu CRM de trabajo — {nome}: conversaciones, pipeline, agenda y WhatsApp.', 'Your own working CRM — {nome}: conversations, pipeline, calendar and WhatsApp.'],
   'super.meuAmbienteSemVinculo': ['Nenhum ambiente vinculado. Na conta que tem os seus dados, vá em Configurações › Atendentes e convide este e-mail como Dono.', 'Ningún entorno vinculado. En la cuenta que tiene tus datos, ve a Configuración › Agentes e invita este correo como Dueño.', 'No workspace linked yet. In the account that holds your data, go to Settings › Agents and invite this e-mail as Owner.'],
+  'super.meuAmbienteConvite': ['Convite de {nome} esperando por você. Clique para aceitar e abrir.', 'Invitación de {nome} esperándote. Haz clic para aceptar y abrir.', 'An invite from {nome} is waiting. Click to accept and open.'],
+  'super.meuAmbienteConviteOutroPapel': ['O convite de {nome} veio como {papel}. Lá em Configurações › Atendentes, cancele e convide de novo como Dono.', 'La invitación de {nome} llegó como {papel}. En Configuración › Agentes, cancélala e invita de nuevo como Dueño.', 'The invite from {nome} came as {papel}. In Settings › Agents, cancel it and invite again as Owner.'],
+  'super.meuAmbientePapelErrado': ['Você já está na equipe de {nome}, mas como {papel}. Lá em Configurações › Atendentes, mude o seu papel para Dono.', 'Ya estás en el equipo de {nome}, pero como {papel}. En Configuración › Agentes, cambia tu rol a Dueño.', 'You are already on {nome}\'s team, but as {papel}. In Settings › Agents, change your role to Owner.'],
+  'super.meuAmbienteVerificar': ['Falta confirmar o seu e-mail. Mandamos o link agora — confirme e clique de novo.', 'Falta confirmar tu correo. Enviamos el enlace ahora — confírmalo y haz clic de nuevo.', 'Your e-mail still needs confirming. We just sent the link — confirm it and click again.'],
+  'super.meuAmbienteFalha': ['Não deu para aceitar o convite: {erro}', 'No se pudo aceptar la invitación: {erro}', 'Could not accept the invite: {erro}'],
   'super.voltarPainel': ['Voltar ao SUPER TITAN', 'Volver a SUPER TITAN', 'Back to SUPER TITAN'],
 
   // ── Assistente · modo offline ─────────────────────────────────────────
