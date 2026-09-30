@@ -9,6 +9,7 @@ import { useMemberships } from '../../hooks/useTeam'
 import { useAuth } from '../../contexts/AuthContext'
 import { t, type Chave } from '../../i18n'
 import { dataPorExtenso } from '../../i18n/formato'
+import { useOrgName } from '../../hooks/useSettings'
 
 /**
  * Cabeçalho por rota. Só entra onde a tela não tem um próprio:
@@ -36,6 +37,9 @@ export default function Layout() {
   const exitClient = useTenantStore((s) => s.exitClient)
   const enterMembership = useTenantStore((s) => s.enterMembership)
   const ownerEnv = useTenantStore((s) => s.ownerEnv)
+  // Nome do ambiente = Configurações › Dados e canais. O `client.name` é uma cópia tirada
+  // na hora do convite e não acompanha a renomeação.
+  const orgName = useOrgName()
   const { memberships } = useMemberships()
   const { conviteAguardandoVerificacao, reenviarVerificacao } = useAuth()
 
@@ -65,7 +69,7 @@ export default function Layout() {
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', height: 38, background: C.tintPurple, borderBottom: `1px solid ${C.selBorder}`, color: C.purple, fontSize: 12.5 }}>
             <MaterialIcon name="home_work" size={17} />
             <span>
-              {t('super.meuAmbiente')} · <b>{client?.name}</b>
+              {t('super.meuAmbiente')} · <b>{orgName || client?.name}</b>
             </span>
             <div style={{ flex: 1 }} />
             <button

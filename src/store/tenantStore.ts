@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { auth } from '../lib/firebase'
 import type { MemberRole } from '../types'
 
 export interface ClientRef {
@@ -18,10 +19,10 @@ export interface ClientRef {
  * e vê métricas agregadas em /super — nada mais. Por isso não existe um
  * `enterClient()` aqui.
  *
- * A única porta dele para o CRM é o card "Meu Ambiente": o PRÓPRIO ambiente de
- * trabalho, um tenant em que ele foi convidado como `dono` (`enterOwnerEnv`). O
- * `CrmRoute` só o deixa passar com `ownerEnv` ligado, e as regras do Firestore
- * conferem o vínculo em members — cliente que não o convidou continua fechado.
+ * A única porta dele para o CRM é o card "Meu Ambiente" (`enterOwnerEnv`): o PRÓPRIO
+ * ambiente de trabalho — a conta dele, ou um tenant em que foi convidado como `dono`.
+ * O `CrmRoute` só o deixa passar com `ownerEnv` ligado, e as regras do Firestore
+ * conferem titularidade ou vínculo — cliente que não o convidou continua fechado.
  */
 interface TenantState {
   tenantUid: string | null
@@ -76,7 +77,14 @@ export const useTenantStore = create<TenantState>((set) => ({
   enterMembership: (c, role) => set({ tenantUid: c.uid, readOnly: false, client: c, role, ownerEnv: false }),
   enterOwnerEnv: (c) => {
     gravarOwnerEnv(true)
-    set({ tenantUid: c.uid, readOnly: false, client: c, role: 'dono', ownerEnv: true })
+    // O próprio ambiente da conta é o caso "tenantUid nulo, role nulo" que o app inteiro
+    // já trata como titular (uid(), Equipe, convites pendentes). Só o tenant alheio em que
+    // ele foi convidado como dono entra pelo caminho de vínculo.
+    if (c.uid === auth.currentUser?.uid) {
+      set({ tenantUid: null, readOnly: false, client: c, role: null, ownerEnv: true })
+    } else {
+      set({ tenantUid: c.uid, readOnly: false, client: c, role: 'dono', ownerEnv: true })
+    }
   },
   exitClient: () => {
     gravarOwnerEnv(false)

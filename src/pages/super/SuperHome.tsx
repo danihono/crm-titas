@@ -11,16 +11,15 @@ import { auth } from '../../lib/firebase'
 import { useTenantStore } from '../../store/tenantStore'
 import MaterialIcon from '../../components/common/MaterialIcon'
 import { FONT_DISPLAY } from '../../styles/sx'
-import type { MemberRole } from '../../types'
-
-const PAPEL = { dono: 'equipe.dono', gestor: 'equipe.gestor', atendente: 'equipe.atendente' } as const
-const papel = (r: MemberRole) => t(PAPEL[r]).toLowerCase()
+import { useOrgName } from '../../hooks/useSettings'
 
 export default function SuperHome() {
   const navigate = useNavigate()
   const { user, reenviarVerificacao } = useAuth()
   const { clients } = useClients()
-  const { environment, outros, loading: loadingEnv } = useOwnerEnvironment()
+  const { environment } = useOwnerEnvironment()
+  // Fora do CRM o tenant ativo é nulo, então isto lê o doc da própria conta.
+  const orgName = useOrgName()
   const convite = useMyPendingInvite()
   const enterOwnerEnv = useTenantStore((s) => s.enterOwnerEnv)
   const [aceitando, setAceitando] = useState(false)
@@ -54,11 +53,11 @@ export default function SuperHome() {
     }
   }
 
-  // O que o card diz e faz quando ainda não há vínculo `dono`. Cada caso aponta o passo
-  // que falta — "nenhum ambiente vinculado" sozinho não dizia se o convite nem existia,
-  // se esperava aceite ou se tinha saído com o papel errado.
-  let meuDesc = ''
-  let meuClick: (() => void) | undefined
+  // Ordem: vínculo `dono` noutro ambiente (o arranjo antigo, antes de migrar os dados
+  // para esta conta) → convite de Dono esperando → o PRÓPRIO ambiente desta conta, que é
+  // o destino normal e está sempre disponível.
+  let meuDesc: string
+  let meuClick: () => void
   if (environment) {
     meuDesc = t('super.meuAmbienteSub', { nome: environment.tenantName })
     meuClick = () => {
@@ -68,12 +67,14 @@ export default function SuperHome() {
   } else if (convite && convite.role === 'dono') {
     meuDesc = t('super.meuAmbienteConvite', { nome: convite.tenantName })
     meuClick = () => { void aceitarConvite() }
-  } else if (convite) {
-    meuDesc = t('super.meuAmbienteConviteOutroPapel', { nome: convite.tenantName, papel: papel(convite.role) })
-  } else if (outros[0]) {
-    meuDesc = t('super.meuAmbientePapelErrado', { nome: outros[0].tenantName, papel: papel(outros[0].role) })
-  } else if (!loadingEnv) {
-    meuDesc = t('super.meuAmbienteSemVinculo')
+  } else {
+    const nome = orgName || user?.displayName || t('super.meuAmbiente')
+    meuDesc = t('super.meuAmbienteSub', { nome })
+    meuClick = () => {
+      if (!user) return
+      enterOwnerEnv({ uid: user.uid, name: nome })
+      navigate('/')
+    }
   }
   if (aviso) meuDesc = aviso
   const first = (user?.displayName || '').split(' ')[0]

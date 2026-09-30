@@ -28,23 +28,24 @@ export function CrmRoute() {
 
 /**
  * Dono do sistema chegando ao CRM sem estar no próprio ambiente. Se a aba lembra que ele
- * tinha escolhido "Meu Ambiente" (F5, link aberto na mesma aba), reentra no vínculo `dono`
- * e segue para a rota pedida. Em qualquer outro caso, volta para /super.
+ * tinha escolhido "Meu Ambiente" (F5, link aberto na mesma aba), reentra — no vínculo
+ * `dono`, se houver, senão na própria conta — e segue para a rota pedida. Sem essa
+ * lembrança, volta para /super.
  */
 function OwnerEnvReentry() {
+  const { user } = useAuth()
   const { environment, loading } = useOwnerEnvironment()
   const enterOwnerEnv = useTenantStore((s) => s.enterOwnerEnv)
   const lembrou = lembrarOwnerEnv()
 
   useEffect(() => {
-    if (lembrou && environment) {
-      enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
-    }
-  }, [lembrou, environment, enterOwnerEnv])
+    if (!lembrou || loading || !user) return
+    if (environment) enterOwnerEnv({ uid: environment.tenantUid, name: environment.tenantName })
+    else enterOwnerEnv({ uid: user.uid, name: user.displayName || '' })
+  }, [lembrou, loading, environment, user, enterOwnerEnv])
 
   if (!lembrou) return <Navigate to="/super" replace />
-  if (loading || environment) return <Splash />
-  return <Navigate to="/super" replace />
+  return <Splash />
 }
 
 /**

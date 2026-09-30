@@ -83,15 +83,13 @@ export function usePendingInvites(tenantUid: string | null): Invite[] {
  * O ambiente de trabalho do DONO DO SISTEMA — o tenant em que ele foi convidado como
  * `dono`. É o que o card "Meu Ambiente" do SUPER TITAN abre.
  *
- * O dono do sistema não usa a própria conta como ambiente: os dados ficam no tenant que
- * já existia (o da conta antiga dele), e o vínculo `dono` é o que dá acesso sem mover
- * nada. Se houver mais de um, vale o primeiro.
+ * Serve ao arranjo em que os dados ainda estão no tenant de uma conta antiga dele: o
+ * vínculo `dono` dá acesso sem mover nada. Sem vínculo, o "Meu Ambiente" é a própria
+ * conta (ver SuperHome). Se houver mais de um, vale o primeiro.
  */
 export function useOwnerEnvironment(): {
   environment: Membership | null
   ownerTenantUids: string[]
-  /** Vínculos ativos com OUTRO papel — o convite saiu como atendente/gestor. */
-  outros: Membership[]
   loading: boolean
 } {
   const { memberships, loading } = useMemberships()
@@ -99,7 +97,6 @@ export function useOwnerEnvironment(): {
   return {
     environment: donos[0] ?? null,
     ownerTenantUids: donos.map((m) => m.tenantUid),
-    outros: memberships.filter((m) => m.role !== 'dono'),
     loading,
   }
 }

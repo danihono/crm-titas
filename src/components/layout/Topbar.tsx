@@ -7,6 +7,7 @@ import { useMessageNotifications } from '../../hooks/useMessageNotifications'
 import { useAllDeals } from '../../hooks/useDeals'
 import { useActivities } from '../../hooks/useActivities'
 import { useInvoices } from '../../hooks/useInvoices'
+import { useOrgName } from '../../hooks/useSettings'
 import { useThemeStore } from '../../store/themeStore'
 import { navDefs, settingsNav } from '../../lib/theme'
 import { t } from '../../i18n'
@@ -66,6 +67,8 @@ export default function Topbar() {
 
   const { pathname } = useLocation()
   const client = useTenantStore((s) => s.client)
+  // Nome do ambiente em Configurações › Dados e canais; o client.name é cópia antiga do convite.
+  const orgName = useOrgName()
   // A tela atual, pelo menu: o item cujo caminho é o mais longo que casa com a URL.
   const tela = useMemo(() => {
     if (pathname.startsWith(settingsNav.path)) return t(settingsNav.label)
@@ -157,7 +160,7 @@ export default function Topbar() {
       }}
     >
       <nav aria-label={t('topo.ondeEstou')} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.muted, whiteSpace: 'nowrap', minWidth: 0 }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{client?.name ?? 'Titãs'}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{orgName || client?.name || 'Titãs'}</span>
         {tela && <span aria-hidden>/</span>}
         {tela && <span style={{ color: C.ink, fontWeight: 500 }}>{tela}</span>}
       </nav>
