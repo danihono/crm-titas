@@ -83,12 +83,18 @@ As contas listadas em `src/lib/owners.ts` entram num painel próprio (`/super`),
   clientes para mostrar só as somas.
 - **Clientes** — a ficha administrativa de cada conta: **nome, cor e logo** (editáveis) e a
   **exclusão definitiva** da conta.
+- **Meu Ambiente** — o CRM de trabalho do PRÓPRIO dono do sistema, com o mesmo login do
+  painel. Não é um tenant novo: é um ambiente que já existe e em que ele foi convidado como
+  **Dono** (Configurações › Atendentes, na conta que tem os dados). Sem esse vínculo o card
+  fica desabilitado e explica o convite. Esse ambiente sai da lista de Clientes, das métricas
+  de `estatisticasClientes` e da `excluirCliente`.
 
 O dono do sistema **não entra no CRM de nenhum cliente**: conversas, mensagens, contatos e
-arquivos são confidenciais. Isso vale nas rotas (`CrmRoute` devolve todo dono para `/super`)
-e, principalmente, nas security rules — `users/{uid}/{document=**}` não é mais legível por
+arquivos são confidenciais. Isso vale nas rotas (`CrmRoute` devolve o dono para `/super`,
+salvo no modo "Meu Ambiente") e, principalmente, nas security rules — `users/{uid}/{document=**}` não é mais legível por
 ele, e a escrita no doc do cliente é limitada a `displayName`, `brandColor`, `logoUrl` e
-`logoPath`. A allowlist de e-mails vive em três lugares que precisam andar juntos:
+`logoPath`. No "Meu Ambiente" o acesso vem do vínculo `members/{uid}` com papel `dono`, não
+da allowlist — cliente que não o convidou continua fechado. A allowlist de e-mails vive em três lugares que precisam andar juntos:
 `src/lib/owners.ts`, `firestore.rules` e `storage.rules` (+ `OWNER_EMAILS` em
 `functions/src/index.ts`).
 
