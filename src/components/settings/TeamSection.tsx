@@ -76,6 +76,7 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
                       onChange={(e) => updateMemberRole(m.id, e.target.value as MemberRole)}
                       style={{ ...sx.input, width: 'auto', padding: '7px 10px', fontSize: 12.5 }}
                     >
+                      <option value="dono">{t('equipe.dono')}</option>
                       <option value="gestor">{t('equipe.gestor')}</option>
                       <option value="atendente">{t('equipe.atendente')}</option>
                     </select>
@@ -124,6 +125,9 @@ export default function TeamSection({ canEdit }: { canEdit: boolean }) {
               <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} style={sx.input}>
                 <option value="atendente">{t('equipe.atendente')}</option>
                 <option value="gestor">{t('equipe.gestor')}</option>
+                {/* Só o dono do ambiente chega aqui (canEdit), e é só ele que a regra deixa
+                    convidar outro dono — é o caminho do "Meu Ambiente" do SUPER TITAN. */}
+                <option value="dono">{t('equipe.dono')}</option>
               </select>
             </Field>
             <PrimaryButton icon="person_add" onClick={submitInvite} disabled={busy || !email.trim()}>
