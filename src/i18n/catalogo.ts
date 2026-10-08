@@ -738,6 +738,7 @@ export const CATALOGO = {
   'atividades.abrirConversa': ['Abrir a conversa deste cliente', 'Abrir la conversación de este cliente', 'Open this client\'s conversation'],
   'agenda.compromissos': ['Compromissos', 'Compromisos', 'Appointments'],
   'agenda.semCompromissos': ['Nenhum compromisso neste dia', 'Ningún compromiso este día', 'No appointments this day'],
+  'agenda.vence': ['Vence', 'Vence', 'Due'],
 
   // ── Faturamento · complemento ─────────────────────────────────────────
   'fatura.titulo': ['Notas de faturamento', 'Facturas emitidas', 'Invoices'],

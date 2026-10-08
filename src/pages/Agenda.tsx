@@ -1,10 +1,14 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
+import { useTenantStore, canManage } from '../store/tenantStore'
 import { useEvents } from '../hooks/useEvents'
+import { useInvoices, invoiceStatus } from '../hooks/useInvoices'
 import { buildCalendar } from '../hooks/useCalendar'
-import { monthName, longDayLabel } from '../lib/format'
+import { monthName, longDayLabel, dateKeyOf, fmtBRL } from '../lib/format'
+import { invoiceStatusMap } from '../lib/theme'
 import MaterialIcon from '../components/common/MaterialIcon'
-import type { EventDoc } from '../types'
+import type { EventDoc, Invoice } from '../types'
 import { C, FONT_DISPLAY } from '../styles/sx'
 import { t } from '../i18n'
 import { diasCurtosCalendario } from '../i18n/formato'
@@ -18,11 +22,25 @@ export default function Agenda() {
   const ui = useUIStore()
   const { docs: events } = useEvents(ui.calYear, ui.calMonth)
 
+  // Vencimento de nota aparece no dia em que vence. Só quem lê faturamento assina as notas
+  // (as regras negam ao atendente); para os demais a lista fica vazia sem consulta alguma.
+  const role = useTenantStore((s) => s.role)
+  const readOnly = useTenantStore((s) => s.readOnly)
+  const podeVerFaturamento = canManage(role, readOnly)
+  const { docs: invoices } = useInvoices({ enabled: podeVerFaturamento })
+
   const byKey: Record<string, EventDoc[]> = {}
   events.forEach((e) => { (byKey[e.dateKey] ||= []).push(e) })
 
+  const invoicesByKey = useMemo(() => {
+    const m: Record<string, Invoice[]> = {}
+    invoices.forEach((iv) => { (m[dateKeyOf(iv.dueAt)] ||= []).push(iv) })
+    return m
+  }, [invoices])
+
   const cells = buildCalendar(ui.calYear, ui.calMonth)
   const dayEvents = (byKey[ui.selectedDayKey] || []).slice().sort((a, b) => a.time.localeCompare(b.time))
+  const dayInvoices = invoicesByKey[ui.selectedDayKey] || []
   const selectedDate = new Date(`${ui.selectedDayKey}T00:00:00`)
 
   return (
@@ -46,6 +64,7 @@ export default function Agenda() {
           {cells.map((c) => {
             const sel = c.key === ui.selectedDayKey
             const evs = byKey[c.key] || []
+            const ivs = invoicesByKey[c.key] || []
             return (
               <div
                 key={c.key}
@@ -64,6 +83,9 @@ export default function Agenda() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
                   {evs.map((e) => (
                     <div key={e.id} style={{ fontSize: 9.5, color: C.ink, background: C.tintNeutral, borderLeft: `2px solid ${e.color}`, borderRadius: 4, padding: '2px 5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+                  ))}
+                  {ivs.map((iv) => (
+                    <div key={'nota-' + iv.id} style={{ fontSize: 9.5, color: C.ink, background: C.tintNeutral, borderLeft: `2px solid ${invoiceStatusMap[invoiceStatus(iv)][0]}`, borderRadius: 4, padding: '2px 5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{iv.num} · {iv.client}</div>
                   ))}
                 </div>
               </div>
@@ -96,7 +118,20 @@ export default function Agenda() {
               </div>
             </div>
           ))}
-          {dayEvents.length === 0 && (
+          {dayInvoices.map((iv) => {
+            const st = invoiceStatus(iv)
+            const stLabel = st === 'Paga' ? 'sistema.notaPaga' : st === 'Vencida' ? 'sistema.notaVencida' : 'sistema.notaPendente'
+            return (
+              <div key={'nota-' + iv.id} style={{ display: 'flex', gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.purple, width: 42, flexShrink: 0, paddingTop: 1 }}>{t('agenda.vence')}</div>
+                <div style={{ flex: 1, minWidth: 0, borderLeft: `2px solid ${invoiceStatusMap[st][0]}`, padding: '1px 0 12px 12px' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{iv.num} · {iv.client}</div>
+                  <div style={{ fontSize: 11.5, color: C.sub, marginTop: 2 }}>{fmtBRL(iv.value)} · {t(stLabel)}</div>
+                </div>
+              </div>
+            )
+          })}
+          {dayEvents.length === 0 && dayInvoices.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: C.faint, fontSize: 13 }}>{t('agenda.semCompromissos')}</div>
           )}
         </div>
