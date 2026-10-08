@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { SettingsSection } from '../types'
 import { dateKeyOf } from '../lib/format'
+import type { ActGroup } from '../lib/atividadesAgrupar'
 
 export type ContactView = 'chat' | 'info' | 'files' | 'agenda'
 export type ActFilter = 'todas' | 'pendente' | 'atrasada' | 'concluida'
+export type { ActGroup }
 export type PipelineView = 'kanban' | 'fluxos'
 /** Aba da tela de Contatos: a caixa de atendimento ou o cadastro. */
 export type ContactsView = 'atendimento' | 'cadastro'
@@ -41,6 +43,7 @@ interface UIState {
   calYear: number
   calMonth: number
   actFilter: ActFilter
+  actGroup: ActGroup
 
   showContactModal: boolean
   showSchedModal: boolean
@@ -64,6 +67,7 @@ interface UIState {
   prevMonth: () => void
   nextMonth: () => void
   setActFilter: (f: ActFilter) => void
+  setActGroup: (g: ActGroup) => void
 
   openContactModal: () => void
   closeContactModal: () => void
@@ -96,6 +100,7 @@ export const useUIStore = create<UIState>((set) => ({
   calYear: now.getFullYear(),
   calMonth: now.getMonth(),
   actFilter: 'todas',
+  actGroup: 'nenhum',
 
   showContactModal: false,
   showSchedModal: false,
@@ -131,6 +136,7 @@ export const useUIStore = create<UIState>((set) => ({
       return { calMonth: m, calYear: y }
     }),
   setActFilter: (f) => set({ actFilter: f }),
+  setActGroup: (g) => set({ actGroup: g }),
 
   openContactModal: () => set({ showContactModal: true }),
   closeContactModal: () => set({ showContactModal: false }),

@@ -6,6 +6,7 @@ import { useContacts } from '../hooks/useContacts'
 import { activityBadgeMap } from '../lib/theme'
 import { rotuloStatusAtividade } from '../i18n/sistema'
 import { dueInfo } from '../lib/format'
+import { agruparAtividades, type ActGroup } from '../lib/atividadesAgrupar'
 import MaterialIcon from '../components/common/MaterialIcon'
 import RingButton from '../components/common/RingButton'
 import ActivityModal from '../components/modals/ActivityModal'
@@ -23,6 +24,14 @@ const FILTERS: { id: ActFilter; label: Chave }[] = [
   { id: 'concluida', label: 'atividades.concluidas' },
 ]
 
+const GROUPS: { id: ActGroup; label: Chave }[] = [
+  { id: 'nenhum', label: 'atividades.agrupNenhum' },
+  { id: 'urgencia', label: 'atividades.agrupUrgencia' },
+  { id: 'mes', label: 'atividades.agrupMes' },
+  { id: 'tipo', label: 'atividades.agrupTipo' },
+  { id: 'cliente', label: 'atividades.agrupCliente' },
+]
+
 export default function Activities() {
   const { docs: activities } = useActivities()
   const { docs: types } = useActTypes()
@@ -35,6 +44,7 @@ export default function Activities() {
   activities.forEach((a) => { counts[statusOf(a)]++ })
 
   const list = activities.filter((a) => ui.actFilter === 'todas' || statusOf(a) === ui.actFilter)
+  const groups = agruparAtividades(list, ui.actGroup, typeMap)
   // Um cliente por id: a lista de nomes de antes não dizia QUAL contato era,
   // e é o id que liga a atividade à conversa.
   const contactOptions = contacts.map((c) => ({ id: c.id, nome: c.company || c.name }))
@@ -69,8 +79,39 @@ export default function Activities() {
         </>}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        {list.map((a) => <ActivityRow key={a.id} a={a} type={typeMap[a.type]} />)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: C.sub, marginRight: 4 }}>{t('atividades.agruparPor')}</span>
+        {GROUPS.map((g) => {
+          const on = ui.actGroup === g.id
+          return (
+            <button
+              key={g.id}
+              onClick={() => ui.setActGroup(g.id)}
+              style={{
+                padding: '6px 13px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', borderRadius: 9,
+                ...(on
+                  ? { background: C.sel, border: `1px solid ${C.selBorder}`, color: C.purple }
+                  : { background: C.surface, border: `1px solid ${C.fieldBorder}`, color: C.sub }),
+              }}
+            >
+              {t(g.label)}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {groups.map((g) => (
+          <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {ui.actGroup !== 'nenhum' && (
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, padding: '2px 4px' }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{g.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>{t('atividades.contagem', { n: g.rows.length })}</span>
+              </div>
+            )}
+            {g.rows.map((a) => <ActivityRow key={a.id} a={a} type={typeMap[a.type]} />)}
+          </div>
+        ))}
         {list.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: C.faint, fontSize: 13, border: `1px dashed ${C.fieldBorder}`, borderRadius: 14, background: C.surface }}>{t('atividades.vazio')}</div>
         )}
