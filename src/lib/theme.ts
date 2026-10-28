@@ -57,6 +57,7 @@ export const tagMap: Record<string, [string, string]> = {
 /** origem do lead -> [cor, fundo] (renderNewLeads). */
 export const srcMap: Record<string, [string, string]> = {
   'Google Ads': ['#4f7fc0', 'rgba(111,155,207,0.16)'],
+  'Meta Ads': ['#c14d77', 'rgba(217,138,171,0.16)'],
   LinkedIn: ['#7a52a0', 'rgba(150,110,200,0.14)'],
   'Indicação': ['#2f9e6f', 'rgba(95,201,166,0.16)'],
   'Orgânico': ['#b3801f', 'rgba(216,169,96,0.18)'],

@@ -1,5 +1,6 @@
 import { tagMap } from '../../lib/theme'
 import { fmtBRL } from '../../lib/format'
+import { ICONE_CANAL, resumoOrigem } from '../../lib/leadSource'
 import MaterialIcon from '../common/MaterialIcon'
 import type { Deal } from '../../types'
 import { C } from '../../styles/sx'
@@ -43,7 +44,14 @@ export default function Card({ deal, avBg, valColor, readOnly, onDragStart, onOp
         <MaterialIcon name="drag_indicator" size={16} color="#c4bfd0" />
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 3 }}>{deal.company}</div>
-      <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>{deal.contact}</div>
+      <div style={{ fontSize: 12, color: C.sub, marginBottom: deal.source ? 6 : 12 }}>{deal.contact}</div>
+      {/* Lead que entrou sozinho: de qual anúncio veio, sem precisar abrir o card. */}
+      {deal.source && (
+        <div title={resumoOrigem(deal.source)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.muted, marginBottom: 12, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          <MaterialIcon name={ICONE_CANAL[deal.source.channel]} size={13} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{resumoOrigem(deal.source)}</span>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: valColor }}>{fmtBRL(deal.value)}</div>
         <div style={{ width: 26, height: 26, borderRadius: '50%', background: avBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>{deal.initials}</div>

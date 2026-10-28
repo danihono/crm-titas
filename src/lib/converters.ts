@@ -9,6 +9,7 @@ import type {
   BusinessHours, DayHours, ConvState, ConvStatus, ConversationRecord,
   Campaign, CampaignStatus, CampaignTarget, CampaignTargetStatus,
   Variable, MediaAsset, KnowledgeDoc, UserPrefs, ThemeMode, Idioma,
+  LeadSource, ConversionSent, Integrations, AdCampaign, AdDaily,
 } from '../types'
 
 function toDate(v: unknown): Date | undefined {
@@ -90,6 +91,99 @@ export function dealFromDoc(id: string, d: DocumentData): Deal {
     createdAt: toDate(d.createdAt),
     contactId: typeof d.contactId === 'string' && d.contactId ? d.contactId : undefined,
     reachedAt: toReachedAt(d.reachedAt),
+    source: toLeadSource(d.source),
+    conversionsSent: toConversionsSent(d.conversionsSent),
+  }
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined
+}
+
+function strMap(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  const out: Record<string, string> = {}
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) if (typeof x === 'string' && x) out[k] = x
+  return Object.keys(out).length ? out : undefined
+}
+
+function toLeadSource(v: unknown): LeadSource | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const d = v as Record<string, unknown>
+  const channel = d.channel === 'meta' || d.channel === 'google' || d.channel === 'site' ? d.channel : undefined
+  if (!channel) return undefined
+  return {
+    channel,
+    campaignKey: str(d.campaignKey),
+    campaignId: str(d.campaignId),
+    campaignName: str(d.campaignName),
+    adsetName: str(d.adsetName),
+    adName: str(d.adName),
+    formId: str(d.formId),
+    leadId: str(d.leadId),
+    gclid: str(d.gclid),
+    fbclid: str(d.fbclid),
+    utm: strMap(d.utm),
+    landingUrl: str(d.landingUrl),
+    fields: strMap(d.fields),
+    test: d.test === true,
+    receivedAt: toDate(d.receivedAt),
+  }
+}
+
+function toConversionsSent(v: unknown): Record<string, ConversionSent> | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  const out: Record<string, ConversionSent> = {}
+  for (const [col, raw] of Object.entries(v as Record<string, unknown>)) {
+    if (!raw || typeof raw !== 'object') continue
+    const r = raw as Record<string, unknown>
+    const status = r.status === 'ok' || r.status === 'erro' ? r.status : 'enviando'
+    out[col] = { status, at: toDate(r.at), meta: str(r.meta), google: str(r.google) }
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+function num(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
+/** Os quatro docs de users/{uid}/integrations, com datas convertidas. */
+export function integrationsFromDocs(docs: { id: string; data: DocumentData }[]): Integrations {
+  const out: Integrations = { meta: {}, google: {}, site: {}, conversoes: {} }
+  for (const { id, data } of docs) {
+    const d: Record<string, unknown> = { ...data }
+    for (const k of ['lastSyncAt', 'lastLeadsSyncAt', 'lastLeadAt', 'lastSentAt']) d[k] = toDate(d[k])
+    if (id === 'meta' || id === 'google' || id === 'site' || id === 'conversoes') {
+      out[id] = d as never
+    }
+  }
+  return out
+}
+
+export function adCampaignFromDoc(id: string, d: DocumentData): AdCampaign {
+  return {
+    id,
+    provider: d.provider === 'google' ? 'google' : 'meta',
+    campaignId: String(d.campaignId ?? ''),
+    name: d.name ?? id,
+    status: str(d.status),
+    objective: str(d.objective),
+    currency: str(d.currency),
+  }
+}
+
+export function adDailyFromDoc(id: string, d: DocumentData): AdDaily {
+  return {
+    id,
+    campaignKey: String(d.campaignKey ?? ''),
+    provider: d.provider === 'google' ? 'google' : 'meta',
+    campaignName: d.campaignName ?? '',
+    date: String(d.date ?? ''),
+    impressions: num(d.impressions),
+    clicks: num(d.clicks),
+    spend: num(d.spend),
+    platformLeads: num(d.platformLeads),
+    platformConversions: num(d.platformConversions),
   }
 }
 

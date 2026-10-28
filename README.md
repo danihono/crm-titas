@@ -33,6 +33,14 @@ etiquetas e as transições de estado. Cada ciclo vira um registro em
 `users/{uid}/conversations`, que é o que alimenta os Relatórios.
 Ver `docs/modulos-atendimento.md` para o modelo de dados e o que ainda não foi feito.
 
+**Anúncios (Meta Ads, Google Ads, site).** Leads dos formulários da Meta, do formulário de
+lead do Google e dos formulários do site entram sozinhos no quadro Leads (coluna *Novo lead*),
+com campanha, anúncio e UTMs gravados em `deals.source`. As métricas das campanhas chegam de
+hora em hora e aparecem cruzadas com o funil em **Campanhas → Anúncios** (CPL, CAC e ROAS
+reais). Quando um card chega a *Qualificado* ou *Ganho*, a conversão volta para a Meta
+(Conversions API) e para o Google (conversão offline por gclid). A configuração fica em
+**Configurações → Integrações**, e o passo a passo está em `docs/integracoes-anuncios.md`.
+
 **Três idiomas.** A interface fala português, espanhol e inglês, e quem escolhe é a
 pessoa, em **Configurações → Preferências pessoais**, ao lado do tema. A escolha vale na
 hora e na árvore inteira: `App.tsx` passa o idioma como `key` do `RouterProvider`, então
@@ -228,6 +236,14 @@ firebase functions:secrets:set GEMINI_API_KEY     # cole sua chave do Google AI 
 
 > Enquanto a Function não estiver no ar, o chat do Titã IA usa um **fallback scriptado** (respostas por palavra-chave) automaticamente.
 
+### Integrações de anúncio
+Os tokens da Meta e do Google ficam cifrados no Firestore com uma chave do Secret Manager:
+```bash
+openssl rand -base64 32 | firebase functions:secrets:set INTEGRATIONS_KEY --data-file=-
+```
+O resto (permissões do token da Meta, developer token do Google, snippet do site) está em
+`docs/integracoes-anuncios.md`.
+
 ### Sem a chave do Gemini ainda?
 Dá para publicar o resto sem tocar nas functions — só o Titã IA e o gerador de fluxos
 dependem da chave:
@@ -259,7 +275,7 @@ espelho — um aparelho que já escolheu não é sobrescrito pela conta, e um ap
 dela (`adotarDoPerfil`, em `src/store/localeStore.ts`). A gravação sai por `saveSelfPrefs`,
 sempre no próprio doc.
 
-`users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`, `contactId` e `reachedAt`), `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
+`users/{uid}` (perfil + `agent`) com subcoleções: `boards`, `deals` (cards do kanban normalizados, com `order`, `contactId`, `reachedAt` e, nos leads automáticos, `source`/`conversionsSent`), `integrations`, `adCampaigns`, `adDaily`, `contacts` (+ `messages`, `files`), `activities`, `actTypes`, `invoices`, `events`, `agentChat`. Regras garantem acesso só ao próprio `uid`.
 
 > A coleção `leads` **não existe mais**: na primeira abertura do Pipeline, `ensureLeadsBoard()`
 > cria o quadro Leads e migra cada lead para um card (id `lead-<id>`, origem virando etiqueta),

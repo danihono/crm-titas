@@ -8,7 +8,7 @@ export type SettingsSection =
   | 'perfil' | 'preferencias'
   | 'equipe' | 'setores' | 'horarios'
   | 'etiquetas' | 'campos' | 'biblioteca'
-  | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos'
+  | 'respostas' | 'variaveis' | 'conhecimento' | 'agendamentos' | 'integracoes'
   | 'org'
 /** Idioma da interface. O padrão de quem nunca escolheu vem do navegador. */
 export type Idioma = 'pt' | 'es' | 'en'
@@ -90,6 +90,123 @@ export interface Deal {
    * por aqui" em vez de "está aqui agora", e o que permite medir o tempo de cada degrau.
    */
   reachedAt?: Record<string, Date>
+  /** De onde o lead veio, quando entrou sozinho (anúncio ou site). Só o servidor grava. */
+  source?: LeadSource
+  /** O que já foi avisado às plataformas, por etapa. Só o servidor grava. */
+  conversionsSent?: Record<string, ConversionSent>
+}
+
+export type LeadChannel = 'meta' | 'google' | 'site'
+
+/** Origem gravada em `deals.source` por functions/src/anuncios/ingestao.ts. */
+export interface LeadSource {
+  channel: LeadChannel
+  /** Liga o card à linha da campanha na aba Anúncios (`meta_123`, `google_456`, `site_utm_x`). */
+  campaignKey?: string
+  campaignId?: string
+  campaignName?: string
+  adsetName?: string
+  adName?: string
+  formId?: string
+  leadId?: string
+  gclid?: string
+  fbclid?: string
+  utm?: { source?: string; medium?: string; campaign?: string; term?: string; content?: string }
+  landingUrl?: string
+  /** Respostas do formulário que não são nome/e-mail/telefone/empresa. */
+  fields?: Record<string, string>
+  test?: boolean
+  receivedAt?: Date
+}
+
+export interface ConversionSent {
+  status: 'enviando' | 'ok' | 'erro'
+  at?: Date
+  meta?: string
+  google?: string
+}
+
+/** Integrações de anúncio — config visível em users/{uid}/integrations/{id}. */
+export interface MetaIntegration {
+  conectado?: boolean
+  adAccountId?: string
+  adAccountName?: string
+  pageId?: string
+  pageName?: string
+  pixelId?: string
+  pixelName?: string
+  importarLeads?: boolean
+  tokenFim?: string
+  moeda?: string
+  totalLeads?: number
+  lastSyncAt?: Date
+  lastLeadsSyncAt?: Date
+  lastLeadAt?: Date
+  lastError?: string
+  leadsError?: string
+}
+
+export interface GoogleIntegration {
+  conectado?: boolean
+  customerId?: string
+  loginCustomerId?: string
+  contaNome?: string
+  tokenFim?: string
+  moeda?: string
+  conversionActions?: { id: string; name: string }[]
+  totalLeads?: number
+  lastSyncAt?: Date
+  lastLeadAt?: Date
+  lastError?: string
+}
+
+export interface SiteIntegration {
+  chave?: string
+  totalLeads?: number
+  lastLeadAt?: Date
+}
+
+export interface ConversionStage { meta?: string; google?: string }
+
+export interface ConversionsIntegration {
+  ativo?: boolean
+  etapas?: Record<string, ConversionStage>
+  metaTestCode?: string
+  enviadas?: number
+  lastSentAt?: Date
+  lastError?: string
+}
+
+export interface Integrations {
+  meta: MetaIntegration
+  google: GoogleIntegration
+  site: SiteIntegration
+  conversoes: ConversionsIntegration
+}
+
+/** Campanha de anúncio sincronizada (users/{uid}/adCampaigns/{campaignKey}). */
+export interface AdCampaign {
+  id: string
+  provider: 'meta' | 'google'
+  campaignId: string
+  name: string
+  status?: string
+  objective?: string
+  currency?: string
+}
+
+/** Uma campanha num dia (users/{uid}/adDaily/{campaignKey}_{date}). */
+export interface AdDaily {
+  id: string
+  campaignKey: string
+  provider: 'meta' | 'google'
+  campaignName: string
+  date: string
+  impressions: number
+  clicks: number
+  spend: number
+  platformLeads: number
+  platformConversions: number
 }
 
 /** Tipo de caixa do fluxograma — define a cor da faixa e o ícone. */

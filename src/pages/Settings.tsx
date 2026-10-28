@@ -19,6 +19,7 @@ import VariablesSection from '../components/settings/VariablesSection'
 import LibrarySection from '../components/settings/LibrarySection'
 import KnowledgeSection from '../components/settings/KnowledgeSection'
 import SchedulesSection from '../components/settings/SchedulesSection'
+import IntegrationsSection from '../components/settings/IntegrationsSection'
 
 // O tipo mora em types.ts porque a seção aberta vive no uiStore — ver a nota lá.
 type SectionId = SettingsSection
@@ -59,6 +60,7 @@ const SECTIONS: SectionDef[] = [
   { id: 'variaveis', label: 'config.variaveis', icon: 'data_object', group: 'automacao' },
   { id: 'conhecimento', label: 'config.conhecimento', icon: 'menu_book', group: 'automacao' },
   { id: 'agendamentos', label: 'config.agendamentos', icon: 'schedule_send', group: 'automacao' },
+  { id: 'integracoes', label: 'config.integracoes', icon: 'hub', group: 'automacao' },
 ]
 
 export default function Settings() {
@@ -149,6 +151,7 @@ export default function Settings() {
         {active === 'conhecimento' && <KnowledgeSection canEdit={canEdit} />}
         {active === 'agendamentos' && <SchedulesSection canEdit={canEdit} />}
         {active === 'org' && <OrgSection canEdit={canEdit} />}
+        {active === 'integracoes' && <IntegrationsSection canEdit={canEdit} />}
       </div>
     </div>
   )

@@ -30,6 +30,14 @@ import { consomeCota, MAX_INSTANCIAS, APP_CHECK_EXIGIDO } from './cota'
 // decide o que pode sair por WhatsApp.
 export { resumoDiario, indexarAssinante, responderPeloWhatsapp } from './assistente'
 
+// Anúncios (Meta Ads, Google Ads, formulários do site): leads entrando sozinhos no quadro
+// Leads, métricas das campanhas e conversões de volta. Tudo em ./anuncios — é o único
+// código que fala com API de terceiro usando token do cliente.
+export {
+  receberLead, sincronizarAnuncios, sincronizarLeadsMeta, enviarConversoes,
+  salvarIntegracao, testarIntegracao, gerarChaveWebhook, sincronizarAnunciosAgora,
+} from './anuncios'
+
 interface AskData {
   system?: string
   history?: { role: 'user' | 'assistant'; content: string }[]
@@ -329,6 +337,14 @@ export const excluirCliente = onCall(
     await step('firestore/users', () => db.recursiveDelete(userRef))
     await step('firestore/whatsappStatus', () => db.recursiveDelete(db.doc(`whatsappStatus/${uid}`)))
     await step('firestore/whatsappSessions', () => db.recursiveDelete(db.doc(`whatsappSessions/${uid}`)))
+
+    // Tokens de anúncio e chave do webhook moram FORA de users/{uid} (default-deny), então
+    // o recursiveDelete acima não os alcança.
+    await step('firestore/integrationSecrets', () => db.doc(`integrationSecrets/${uid}`).delete())
+    await step('firestore/leadWebhooks', async () => {
+      const snap = await db.collection('leadWebhooks').where('tenantUid', '==', uid).get()
+      await Promise.all(snap.docs.map((d) => d.ref.delete()))
+    })
 
     await step('firestore/invites', async () => {
       const snap = await db.collection('invites').where('tenantUid', '==', uid).get()

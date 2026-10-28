@@ -5,6 +5,8 @@ import RingButton from '../common/RingButton'
 import { C, sx } from '../../styles/sx'
 import { t } from '../../i18n'
 import { tagMap } from '../../lib/theme'
+import { ICONE_CANAL, rotuloCanal } from '../../lib/leadSource'
+import { tituloEtapaLeads } from '../../i18n/sistema'
 import { fmtMoney, parseValueBR } from '../../lib/format'
 import ClientCombo, { type ClientOption } from '../common/ClientCombo'
 import type { DealForm } from '../../hooks/useDeals'
@@ -121,6 +123,8 @@ export default function DealModal({ deal, preset, contactOptions, onClose, onSav
         </div>
       </div>
 
+      {deal?.source && <OrigemLead deal={deal} />}
+
       {error && (
         <div style={{ fontSize: 12.5, color: C.roseDeep, background: 'rgba(193,77,119,0.08)', border: '1px solid rgba(193,77,119,0.25)', borderRadius: 10, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
           {error}
@@ -157,6 +161,50 @@ function Field(props: { label: string; value: string; onChange: (v: string) => v
         placeholder={props.placeholder}
         style={{ ...sx.input, margin: '6px 0 14px' }}
       />
+    </div>
+  )
+}
+
+/**
+ * De onde o lead veio — somente leitura. Quem grava é o servidor (functions/src/anuncios),
+ * e as regras nem deixam o navegador mexer: origem editável faria o ROI por campanha
+ * dizer o que a pessoa quisesse.
+ */
+function OrigemLead({ deal }: { deal: Deal }) {
+  const s = deal.source!
+  const linhas: [string, string | undefined][] = [
+    [t('origem.campanha'), s.campaignName || s.utm?.campaign],
+    [t('origem.conjunto'), s.adsetName],
+    [t('origem.anuncio'), s.adName],
+    [t('origem.formulario'), s.formId],
+    ['UTM', s.utm ? Object.entries(s.utm).map(([k, v]) => `${k}=${v}`).join(' · ') : undefined],
+    [t('origem.pagina'), s.landingUrl],
+    ['gclid', s.gclid],
+    ['fbclid', s.fbclid],
+  ]
+  const campos = Object.entries(s.fields ?? {})
+  const enviados = Object.entries(deal.conversionsSent ?? {})
+  return (
+    <div style={{ background: C.raised, border: `1px solid ${C.fieldBorder}`, borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
+        <MaterialIcon name={ICONE_CANAL[s.channel]} size={16} />
+        {t('origem.titulo', { canal: rotuloCanal(s.channel) })}
+        {s.test && <span style={{ fontSize: 11, color: C.amber, fontWeight: 700 }}>{t('origem.teste')}</span>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 12 }}>
+        {[...linhas, ...campos].filter(([, v]) => v).map(([k, v]) => (
+          <div key={k} style={{ display: 'contents' }}>
+            <span style={{ color: C.muted }}>{k}</span>
+            <span style={{ color: C.ink, wordBreak: 'break-word' }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      {enviados.length > 0 && (
+        <div style={{ fontSize: 11.5, color: C.sub, marginTop: 8 }}>
+          {t('origem.conversoes')}{' '}
+          {enviados.map(([col, c]) => `${tituloEtapaLeads(col, col)}: ${t(c.status === 'ok' ? 'origem.enviado' : c.status === 'erro' ? 'origem.erro' : 'origem.enviando')}`).join(' · ')}
+        </div>
+      )}
     </div>
   )
 }

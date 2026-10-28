@@ -301,6 +301,24 @@ service cloud.firestore {
       allow delete: if podeGerir(uid);
     }
 
+    // Anúncios (Meta, Google, site). Tudo escrito SÓ pelo Admin SDK — as callables e os
+    // agendamentos de functions/src/anuncios. Ler é de gestor para cima: é gasto de mídia,
+    // o mesmo critério de `invoices`.
+    //
+    // `integrations` é a config VISÍVEL (contas escolhidas, status, último erro, final do
+    // token). Os tokens em si moram em `integrationSecrets/{tenant}`, coleção de topo sem
+    // regra aqui — cai no default-deny, e nem o dono do ambiente lê pelo navegador.
+    // Escrita bloqueada também para o dono: a callable cifra o token e só ela sabe manter
+    // a config e o cofre em sincronia.
+    //
+    // Nos `deals`, os campos `source` e `conversionsSent` ficam FORA das listas `hasOnly`
+    // de propósito: são a origem do lead e o registro do que já foi enviado às plataformas.
+    // Deixá-los graváveis do navegador permitiria inventar origem (o relatório de ROI vira
+    // ficção) ou apagar o registro de envio e disparar a mesma venda duas vezes.
+    match /users/{uid}/integrations/{id} { allow read: if podeGerir(uid); allow write: if false; }
+    match /users/{uid}/adCampaigns/{id}  { allow read: if podeGerir(uid); allow write: if false; }
+    match /users/{uid}/adDaily/{id}      { allow read: if podeGerir(uid); allow write: if false; }
+
     match /users/{uid}/campaigns/{id}          { allow read: if podeVer(uid); allow write: if podeGerir(uid); }
     match /users/{uid}/campaigns/{id}/targets/{targetId} { allow read: if podeVer(uid); allow write: if podeGerir(uid); }
 
@@ -466,6 +484,10 @@ service cloud.firestore {
 
       allow delete: if isSuperOwner();
     }
+
+    // NOTA: `integrationSecrets/**` (tokens de anúncio cifrados), `leadWebhooks/**` (índice
+    // chave do webhook → tenant) e `leadWebhookUsage/**` (limite por chave) também ficam SEM
+    // regra, de propósito — default-deny, só o Admin SDK.
 
     // NOTA: as credenciais/chaves do Signal ficam em whatsappSessions/** — deliberadamente
     // SEM nenhuma regra aqui, então caem no default-deny abaixo (só o Admin SDK acessa).

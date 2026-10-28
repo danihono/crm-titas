@@ -202,6 +202,31 @@ const MENSAGENS = {
     es: 'No se pudieron cerrar las sesiones de esta persona.',
     en: "This person's sessions couldn't be ended.",
   },
+  soDonoIntegra: {
+    pt: 'Apenas o dono do ambiente pode mexer nas integrações.',
+    es: 'Solo el dueño del entorno puede cambiar las integraciones.',
+    en: 'Only the workspace owner can change integrations.',
+  },
+  soGestorSincroniza: {
+    pt: 'Apenas dono ou gestor pode sincronizar os anúncios.',
+    es: 'Solo el dueño o un gestor puede sincronizar los anuncios.',
+    en: 'Only the owner or a manager can sync ads.',
+  },
+  integracaoInvalida: {
+    pt: 'Integração desconhecida ou dados incompletos.',
+    es: 'Integración desconocida o datos incompletos.',
+    en: 'Unknown integration or incomplete data.',
+  },
+  semTokenSalvo: {
+    pt: 'Cole o token antes de testar.',
+    es: 'Pega el token antes de probar.',
+    en: 'Paste the token before testing.',
+  },
+  falhaPlataforma: {
+    pt: 'A plataforma recusou a conexão: {erro}',
+    es: 'La plataforma rechazó la conexión: {erro}',
+    en: 'The platform rejected the connection: {erro}',
+  },
 } satisfies Record<string, Tri>
 
 export type ChaveMensagem = keyof typeof MENSAGENS

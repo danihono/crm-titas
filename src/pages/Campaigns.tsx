@@ -18,6 +18,8 @@ import { chipColors } from '../lib/color'
 import { useIsDark } from '../store/themeStore'
 import { t, type Chave } from '../i18n'
 import { num1 } from '../i18n/formato'
+import TabBar, { type TabDef } from '../components/common/TabBar'
+import AdsTab from '../components/campaigns/AdsTab'
 
 const STATUS_STYLE: Record<CampaignStatus, [Chave, string, string]> = {
   rascunho: ['campanhas.rascunho', C.sub, '#eeebf3'],
@@ -32,7 +34,42 @@ function fmtHours(h: number): string {
   return t('campanhas.dias', { n: num1(h / 24) })
 }
 
+type CampanhasView = 'whatsapp' | 'anuncios'
+
+const TABS: TabDef<CampanhasView>[] = [
+  { id: 'whatsapp', label: 'campanhas.abaWhatsapp', icon: 'chat' },
+  { id: 'anuncios', label: 'campanhas.abaAnuncios', icon: 'ads_click' },
+]
+
+/**
+ * Duas coisas diferentes com o mesmo nome: disparo de WhatsApp (o que o CRM ENVIA) e
+ * campanhas de anúncio (de onde os leads VÊM). A aba Anúncios é de gestor para cima —
+ * gasto de mídia segue o mesmo critério do faturamento.
+ */
 export default function Campaigns() {
+  const role = useTenantStore((s) => s.role)
+  const [view, setView] = useState<CampanhasView>('whatsapp')
+  const veAnuncios = role !== 'atendente'
+  if (!veAnuncios) return <CampaignsWhatsApp />
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <TabBar tabs={TABS} active={view} onChange={setView} />
+      {view === 'whatsapp' ? (
+        <CampaignsWhatsApp />
+      ) : (
+        <div style={{ padding: '28px 30px 40px' }}>
+          <h1 style={{ ...sx.serif, fontSize: 33, color: C.ink, margin: 0 }}>{t('anuncios.titulo')}</h1>
+          <div style={{ fontSize: 13, color: C.sub, marginTop: 4, marginBottom: 20, maxWidth: 680, lineHeight: 1.6 }}>
+            {t('anuncios.subtitulo')}
+          </div>
+          <AdsTab />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CampaignsWhatsApp() {
   const { user } = useAuth()
   const readOnly = useTenantStore((s) => s.readOnly)
   const role = useTenantStore((s) => s.role)

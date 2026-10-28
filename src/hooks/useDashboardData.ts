@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { t } from '../i18n'
+import { rotuloCanal } from '../lib/leadSource'
 import { useAllDeals, useBoards, LEADS_BOARD_ID } from './useDeals'
 import { useActivities, useActTypes } from './useActivities'
 import { useInvoices, invoiceStatus } from './useInvoices'
@@ -138,7 +139,9 @@ export function useDashboardData(fontes: Set<Fonte>, dias: number, agora: Date):
   const origens = useMemo<Origem[]>(() => {
     const contagem = new Map<string, number>()
     leadCards.forEach((l) => {
-      const key = l.tag?.trim() || t('painel.semOrigem')
+      // Lead que entrou sozinho tem origem de verdade (gravada pelo servidor); a etiqueta
+      // livre fica para os criados à mão.
+      const key = (l.source ? rotuloCanal(l.source.channel) : l.tag?.trim()) || t('painel.semOrigem')
       contagem.set(key, (contagem.get(key) ?? 0) + 1)
     })
     return [...contagem.entries()]
